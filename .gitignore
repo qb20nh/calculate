@@ -26,6 +26,7 @@ dist-ssr
 # Coverage and Reports
 coverage/
 report/
+scratch/
 
 # ESLint
 .eslintcache
