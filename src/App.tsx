@@ -11,12 +11,17 @@ export default function App() {
     const [view, setView] = useState<ViewType>('menu');
     const { toast, showToast } = useToast();
 
+    const handlePreload = (v: ViewType) => {
+        if (v === 'main') import('./features/puzzle/PuzzleView');
+        if (v === 'daily') import('./features/daily/DailyView');
+    };
+
     return (
         <div className="font-sans antialiased overflow-x-hidden selection:bg-blue-500/30 min-h-screen bg-slate-900">
             <Toast message={toast.message} type={toast.type} />
 
             <Suspense fallback={<div className="min-h-screen bg-slate-900" />}>
-                {view === 'menu' && <MainMenu onNavigate={setView} />}
+                {view === 'menu' && <MainMenu onNavigate={setView} onPreload={handlePreload} />}
                 {view === 'main' && <PuzzleView onBack={() => setView('menu')} showToast={showToast} />}
                 {view === 'daily' && <DailyView onBack={() => setView('menu')} showToast={showToast} />}
             </Suspense>

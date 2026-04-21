@@ -4,9 +4,10 @@ import { ViewType } from '../../domain/types';
 
 interface MainMenuProps {
     onNavigate: (view: ViewType) => void;
+    onPreload?: (view: ViewType) => void;
 }
 
-export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate }) => {
+export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, onPreload }) => {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
             <div className="text-center max-w-2xl">
@@ -18,12 +19,14 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate }) => {
                 <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
                     <button
                         onClick={() => onNavigate('main')}
+                        onMouseEnter={() => onPreload?.('main')}
                         className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-all shadow-lg hover:shadow-blue-500/50"
                     >
                         <Play size={24} /> Main Puzzles
                     </button>
                     <button
                         onClick={() => onNavigate('daily')}
+                        onMouseEnter={() => onPreload?.('daily')}
                         className="flex items-center justify-center gap-3 w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/50"
                     >
                         <Calendar size={24} /> Daily Free Play
