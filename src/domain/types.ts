@@ -27,7 +27,7 @@ export interface ValidationResult {
   reason?: string;
 }
 
-export type ViewType = 'menu' | 'main' | 'daily'
+export type ViewType = 'menu' | 'main' | 'daily' | 'puzzle' | 'inventory' | 'settings'
 
 export interface DragItem {
   source: 'inventory' | 'grid' | 'pool' | 'builder';
