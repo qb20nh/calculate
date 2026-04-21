@@ -28,6 +28,11 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
 
     const resetDialogRef = React.useRef<HTMLDialogElement>(null);
 
+    const handleResetConfirm = () => {
+        resetLevel();
+        resetDialogRef.current?.close();
+    };
+
     if (!currentLevelData) return null;
 
     const groupedInventory = getGroupedTiles(inventory);
@@ -110,7 +115,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                 </div>
             )}
 
-            <ResetDialog dialogRef={resetDialogRef} onConfirm={resetLevel} />
+            <ResetDialog dialogRef={resetDialogRef} onConfirm={handleResetConfirm} />
         </div>
     );
 };

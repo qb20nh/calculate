@@ -11,7 +11,7 @@ export default function App() {
     const { toast, showToast } = useToast();
 
     return (
-        <div className="font-sans antialiased overflow-x-hidden selection:bg-blue-500/30">
+        <div className="font-sans antialiased overflow-x-hidden selection:bg-blue-500/30 min-h-screen bg-slate-900">
             <Toast message={toast.message} type={toast.type} />
 
             {view === 'menu' && <MainMenu onNavigate={setView} />}
