@@ -14,14 +14,14 @@ export const useDailyChallenge = (showToast: (msg: string, type?: string) => voi
                 pool: saved.dailyPool,
                 current: saved.dailyCurrent,
                 submitted: saved.dailySubmitted,
-                knownRelations: new Set(saved.dailyKnownRelations || [])
+                knownRelations: new Set<string>(saved.dailyKnownRelations || [])
             };
         }
         return {
             pool: DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })),
             current: [],
             submitted: [],
-            knownRelations: new Set()
+            knownRelations: new Set<string>()
         };
     };
 

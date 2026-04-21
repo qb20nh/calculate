@@ -154,7 +154,7 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
         maxProgress,
         currentLevelData,
         grid, inventory,
-        isLevelCleared, isNewClear,
+        isLevelCleared, isNewClear, setIsNewClear,
         loadLevel, resetLevel,
         handleDrop, handleReturnToInventory, handleQuickClick
     };

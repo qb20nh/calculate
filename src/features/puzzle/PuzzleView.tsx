@@ -20,7 +20,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
         maxProgress,
         currentLevelData,
         grid, inventory,
-        isLevelCleared, isNewClear,
+        isLevelCleared, isNewClear, setIsNewClear,
         resetLevel,
         handleDrop, handleQuickClick
     } = usePuzzleGame(showToast);
@@ -60,7 +60,10 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                         <h2 className="text-4xl font-black tracking-tight">{currentLevelData.displayTitle}</h2>
                         
                         <button 
-                            onClick={() => setLevelIndex(levelIndex + 1)} 
+                            onClick={() => {
+                                setIsNewClear(false);
+                                setLevelIndex(levelIndex + 1);
+                            }} 
                             disabled={!isLevelCleared && levelIndex >= maxProgress}
                             className={`p-1 rounded-lg transition-all ${isNewClear ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30' : (isLevelCleared || levelIndex < maxProgress) ? 'hover:bg-slate-800' : 'disabled:opacity-10'}`}
                             title="Next Level"

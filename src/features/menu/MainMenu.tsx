@@ -19,14 +19,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, onPreload }) => 
                 <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
                     <button
                         onClick={() => onNavigate('main')}
-                        onMouseEnter={() => onPreload?.('main')}
+                        onPointerEnter={() => onPreload?.('main')}
+                        onPointerDown={() => onPreload?.('main')}
                         className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-all shadow-lg hover:shadow-blue-500/50"
                     >
                         <Play size={24} /> Main Puzzles
                     </button>
                     <button
                         onClick={() => onNavigate('daily')}
-                        onMouseEnter={() => onPreload?.('daily')}
+                        onPointerEnter={() => onPreload?.('daily')}
+                        onPointerDown={() => onPreload?.('daily')}
                         className="flex items-center justify-center gap-3 w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/50"
                     >
                         <Calendar size={24} /> Daily Free Play
