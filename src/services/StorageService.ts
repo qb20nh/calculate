@@ -1,6 +1,6 @@
 import { GridCell, TileItem } from '../domain/types'
 
-export interface SavedPlayState {
+interface SavedPlayState {
   levelIndex: number;
   grid: GridCell[];
   inventory: TileItem[];
@@ -8,7 +8,7 @@ export interface SavedPlayState {
   isNewClear: boolean;
 }
 
-export interface SavedDailyState {
+interface SavedDailyState {
   dailyPool: TileItem[];
   dailyCurrent: TileItem[];
   dailySubmitted: string[];

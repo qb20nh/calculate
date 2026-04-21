@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-export interface ToastState {
+interface ToastState {
   message: string;
   type: string;
 }
