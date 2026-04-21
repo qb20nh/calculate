@@ -30,9 +30,6 @@ export default defineConfig({
             }
             return 'vendor';
           }
-          if (id.includes('src/features/')) {
-            return 'features';
-          }
         }
       }
     }

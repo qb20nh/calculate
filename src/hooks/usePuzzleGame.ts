@@ -6,38 +6,53 @@ import { validateGrid } from '../domain/grid';
 
 export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) => {
     // Progress State
+    // Progress State
     const [levelIndex, setLevelIndex] = useState(() => {
         const saved = StorageService.getCurrentPlay();
         return saved ? saved.levelIndex : 0;
     });
-    const [maxProgress, setMaxProgress] = useState(StorageService.getMaxProgress());
+    const [maxProgress, setMaxProgress] = useState(() => StorageService.getMaxProgress());
 
-    // Game State
-    const [currentLevelData, setCurrentLevelData] = useState<Level | null>(null);
-    const [grid, setGrid] = useState<GridCell[]>([]);
-    const [inventory, setInventory] = useState<TileItem[]>([]);
-    const [isLevelCleared, setIsLevelCleared] = useState(false);
-    const [isNewClear, setIsNewClear] = useState(false);
+    // Game State initialization helper
+    const getInitialState = (idx: number) => {
+        const level = LevelService.getLevel(idx);
+        const saved = StorageService.getCurrentPlay();
+        
+        if (saved && saved.levelIndex === idx) {
+            return {
+                grid: saved.grid,
+                inventory: saved.inventory,
+                isLevelCleared: saved.isLevelCleared || false,
+                isNewClear: saved.isNewClear || false,
+                levelData: level
+            };
+        }
+
+        return {
+            grid: LevelService.createInitialGrid(level),
+            inventory: level.inventory.map((char, i) => ({ id: i, char })),
+            isLevelCleared: false,
+            isNewClear: false,
+            levelData: level
+        };
+    };
+
+    const initial = getInitialState(levelIndex);
+
+    const [currentLevelData, setCurrentLevelData] = useState<Level | null>(initial.levelData);
+    const [grid, setGrid] = useState<GridCell[]>(initial.grid);
+    const [inventory, setInventory] = useState<TileItem[]>(initial.inventory);
+    const [isLevelCleared, setIsLevelCleared] = useState(initial.isLevelCleared);
+    const [isNewClear, setIsNewClear] = useState(initial.isNewClear);
 
     // --- Actions ---
     const loadLevel = useCallback((index: number) => {
-        const level = LevelService.getLevel(index);
-        const saved = StorageService.getCurrentPlay();
-        
-        if (saved && saved.levelIndex === index) {
-            setGrid(saved.grid);
-            setInventory(saved.inventory);
-            setIsLevelCleared(saved.isLevelCleared || false);
-            setIsNewClear(saved.isNewClear || false);
-            setCurrentLevelData(level);
-            return;
-        }
-
-        setGrid(LevelService.createInitialGrid(level));
-        setInventory(level.inventory.map((char, i) => ({ id: i, char })));
-        setCurrentLevelData(level);
-        setIsLevelCleared(false);
-        setIsNewClear(false);
+        const state = getInitialState(index);
+        setGrid(state.grid);
+        setInventory(state.inventory);
+        setIsLevelCleared(state.isLevelCleared);
+        setIsNewClear(state.isNewClear);
+        setCurrentLevelData(state.levelData);
     }, []);
 
     const checkFullAndVerify = useCallback((currentGrid: GridCell[]) => {

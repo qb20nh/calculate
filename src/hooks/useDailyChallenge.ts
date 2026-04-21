@@ -5,26 +5,39 @@ import { StorageService } from '../services/StorageService';
 import { isValidEquation, getNormalizedRelations } from '../domain/engine';
 
 export const useDailyChallenge = (showToast: (msg: string, type?: string) => void) => {
-    const [dailyPool, setDailyPool] = useState<TileItem[]>([]);
-    const [dailyCurrent, setDailyCurrent] = useState<TileItem[]>([]);
-    const [dailySubmitted, setDailySubmitted] = useState<string[]>([]);
-    const [dailyKnownRelations, setDailyKnownRelations] = useState<Set<string>>(new Set());
-
     const date = new Date().toISOString().split('T')[0];
 
-    const loadDaily = useCallback(() => {
+    const getInitialState = () => {
         const saved = StorageService.getDailySave(date);
         if (saved) {
-            setDailyPool(saved.dailyPool);
-            setDailyCurrent(saved.dailyCurrent);
-            setDailySubmitted(saved.dailySubmitted);
-            setDailyKnownRelations(new Set(saved.dailyKnownRelations || []));
-            return;
+            return {
+                pool: saved.dailyPool,
+                current: saved.dailyCurrent,
+                submitted: saved.dailySubmitted,
+                knownRelations: new Set(saved.dailyKnownRelations || [])
+            };
         }
-        setDailyPool(DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })));
-        setDailyCurrent([]);
-        setDailySubmitted([]);
-        setDailyKnownRelations(new Set());
+        return {
+            pool: DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })),
+            current: [],
+            submitted: [],
+            knownRelations: new Set()
+        };
+    };
+
+    const initial = getInitialState();
+
+    const [dailyPool, setDailyPool] = useState<TileItem[]>(initial.pool);
+    const [dailyCurrent, setDailyCurrent] = useState<TileItem[]>(initial.current);
+    const [dailySubmitted, setDailySubmitted] = useState<string[]>(initial.submitted);
+    const [dailyKnownRelations, setDailyKnownRelations] = useState<Set<string>>(initial.knownRelations);
+
+    const loadDaily = useCallback(() => {
+        const state = getInitialState();
+        setDailyPool(state.pool);
+        setDailyCurrent(state.current);
+        setDailySubmitted(state.submitted);
+        setDailyKnownRelations(state.knownRelations);
     }, [date]);
 
     const submitStatement = useCallback(() => {
