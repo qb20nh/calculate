@@ -118,7 +118,7 @@ function reducer(state: GameState, action: Action): GameState {
 export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) => {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const saved = StorageService.getCurrentPlay()
-    return getInitialState(saved ? saved.levelIndex : 0)
+    return getInitialState(saved ? saved.levelIndex : StorageService.getMaxProgress())
   })
 
   const {
