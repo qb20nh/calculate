@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 const ReactCompilerConfig = {
   target: '19' // Target React 19
-};
+}
 
 export default defineConfig({
   base: '/calculate/',
@@ -11,7 +11,7 @@ export default defineConfig({
     react({
       babel: {
         plugins: [
-          ["babel-plugin-react-compiler", ReactCompilerConfig],
+          ['babel-plugin-react-compiler', ReactCompilerConfig],
         ],
       },
     }),
@@ -24,12 +24,12 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react/') || id.includes('react-dom/')) {
-              return 'react-vendor';
+              return 'react-vendor'
             }
             if (id.includes('lucide-react/')) {
-              return 'ui-vendor';
+              return 'ui-vendor'
             }
-            return 'vendor';
+            return 'vendor'
           }
         }
       }
