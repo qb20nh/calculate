@@ -1,35 +1,25 @@
 import React from 'react';
 import { ArrowLeft, Calendar, RotateCcw, Trophy } from 'lucide-react';
-import { Tile } from './Tile';
-import { TileItem, HoverTarget, DragInfo } from '../types/game';
+import { Tile } from '../../components/Tile';
+import { useDailyChallenge } from '../../hooks/useDailyChallenge';
+import { useDailyTimer } from '../../hooks/useDailyTimer';
+import { useDragAndDrop } from '../../hooks/useDragAndDrop';
+import { getGroupedTiles } from '../../domain/engine';
 
-interface DailyChallengeProps {
-    dailyPool: TileItem[];
-    dailyCurrent: TileItem[];
-    dailySubmitted: string[];
-    timeLeft: string;
-    hoverTarget: HoverTarget | null;
-    dragInfo: DragInfo;
+interface DailyViewProps {
     onBack: () => void;
-    onStartDrag: (e: React.PointerEvent, item: any) => void;
-    onClear: () => void;
-    onSubmit: () => void;
-    getGroupedTiles: (tiles: TileItem[]) => { char: string; count: number }[];
+    showToast: (msg: string, type?: string) => void;
 }
 
-export const DailyChallenge: React.FC<DailyChallengeProps> = ({
-    dailyPool,
-    dailyCurrent,
-    dailySubmitted,
-    timeLeft,
-    hoverTarget,
-    dragInfo,
-    onBack,
-    onStartDrag,
-    onClear,
-    onSubmit,
-    getGroupedTiles
-}) => {
+export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
+    const {
+        dailyPool, dailyCurrent, dailySubmitted,
+        submitStatement, handleDrop, handleQuickClick, clearBuilder
+    } = useDailyChallenge(showToast);
+
+    const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(handleDrop, handleQuickClick);
+    const timeLeft = useDailyTimer(true);
+
     const groupedDailyPool = getGroupedTiles(dailyPool);
 
     return (
@@ -79,7 +69,7 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({
                                     <Tile
                                         char={tile.char}
                                         isFaded={isBeingDragged}
-                                        onPointerDown={(e) => onStartDrag(e, { source: 'builder', index: idx, char: tile.char })}
+                                        onPointerDown={(e) => startDrag(e, { source: 'builder', index: idx, char: tile.char })}
                                     />
                                 </div>
                             );
@@ -88,11 +78,11 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({
                     </div>
 
                     <div className="flex justify-between items-center">
-                        <button onClick={onClear} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                        <button onClick={clearBuilder} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
                             <RotateCcw size={16} /> Clear
                         </button>
                         <button
-                            onClick={onSubmit}
+                            onClick={submitStatement}
                             className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
                             disabled={dailyCurrent.length === 0}
                         >
@@ -110,7 +100,7 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({
                                 key={grp.char}
                                 char={grp.char}
                                 count={grp.count}
-                                onPointerDown={(e) => onStartDrag(e, { source: 'pool', char: grp.char })}
+                                onPointerDown={(e) => startDrag(e, { source: 'pool', char: grp.char })}
                             />
                         ))}
                     </div>
@@ -132,6 +122,20 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* GHOST ELEMENT FOR DRAGGING */}
+            {dragInfo.isDragging && dragInfo.item && (
+                <div
+                    id="drag-ghost"
+                    className="fixed pointer-events-none z-[100]"
+                    style={{
+                        left: `${dragInfo.x - dragInfo.offsetX}px`,
+                        top: `${dragInfo.y - dragInfo.offsetY}px`,
+                    }}
+                >
+                    <Tile char={dragInfo.item.char} />
+                </div>
+            )}
         </div>
     );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
-import { GridCell, HoverTarget, DragInfo } from '../types/game';
-import { Tile } from './Tile';
+import { GridCell, HoverTarget, DragInfo } from '../../domain/types';
+import { Tile } from '../../components/Tile';
 
 interface GridProps {
     grid: GridCell[];

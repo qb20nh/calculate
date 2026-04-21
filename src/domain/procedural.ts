@@ -1,5 +1,5 @@
-import { getRandomInt, seededRandom, setSeed } from './math';
-import { Level } from '../types/game';
+import { Level } from './types';
+import { setSeed, seededRandom, getRandomInt } from './random';
 
 export const generateEquationString = (levelId: number): string => {
     const maxVal = Math.min(100, 5 + Math.floor(levelId / 2));
@@ -19,7 +19,6 @@ export const generateEquationString = (levelId: number): string => {
     } else if (op === '÷') {
         c = getRandomInt(1, Math.min(maxVal, 10)); b = getRandomInt(1, Math.min(maxVal, 10)); a = c * b;
     } else {
-        // Fallback
         a = 1; b = 1; c = 2;
     }
 
@@ -37,7 +36,7 @@ export const generateEquationString = (levelId: number): string => {
 
 export const getProceduralLevel = (levelIndex: number): Level => {
     const levelId = levelIndex + 1;
-    setSeed(levelId * 12345); // Deterministic seed based on level number
+    setSeed(levelId * 12345);
 
     let maxWords = 1;
     if (levelId > 3) maxWords = 2;
