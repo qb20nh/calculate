@@ -5,7 +5,6 @@ interface SavedPlayState {
   grid: GridCell[];
   inventory: TileItem[];
   isLevelCleared: boolean;
-  isNewClear: boolean;
 }
 
 interface SavedDailyState {

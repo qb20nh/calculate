@@ -55,7 +55,7 @@ const getInitialState = (idx: number): GameState => {
       grid: saved.grid,
       inventory: saved.inventory,
       isLevelCleared: saved.isLevelCleared || false,
-      isNewClear: saved.isNewClear || false,
+      isNewClear: false,
       currentLevelData: level
     }
   }
@@ -163,7 +163,7 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
         dispatch({
           type: 'SET_CLEARED',
           isCleared: true,
-          isNewClear: isNew,
+          isNewClear: true,
           maxProgress: nextMax
         })
       } else {
@@ -269,13 +269,12 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
     if (currentLevelData.id !== levelIndex + 1) return
 
     const isGridEmpty = grid.every(cell => !cell.char)
-    if (!isGridEmpty) {
+    if (!isGridEmpty && !isLevelCleared) {
       StorageService.setCurrentPlay({
         levelIndex,
         grid,
         inventory,
-        isLevelCleared,
-        isNewClear
+        isLevelCleared
       })
     } else {
       const saved = StorageService.getCurrentPlay()
