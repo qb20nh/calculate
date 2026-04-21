@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { setSeed, seededRandom, getRandomInt } from './random';
+import { describe, expect,it } from 'vitest';
+
+import { getRandomInt,seededRandom, setSeed } from './random';
 
 describe('random utilities', () => {
     it('should be deterministic with the same seed', () => {

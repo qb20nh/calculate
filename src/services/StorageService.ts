@@ -1,16 +1,31 @@
 import { GridCell, TileItem } from '../domain/types';
 
+export interface SavedPlayState {
+    levelIndex: number;
+    grid: GridCell[];
+    inventory: TileItem[];
+    isLevelCleared: boolean;
+    isNewClear: boolean;
+}
+
+export interface SavedDailyState {
+    dailyPool: TileItem[];
+    dailyCurrent: TileItem[];
+    dailySubmitted: string[];
+    dailyKnownRelations: string[];
+}
+
 const KEYS = {
     PROGRESS: 'mathScrabbleProgress',
     CURRENT_PLAY: 'mathScrabble_current_play',
     DAILY_SAVE: (date: string) => `mathScrabble_save_daily_${date}`,
 };
 
-const getParsed = (key: string) => {
+const getParsed = <T>(key: string): T | null => {
     const saved = localStorage.getItem(key);
     if (!saved) return null;
     try {
-        return JSON.parse(saved);
+        return JSON.parse(saved) as T;
     } catch {
         return null;
     }
@@ -25,9 +40,9 @@ export const StorageService = {
         localStorage.setItem(KEYS.PROGRESS, level.toString());
     },
 
-    getCurrentPlay: () => getParsed(KEYS.CURRENT_PLAY),
+    getCurrentPlay: (): SavedPlayState | null => getParsed<SavedPlayState>(KEYS.CURRENT_PLAY),
 
-    setCurrentPlay: (state: { levelIndex: number; grid: GridCell[]; inventory: TileItem[]; isLevelCleared: boolean; isNewClear: boolean }) => {
+    setCurrentPlay: (state: SavedPlayState) => {
         localStorage.setItem(KEYS.CURRENT_PLAY, JSON.stringify(state));
     },
 
@@ -35,9 +50,9 @@ export const StorageService = {
         localStorage.removeItem(KEYS.CURRENT_PLAY);
     },
 
-    getDailySave: (date: string) => getParsed(KEYS.DAILY_SAVE(date)),
+    getDailySave: (date: string): SavedDailyState | null => getParsed<SavedDailyState>(KEYS.DAILY_SAVE(date)),
 
-    setDailySave: (date: string, state: unknown) => {
+    setDailySave: (date: string, state: SavedDailyState) => {
         localStorage.setItem(KEYS.DAILY_SAVE(date), JSON.stringify(state));
     }
 };

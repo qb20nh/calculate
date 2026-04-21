@@ -1,6 +1,7 @@
 import React from 'react';
-import { GridCell, HoverTarget, DragInfo, DragItem } from '../../domain/types';
+
 import { Tile } from '../../components/Tile';
+import { DragInfo, DragItem, GridCell, HoverTarget } from '../../domain/types';
 
 interface GridProps {
     grid: GridCell[];
@@ -12,9 +13,11 @@ interface GridProps {
 
 export const Grid: React.FC<GridProps> = ({ grid, cols, hoverTarget, dragInfo, onStartDrag }) => {
     return (
-        <div className="w-full max-w-full overflow-auto flex justify-center items-center px-4">
+        <div className="
+          flex w-full max-w-full items-center justify-center overflow-auto px-4
+        ">
             <div
-                className="relative flex-shrink-0"
+                className="relative shrink-0"
                 style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '8px' }}
             >
                 {grid.map((cell, idx) => {
@@ -29,15 +32,24 @@ export const Grid: React.FC<GridProps> = ({ grid, cols, hoverTarget, dragInfo, o
                             key={cell.id}
                             data-dropzone="grid"
                             data-index={idx}
-                            className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all 
-                                ${isHovered ? 'ring-4 ring-blue-400 scale-105 bg-slate-600 z-10' : 'bg-slate-700/30 shadow-inner'}
+                            className={`
+                              relative flex size-12 items-center justify-center
+                              rounded-xl transition-all
+                              sm:size-16
+                              ${isHovered ? `
+                                z-10 scale-105 bg-slate-600 ring-4 ring-blue-400
+                              ` : `bg-slate-700/30 shadow-inner`}
                             `}
                         >
                             {char && !isBeingDragged && (
                                 <Tile char={char} onPointerDown={(e) => onStartDrag(e, { source: 'grid', index: idx, char: char })} />
                             )}
                             {isBeingDragged && (
-                                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg border-2 border-dashed border-slate-500 bg-slate-600/50" />
+                                <div className="
+                                  size-10 rounded-lg border-2 border-dashed
+                                  border-slate-500 bg-slate-600/50
+                                  sm:size-14
+                                " />
                             )}
                         </div>
                     );

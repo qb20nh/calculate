@@ -1,12 +1,13 @@
+import { ArrowLeft, ChevronLeft, ChevronRight,RotateCcw } from 'lucide-react';
 import React from 'react';
-import { ArrowLeft, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+
+import { DragGhost } from '../../components/DragGhost';
+import { ResetDialog } from '../../components/ResetDialog';
+import { getGroupedTiles } from '../../domain/engine';
+import { useDragAndDrop } from '../../hooks/useDragAndDrop';
+import { usePuzzleGame } from '../../hooks/usePuzzleGame';
 import { Grid } from './Grid';
 import { Inventory } from './Inventory';
-import { usePuzzleGame } from '../../hooks/usePuzzleGame';
-import { useDragAndDrop } from '../../hooks/useDragAndDrop';
-import { getGroupedTiles } from '../../domain/engine';
-import { ResetDialog } from '../../components/ResetDialog';
-import { DragGhost } from '../../components/DragGhost';
 
 interface PuzzleViewProps {
     onBack: () => void;
@@ -39,9 +40,17 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
     const isGridEmpty = grid.every(cell => !cell.char);
 
     return (
-        <div className="h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4 overflow-hidden">
-            <div className="w-full max-w-4xl flex justify-between items-start mb-8">
-                <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full transition-colors mt-1">
+        <div className="
+          flex h-screen flex-col items-center overflow-hidden bg-slate-900 px-4
+          pt-8 text-white
+        ">
+            <div className="
+              mb-8 flex w-full max-w-4xl items-start justify-between
+            ">
+                <button onClick={onBack} className="
+                  mt-1 rounded-full p-2 transition-colors
+                  hover:bg-slate-800
+                ">
                     <ArrowLeft size={28} />
                 </button>
                 
@@ -50,7 +59,11 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                         <button 
                             onClick={() => setLevelIndex(levelIndex - 1)} 
                             disabled={levelIndex === 0}
-                            className="p-1 hover:bg-slate-800 rounded-lg disabled:opacity-10 transition-all"
+                            className="
+                              rounded-lg p-1 transition-all
+                              hover:bg-slate-800
+                              disabled:opacity-10
+                            "
                             title="Previous Level"
                         >
                             <ChevronLeft size={40} />
@@ -64,14 +77,26 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                                 setLevelIndex(levelIndex + 1);
                             }} 
                             disabled={!isLevelCleared && levelIndex >= maxProgress}
-                            className={`p-1 rounded-lg transition-all ${isNewClear ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30' : (isLevelCleared || levelIndex < maxProgress) ? 'hover:bg-slate-800' : 'disabled:opacity-10'}`}
+                            className={`
+                              rounded-lg p-1 transition-all
+                              ${isNewClear ? `
+                                bg-blue-600 text-white shadow-lg
+                                shadow-blue-500/30
+                                hover:bg-blue-500
+                              ` : (isLevelCleared || levelIndex < maxProgress) ? `
+                                hover:bg-slate-800
+                              ` : `disabled:opacity-10`}
+                            `}
                             title="Next Level"
                         >
                             <ChevronRight size={40} />
                         </button>
                     </div>
                     {currentLevelData.displaySubtitle && (
-                        <p className="text-blue-400 mt-2 font-bold tracking-widest uppercase text-xs opacity-80">
+                        <p className="
+                          mt-2 text-xs font-bold tracking-widest text-blue-400
+                          uppercase opacity-80
+                        ">
                             {currentLevelData.displaySubtitle}
                         </p>
                     )}
@@ -80,15 +105,22 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                 <button 
                     onClick={() => resetDialogRef.current?.showModal()} 
                     disabled={isGridEmpty}
-                    className="p-2 hover:bg-slate-800 rounded-full transition-colors mt-1 disabled:opacity-10" 
+                    className="
+                      mt-1 rounded-full p-2 transition-colors
+                      hover:bg-slate-800
+                      disabled:opacity-10
+                    " 
                     title="Reset Level"
                 >
                     <RotateCcw size={28} />
                 </button>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center w-full max-w-full overflow-hidden pb-8">
-                <p className="text-slate-400 mb-8 max-w-lg text-center flex-shrink-0">{currentLevelData.description}</p>
+            <div className="
+              flex w-full max-w-full flex-1 flex-col items-center justify-center
+              overflow-hidden pb-8
+            ">
+                <p className="mb-8 max-w-lg shrink-0 text-center text-slate-400">{currentLevelData.description}</p>
                 <Grid 
                     grid={grid} 
                     cols={currentLevelData.cols} 

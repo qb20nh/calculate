@@ -3,7 +3,8 @@
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "@vitejs/plugin-react"]
   },
   "include": ["vite.config.js", "vitest.config.ts", "eslint.config.js"]
 }

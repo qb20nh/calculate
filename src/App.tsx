@@ -1,17 +1,22 @@
-import React, { useState, lazy } from 'react';
+import React, { lazy,useState } from 'react';
+
+import { Toast } from './components/Toast';
+import { WarmableView } from './components/WarmableView';
 import { ViewType } from './domain/types';
 import { MainMenu } from './features/menu/MainMenu';
-import { Toast } from './components/Toast';
 import { useToast } from './hooks/useToast';
-
-import { WarmableView } from './components/WarmableView';
 
 const PuzzleView = lazy(() => import('./features/puzzle/PuzzleView').then(m => ({ default: m.PuzzleView })));
 const DailyView = lazy(() => import('./features/daily/DailyView').then(m => ({ default: m.DailyView })));
 
 const LoadingSpinner = () => (
-    <div className="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
-        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+    <div className="
+      fixed inset-0 z-50 flex items-center justify-center bg-slate-900
+    ">
+        <div className="
+          size-16 animate-spin rounded-full border-4 border-blue-500/20
+          border-t-blue-500
+        "></div>
     </div>
 );
 
@@ -21,8 +26,8 @@ export default function App() {
     const { toast, showToast } = useToast();
 
     const handlePreload = (v: ViewType) => {
-        if (v === 'main') import('./features/puzzle/PuzzleView');
-        if (v === 'daily') import('./features/daily/DailyView');
+        if (v === 'main') void import('./features/puzzle/PuzzleView');
+        if (v === 'daily') void import('./features/daily/DailyView');
         
         setWarmedViews(prev => {
             if (prev.has(v)) return prev;
@@ -38,7 +43,10 @@ export default function App() {
     };
 
     return (
-        <div className="font-sans antialiased overflow-x-hidden selection:bg-blue-500/30 min-h-screen bg-slate-900">
+        <div className="
+          min-h-screen overflow-x-hidden bg-slate-900 font-sans antialiased
+          selection:bg-blue-500/30
+        ">
             <Toast message={toast.message} type={toast.type} />
 
             <div className={view === 'menu' ? 'block' : 'hidden'}>

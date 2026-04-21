@@ -1,5 +1,5 @@
-import { ValidationResult, TileItem } from './types';
 import { SORT_ORDER } from '../constants/gameData';
+import { TileItem,ValidationResult } from './types';
 
 const parseStatement = (str: string): { expressions: string[], comparators: string[] } => {
     const comparators: string[] = [];
@@ -46,7 +46,8 @@ export const isValidEquation = (str: string): ValidationResult => {
         try {
             if (/\b0[0-9]+/.test(expr)) return { valid: false, reason: "Leading zeros not allowed." };
              
-            const val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)();
+            // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+            const val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)() as number;
             if (!Number.isFinite(val)) return { valid: false, reason: "Invalid mathematical result (e.g., division by zero)." };
             values.push(val);
         } catch {

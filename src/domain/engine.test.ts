@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { isValidEquation, normalizeExpr, getNormalizedRelations, getGroupedTiles } from './engine';
+import { describe, expect,it } from 'vitest';
+
+import { getGroupedTiles,getNormalizedRelations, isValidEquation, normalizeExpr } from './engine';
 
 describe('isValidEquation', () => {
     it('should validate a simple correct equation', () => {

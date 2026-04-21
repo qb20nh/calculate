@@ -1,15 +1,20 @@
-import { defineConfig } from 'vitest/config';
+/// <reference types="node" />
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+const skipCompiler = process.env.SKIP_COMPILER === 'true';
 
 export default defineConfig({
   plugins: [
+    // @ts-expect-error - babel property exists at runtime but may not be recognized by current type definitions
     react({
-      // @ts-expect-error - babel property exists at runtime but may not be recognized by current type definitions
-      babel: {
-        plugins: [
-          ["babel-plugin-react-compiler", { target: '19' }],
-        ],
-      },
+      ...(skipCompiler ? {} : {
+        babel: {
+          plugins: [
+            ["babel-plugin-react-compiler", { target: '19' }],
+          ],
+        },
+      })
     })
   ],
   test: {

@@ -1,5 +1,5 @@
+import { getRandomInt,seededRandom, setSeed } from './random';
 import { Level } from './types';
-import { setSeed, seededRandom, getRandomInt } from './random';
 
 export const generateEquationString = (levelId: number): string => {
     const maxVal = Math.min(100, 5 + Math.floor(levelId / 2));
@@ -121,7 +121,7 @@ export const getProceduralLevel = (levelIndex: number): Level => {
 
     const cols = maxX - minX + 1;
     const rows = maxY - minY + 1;
-    const layout = Array(rows * cols).fill(1);
+    const layout: number[] = Array<number>(rows * cols).fill(1);
     const inventoryChars: string[] = [];
 
     for (const [key, char] of board.entries()) {

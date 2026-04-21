@@ -1,6 +1,7 @@
 import React from 'react';
-import { HoverTarget, DragItem } from '../../domain/types';
+
 import { Tile } from '../../components/Tile';
+import { DragItem,HoverTarget } from '../../domain/types';
 
 interface InventoryProps {
     groupedInventory: { char: string; count: number }[];
@@ -10,11 +11,17 @@ interface InventoryProps {
 
 export const Inventory: React.FC<InventoryProps> = ({ groupedInventory, hoverTarget, onStartDrag }) => {
     return (
-        <div data-dropzone="inventory" className={`w-full max-w-3xl bg-slate-800/50 p-6 rounded-t-3xl border-t transition-colors mt-auto ${hoverTarget?.type === 'inventory' ? 'border-blue-400 bg-slate-800' : 'border-slate-700'}`}>
-            <div className="flex justify-between items-end mb-4">
-                <span className="text-slate-400 font-medium">Your Tiles (Drag or Click)</span>
+        <div data-dropzone="inventory" className={`
+          mt-auto w-full max-w-3xl rounded-t-3xl border-t bg-slate-800/50 p-6
+          transition-colors
+          ${hoverTarget?.type === 'inventory' ? `border-blue-400 bg-slate-800` : `
+            border-slate-700
+          `}
+        `}>
+            <div className="mb-4 flex items-end justify-between">
+                <span className="font-medium text-slate-400">Your Tiles (Drag or Click)</span>
             </div>
-            <div className="flex flex-wrap gap-4 pt-2 min-h-[80px]">
+            <div className="flex min-h-[80px] flex-wrap gap-4 pt-2">
                 {groupedInventory.map((grp) => (
                     <Tile
                         key={grp.char}
@@ -23,7 +30,9 @@ export const Inventory: React.FC<InventoryProps> = ({ groupedInventory, hoverTar
                         onPointerDown={(e) => onStartDrag(e, { source: 'inventory', char: grp.char })}
                     />
                 ))}
-                {groupedInventory.length === 0 && <span className="text-slate-500 italic mt-2">All tiles placed.</span>}
+                {groupedInventory.length === 0 && <span className="
+                  mt-2 text-slate-500 italic
+                ">All tiles placed.</span>}
             </div>
         </div>
     );

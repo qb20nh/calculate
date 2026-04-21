@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { getProceduralLevel, generateEquationString } from './procedural';
+import { describe, expect,it } from 'vitest';
+
+import { generateEquationString,getProceduralLevel } from './procedural';
 
 describe('procedural level generation', () => {
     it('should generate levels of increasing complexity', () => {

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Tile } from './Tile';
+
 import { DragInfo } from '../domain/types';
+import { Tile } from './Tile';
 
 interface DragGhostProps {
     dragInfo: DragInfo;
@@ -12,7 +13,7 @@ export const DragGhost: React.FC<DragGhostProps> = ({ dragInfo }) => {
     return (
         <div
             id="drag-ghost"
-            className="fixed pointer-events-none z-[100]"
+            className="pointer-events-none fixed z-100"
             style={{
                 left: `${dragInfo.x - dragInfo.offsetX}px`,
                 top: `${dragInfo.y - dragInfo.offsetY}px`,

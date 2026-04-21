@@ -1,5 +1,5 @@
-import { GridCell, ValidationResult } from './types';
 import { isValidEquation } from './engine';
+import { GridCell, ValidationResult } from './types';
 
 const scanLines = (
     outerLimit: number,
