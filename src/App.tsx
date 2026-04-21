@@ -30,7 +30,13 @@ export default function App() {
 
     // Game Progress
     const [levelIndex, setLevelIndex] = useState(() => {
-        return parseInt(localStorage.getItem('mathScrabbleCurrentLevel') || '0', 10);
+        const saved = localStorage.getItem('mathScrabble_current_play');
+        if (saved) {
+            try {
+                return JSON.parse(saved).levelIndex || 0;
+            } catch (e) {}
+        }
+        return 0;
     });
     const [maxProgress, setMaxProgress] = useState(() => {
         return parseInt(localStorage.getItem('mathScrabbleProgress') || '0', 10);
@@ -237,17 +243,19 @@ export default function App() {
     // --- STATE RECOVERY ---
     const loadLevel = useCallback((index: number) => {
         const level = index < LEVELS.length ? LEVELS[index] : getProceduralLevel(index);
-        const saved = localStorage.getItem(`mathScrabble_save_main_${index}`);
+        const saved = localStorage.getItem('mathScrabble_current_play');
         
         if (saved) {
             try {
-                const { grid: savedGrid, inventory: savedInventory, isLevelCleared: savedCleared, isNewClear: savedNew } = JSON.parse(saved);
-                setGrid(savedGrid);
-                setInventory(savedInventory);
-                setIsLevelCleared(savedCleared || false);
-                setIsNewClear(savedNew || false);
-                setCurrentLevelData(level);
-                return;
+                const savedState = JSON.parse(saved);
+                if (savedState.levelIndex === index) {
+                    setGrid(savedState.grid);
+                    setInventory(savedState.inventory);
+                    setIsLevelCleared(savedState.isLevelCleared || false);
+                    setIsNewClear(savedState.isNewClear || false);
+                    setCurrentLevelData(level);
+                    return;
+                }
             } catch (e) {
                 console.error("Failed to restore saved level", e);
             }
@@ -300,9 +308,26 @@ export default function App() {
     // --- AUTO-SAVE ---
     useEffect(() => {
         if (view !== 'main' || !currentLevelData) return;
-        const state = { grid, inventory, isLevelCleared, isNewClear };
-        localStorage.setItem(`mathScrabble_save_main_${levelIndex}`, JSON.stringify(state));
-        localStorage.setItem('mathScrabbleCurrentLevel', levelIndex.toString());
+        
+        // Safety: only save if the current grid data matches the level index
+        if (currentLevelData.id !== levelIndex + 1) return;
+
+        const isGridEmpty = grid.every(cell => !cell.char);
+        if (!isGridEmpty) {
+            const state = { levelIndex, grid, inventory, isLevelCleared, isNewClear };
+            localStorage.setItem('mathScrabble_current_play', JSON.stringify(state));
+        } else {
+            // Only remove the save if it belongs to the CURRENT level
+            const saved = localStorage.getItem('mathScrabble_current_play');
+            if (saved) {
+                try {
+                    const savedState = JSON.parse(saved);
+                    if (savedState.levelIndex === levelIndex) {
+                        localStorage.removeItem('mathScrabble_current_play');
+                    }
+                } catch (e) {}
+            }
+        }
     }, [grid, inventory, isLevelCleared, isNewClear, levelIndex, view, currentLevelData]);
 
     useEffect(() => {
@@ -351,7 +376,7 @@ export default function App() {
     };
 
     const handleResetConfirm = () => {
-        localStorage.removeItem(`mathScrabble_save_main_${levelIndex}`);
+        localStorage.removeItem('mathScrabble_current_play');
         loadLevel(levelIndex);
         resetDialogRef.current?.close();
     };
