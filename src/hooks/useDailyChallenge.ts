@@ -5,10 +5,10 @@ import { StorageService } from '../services/StorageService';
 import { isValidEquation, getNormalizedRelations } from '../domain/engine';
 
 export const useDailyChallenge = (showToast: (msg: string, type?: string) => void) => {
-    const date = new Date().toISOString().split('T')[0];
-
-    const getInitialState = () => {
-        const saved = StorageService.getDailySave(date);
+    const [date] = useState(() => new Date().toISOString().split('T')[0]);
+    
+    const getInitialState = useCallback((d: string) => {
+        const saved = StorageService.getDailySave(d);
         if (saved) {
             return {
                 pool: saved.dailyPool,
@@ -23,22 +23,12 @@ export const useDailyChallenge = (showToast: (msg: string, type?: string) => voi
             submitted: [],
             knownRelations: new Set<string>()
         };
-    };
+    }, []);
 
-    const initial = getInitialState();
-
-    const [dailyPool, setDailyPool] = useState<TileItem[]>(initial.pool);
-    const [dailyCurrent, setDailyCurrent] = useState<TileItem[]>(initial.current);
-    const [dailySubmitted, setDailySubmitted] = useState<string[]>(initial.submitted);
-    const [dailyKnownRelations, setDailyKnownRelations] = useState<Set<string>>(initial.knownRelations);
-
-    const loadDaily = useCallback(() => {
-        const state = getInitialState();
-        setDailyPool(state.pool);
-        setDailyCurrent(state.current);
-        setDailySubmitted(state.submitted);
-        setDailyKnownRelations(state.knownRelations);
-    }, [date]);
+    const [dailyPool, setDailyPool] = useState<TileItem[]>(() => getInitialState(date).pool);
+    const [dailyCurrent, setDailyCurrent] = useState<TileItem[]>(() => getInitialState(date).current);
+    const [dailySubmitted, setDailySubmitted] = useState<string[]>(() => getInitialState(date).submitted);
+    const [dailyKnownRelations, setDailyKnownRelations] = useState<Set<string>>(() => getInitialState(date).knownRelations);
 
     const submitStatement = useCallback(() => {
         if (dailyCurrent.length === 0) return;
@@ -120,10 +110,7 @@ export const useDailyChallenge = (showToast: (msg: string, type?: string) => voi
     }, [dailyCurrent]);
 
     // Lifecycle
-    useEffect(() => {
-        loadDaily();
-    }, [loadDaily]);
-
+    // Persist to storage
     useEffect(() => {
         StorageService.setDailySave(date, { 
             dailyPool, 

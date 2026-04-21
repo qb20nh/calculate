@@ -5,8 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 import reactCompiler from 'eslint-plugin-react-compiler';
 import eslintReact from '@eslint-react/eslint-plugin';
+import { defineConfig } from 'eslint/config';
 
-export default tseslint.config([
+export default defineConfig([
   {
     ignores: ['dist', 'report', 'coverage', 'scripts'],
   },
@@ -14,7 +15,7 @@ export default tseslint.config([
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
-    ...eslintReact.configs.recommended,
+    ...eslintReact.configs['recommended-type-checked'],
   },
   {
     files: ['**/*.{ts,tsx}'],

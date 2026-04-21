@@ -1,6 +1,7 @@
 export type CellType = 'empty' | 'block';
 
 export interface GridCell {
+    id: string;
     type: CellType;
     char: string | null;
 }

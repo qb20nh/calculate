@@ -11,7 +11,8 @@ export const LevelService = {
     },
 
     createInitialGrid: (level: Level): GridCell[] => {
-        return level.layout.map((typeCode) => ({
+        return level.layout.map((typeCode, i) => ({
+            id: `cell-${i}`,
             type: typeCode === 1 ? 'block' : 'empty',
             char: null
         }));

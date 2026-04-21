@@ -45,6 +45,18 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
     const [isLevelCleared, setIsLevelCleared] = useState(initial.isLevelCleared);
     const [isNewClear, setIsNewClear] = useState(initial.isNewClear);
 
+    // Adjust state during render when levelIndex changes
+    const [prevLevelIndex, setPrevLevelIndex] = useState(levelIndex);
+    if (levelIndex !== prevLevelIndex) {
+        const state = getInitialState(levelIndex);
+        setGrid(state.grid);
+        setInventory(state.inventory);
+        setIsLevelCleared(state.isLevelCleared);
+        setIsNewClear(state.isNewClear);
+        setCurrentLevelData(state.levelData);
+        setPrevLevelIndex(levelIndex);
+    }
+
     // --- Actions ---
     const loadLevel = useCallback((index: number) => {
         const state = getInitialState(index);
@@ -130,10 +142,7 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
     }, [levelIndex, loadLevel]);
 
     // Lifecycle
-    useEffect(() => {
-        loadLevel(levelIndex);
-    }, [levelIndex, loadLevel]);
-
+    // Persist to storage
     useEffect(() => {
         if (!currentLevelData) return;
         if (currentLevelData.id !== levelIndex + 1) return;

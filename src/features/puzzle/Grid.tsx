@@ -19,14 +19,14 @@ export const Grid: React.FC<GridProps> = ({ grid, cols, hoverTarget, dragInfo, o
             >
                 {grid.map((cell, idx) => {
                     const char = cell.char;
-                    if (cell.type === 'block') return <div key={`grid-cell-${idx}`} />;
+                    if (cell.type === 'block') return <div key={cell.id} />;
 
                     const isHovered = hoverTarget?.type === 'grid' && hoverTarget.index === idx;
                     const isBeingDragged = dragInfo.item?.source === 'grid' && dragInfo.item?.index === idx;
 
                     return (
                         <div
-                            key={`grid-cell-${idx}`}
+                            key={cell.id}
                             data-dropzone="grid"
                             data-index={idx}
                             className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all 
