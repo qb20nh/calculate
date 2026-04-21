@@ -19,7 +19,11 @@ export const Grid: React.FC<GridProps> = ({ grid, cols, hoverTarget, dragInfo, o
     >
       <div
         className='relative shrink-0'
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '8px' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: '8px'
+        }}
       >
         {grid.map((cell, idx) => {
           const char = cell.char
@@ -43,7 +47,13 @@ export const Grid: React.FC<GridProps> = ({ grid, cols, hoverTarget, dragInfo, o
               `}
             >
               {char && !isBeingDragged && (
-                <Tile char={char} onPointerDown={(e) => onStartDrag(e, { source: 'grid', index: idx, char })} />
+                <Tile
+                  char={char} onPointerDown={(e) => onStartDrag(e, {
+                    source: 'grid',
+                    index: idx,
+                    char
+                  })}
+                />
               )}
               {isBeingDragged && (
                 <div className='

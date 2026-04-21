@@ -4,12 +4,33 @@ import { extractWordsFromGrid, validateGrid } from './grid'
 import { GridCell } from './types'
 
 describe('grid logic', () => {
-  const emptyCell: GridCell = { type: 'empty', char: null }
-  const blockCell: GridCell = { type: 'block', char: null }
+  const emptyCell: GridCell = {
+    type: 'empty',
+    char: null
+  }
+  const blockCell: GridCell = {
+    type: 'block',
+    char: null
+  }
 
   it('should extract horizontal words', () => {
     const grid: GridCell[] = [
-      { type: 'empty', char: '1' }, { type: 'empty', char: '+' }, { type: 'empty', char: '2' }, { type: 'empty', char: '=' }, { type: 'empty', char: '3' },
+      {
+        type: 'empty',
+        char: '1'
+      }, {
+        type: 'empty',
+        char: '+'
+      }, {
+        type: 'empty',
+        char: '2'
+      }, {
+        type: 'empty',
+        char: '='
+      }, {
+        type: 'empty',
+        char: '3'
+      },
       blockCell, blockCell, blockCell, blockCell, blockCell
     ]
     const words = extractWordsFromGrid(grid, 5)
@@ -18,11 +39,26 @@ describe('grid logic', () => {
 
   it('should extract vertical words', () => {
     const grid: GridCell[] = [
-      { type: 'empty', char: '1' }, blockCell,
-      { type: 'empty', char: '+' }, blockCell,
-      { type: 'empty', char: '2' }, blockCell,
-      { type: 'empty', char: '=' }, blockCell,
-      { type: 'empty', char: '3' }, blockCell,
+      {
+        type: 'empty',
+        char: '1'
+      }, blockCell,
+      {
+        type: 'empty',
+        char: '+'
+      }, blockCell,
+      {
+        type: 'empty',
+        char: '2'
+      }, blockCell,
+      {
+        type: 'empty',
+        char: '='
+      }, blockCell,
+      {
+        type: 'empty',
+        char: '3'
+      }, blockCell,
     ]
     const words = extractWordsFromGrid(grid, 2)
     expect(words).toContain('1+2=3')
@@ -30,7 +66,22 @@ describe('grid logic', () => {
 
   it('should validate a correct grid', () => {
     const grid: GridCell[] = [
-      { type: 'empty', char: '1' }, { type: 'empty', char: '+' }, { type: 'empty', char: '2' }, { type: 'empty', char: '=' }, { type: 'empty', char: '3' },
+      {
+        type: 'empty',
+        char: '1'
+      }, {
+        type: 'empty',
+        char: '+'
+      }, {
+        type: 'empty',
+        char: '2'
+      }, {
+        type: 'empty',
+        char: '='
+      }, {
+        type: 'empty',
+        char: '3'
+      },
     ]
     const result = validateGrid(grid, 5)
     expect(result.valid).toBe(true)
@@ -45,7 +96,22 @@ describe('grid logic', () => {
 
   it('should fail a grid with an invalid equation', () => {
     const grid: GridCell[] = [
-      { type: 'empty', char: '1' }, { type: 'empty', char: '+' }, { type: 'empty', char: '1' }, { type: 'empty', char: '=' }, { type: 'empty', char: '3' },
+      {
+        type: 'empty',
+        char: '1'
+      }, {
+        type: 'empty',
+        char: '+'
+      }, {
+        type: 'empty',
+        char: '1'
+      }, {
+        type: 'empty',
+        char: '='
+      }, {
+        type: 'empty',
+        char: '3'
+      },
     ]
     const result = validateGrid(grid, 5)
     expect(result.valid).toBe(false)

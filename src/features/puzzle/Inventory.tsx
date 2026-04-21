@@ -4,7 +4,10 @@ import { Tile } from '@/components/Tile'
 import { DragItem, HoverTarget } from '@/domain/types'
 
 interface InventoryProps {
-  groupedInventory: { char: string; count: number }[];
+  groupedInventory: {
+    char: string;
+    count: number
+  }[];
   hoverTarget: HoverTarget | null;
   onStartDrag: (e: React.PointerEvent, item: DragItem) => void;
 }
@@ -29,7 +32,10 @@ export const Inventory: React.FC<InventoryProps> = ({ groupedInventory, hoverTar
             key={grp.char}
             char={grp.char}
             count={grp.count}
-            onPointerDown={(e) => onStartDrag(e, { source: 'inventory', char: grp.char })}
+            onPointerDown={(e) => onStartDrag(e, {
+              source: 'inventory',
+              char: grp.char
+            })}
           />
         ))}
         {groupedInventory.length === 0 && <span className='mt-2 text-slate-500 italic'>All tiles placed.</span>}

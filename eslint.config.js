@@ -8,10 +8,13 @@ import tailwind from 'eslint-plugin-better-tailwindcss'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import html from '@html-eslint/eslint-plugin'
+import js from '@eslint/js'
 import neostandard from 'neostandard'
 import { defineConfig } from 'eslint/config'
+import { fixStylisticRules } from './scripts/eslint-v10-compat.js'
 
 export default defineConfig([
+  js.configs.recommended,
   {
     ignores: ['dist', 'report', 'coverage', 'scripts'],
   },
@@ -23,6 +26,7 @@ export default defineConfig([
   },
   ...neostandard({ ts: true }).map(config => ({
     ...config,
+    rules: fixStylisticRules(config.rules),
     files: ['**/*.{js,jsx,ts,tsx}'],
   })),
   ...tseslint.configs.recommendedTypeChecked.map(config => ({
@@ -85,6 +89,9 @@ export default defineConfig([
       ],
       'react-compiler/react-compiler': 'error',
 
+      // Deprecation Warning
+      '@typescript-eslint/no-deprecated': 'warn',
+
       // Custom Rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
@@ -99,7 +106,11 @@ export default defineConfig([
   {
     files: ['**/*.{js,ts,tsx}'],
     rules: {
-      '@stylistic/space-before-function-paren': ['error', { anonymous: 'always', named: 'never', asyncArrow: 'always' }],
+      '@stylistic/space-before-function-paren': ['error', {
+        anonymous: 'always',
+        named: 'never',
+        asyncArrow: 'always'
+      }],
     },
   },
 ])

@@ -22,7 +22,11 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
   const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(handleDrop, handleQuickClick)
   const timeLeft = useDailyTimer(true)
 
-  const formattedDate = React.useMemo(() => new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), [])
+  const formattedDate = React.useMemo(() => new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }), [])
   const groupedDailyPool = getGroupedTiles(dailyPool)
 
   return (
@@ -100,7 +104,11 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
                   <Tile
                     char={tile.char}
                     isFaded={isBeingDragged}
-                    onPointerDown={(e) => startDrag(e, { source: 'builder', index: idx, char: tile.char })}
+                    onPointerDown={(e) => startDrag(e, {
+                      source: 'builder',
+                      index: idx,
+                      char: tile.char
+                    })}
                   />
                 </div>
               )
@@ -147,7 +155,10 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
                 key={grp.char}
                 char={grp.char}
                 count={grp.count}
-                onPointerDown={(e) => startDrag(e, { source: 'pool', char: grp.char })}
+                onPointerDown={(e) => startDrag(e, {
+                  source: 'pool',
+                  char: grp.char
+                })}
               />
             ))}
           </div>

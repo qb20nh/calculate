@@ -35,7 +35,10 @@ export const validateGrid = (grid: GridCell[], cols: number): ValidationResult =
   const words = extractWordsFromGrid(grid, cols)
 
   if (words.length === 0) {
-    return { valid: false, reason: 'No statements formed.' }
+    return {
+      valid: false,
+      reason: 'No statements formed.'
+    }
   }
 
   for (const word of words) {

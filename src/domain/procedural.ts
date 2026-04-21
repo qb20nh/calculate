@@ -46,7 +46,12 @@ export const getProceduralLevel = (levelIndex: number): Level => {
   if (levelId > 100) maxWords = Math.min(8, 5 + Math.floor((levelId - 100) / 50))
 
   const board = new Map<string, string>()
-  const placedWords: { word: string; x: number; y: number; isHoriz: boolean }[] = []
+  const placedWords: {
+    word: string;
+    x: number;
+    y: number;
+    isHoriz: boolean
+  }[] = []
 
   const canPlace = (word: string, startX: number, startY: number, isHoriz: boolean, currentBoard: Map<string, string>) => {
     for (let i = 0; i < word.length; i++) {
@@ -74,7 +79,12 @@ export const getProceduralLevel = (levelIndex: number): Level => {
 
   const firstWord = generateEquationString(levelId)
   for (let i = 0; i < firstWord.length; i++) board.set(`${i},0`, firstWord[i])
-  placedWords.push({ word: firstWord, x: 0, y: 0, isHoriz: true })
+  placedWords.push({
+    word: firstWord,
+    x: 0,
+    y: 0,
+    isHoriz: true
+  })
 
   let attempts = 0
   while (placedWords.length < maxWords && attempts < 150) {
@@ -106,7 +116,12 @@ export const getProceduralLevel = (levelIndex: number): Level => {
         const y = isHoriz ? startY : startY + i
         board.set(`${x},${y}`, newWord[i])
       }
-      placedWords.push({ word: newWord, x: startX, y: startY, isHoriz })
+      placedWords.push({
+        word: newWord,
+        x: startX,
+        y: startY,
+        isHoriz
+      })
     }
   }
 

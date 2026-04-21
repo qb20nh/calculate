@@ -43,8 +43,14 @@ describe('engine.ts (property-based)', () => {
     })
 
     it('should fail for strings with leading zeros in any expression', () => {
-      const leadingZeroDigit = fc.integer({ min: 0, max: 9 }).map(String)
-      const otherDigits = fc.array(fc.integer({ min: 0, max: 9 }).map(String), { minLength: 1 }).map(arr => arr.join(''))
+      const leadingZeroDigit = fc.integer({
+        min: 0,
+        max: 9
+      }).map(String)
+      const otherDigits = fc.array(fc.integer({
+        min: 0,
+        max: 9
+      }).map(String), { minLength: 1 }).map(arr => arr.join(''))
       const leadingZeroNumber = fc.tuple(leadingZeroDigit, otherDigits).map(([_z, rest]) => `0${rest}`)
 
       fc.assert(
@@ -103,7 +109,10 @@ describe('engine.ts (property-based)', () => {
   describe('getGroupedTiles', () => {
     it('should preserve total count and character set', () => {
       const tileArb: fc.Arbitrary<TileItem> = fc.record({
-        char: fc.string({ minLength: 1, maxLength: 1 }),
+        char: fc.string({
+          minLength: 1,
+          maxLength: 1
+        }),
         id: fc.integer(),
         status: fc.constant('normal' as const)
       })

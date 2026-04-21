@@ -16,12 +16,32 @@ interface GameState {
 }
 
 type Action =
-  | { type: 'LOAD_LEVEL'; index: number }
-  | { type: 'SET_GRID'; grid: GridCell[] }
-  | { type: 'SET_INVENTORY'; inventory: TileItem[] }
-  | { type: 'MOVE_TILE'; grid: GridCell[]; inventory: TileItem[]; isCleared: boolean; isNewClear: boolean }
-  | { type: 'SET_CLEARED'; isCleared: boolean; isNewClear: boolean; maxProgress: number }
-  | { type: 'RESET_LEVEL' }
+  | {
+    type: 'LOAD_LEVEL';
+    index: number
+  } |
+  {
+    type: 'SET_GRID';
+    grid: GridCell[]
+  } |
+  {
+    type: 'SET_INVENTORY';
+    inventory: TileItem[]
+  } |
+  {
+    type: 'MOVE_TILE';
+    grid: GridCell[];
+    inventory: TileItem[];
+    isCleared: boolean;
+    isNewClear: boolean
+  } |
+  {
+    type: 'SET_CLEARED';
+    isCleared: boolean;
+    isNewClear: boolean;
+    maxProgress: number
+  } |
+  { type: 'RESET_LEVEL' }
 
 const getInitialState = (idx: number): GameState => {
   const level = LevelService.getLevel(idx)
@@ -44,7 +64,10 @@ const getInitialState = (idx: number): GameState => {
     levelIndex: idx,
     maxProgress,
     grid: LevelService.createInitialGrid(level),
-    inventory: level.inventory.map((char, i) => ({ id: i, char })),
+    inventory: level.inventory.map((char, i) => ({
+      id: i,
+      char
+    })),
     isLevelCleared: false,
     isNewClear: false,
     currentLevelData: level
@@ -56,11 +79,21 @@ function reducer(state: GameState, action: Action): GameState {
     case 'LOAD_LEVEL':
       return getInitialState(action.index)
     case 'SET_GRID':
-      return { ...state, grid: action.grid }
+      return {
+        ...state,
+        grid: action.grid
+      }
     case 'SET_INVENTORY':
-      return { ...state, inventory: action.inventory }
+      return {
+        ...state,
+        inventory: action.inventory
+      }
     case 'MOVE_TILE':
-      return { ...state, grid: action.grid, inventory: action.inventory }
+      return {
+        ...state,
+        grid: action.grid,
+        inventory: action.inventory
+      }
     case 'SET_CLEARED':
       return {
         ...state,
@@ -100,12 +133,21 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
 
   // Actions
   const setLevelIndex = useCallback((index: number) => {
-    dispatch({ type: 'LOAD_LEVEL', index })
+    dispatch({
+      type: 'LOAD_LEVEL',
+      index
+    })
   }, [])
 
   const setIsNewClear = useCallback((val: boolean) => {
     // This is a bit of a hack to keep the API similar, but ideally we'd have a more specific action
-    dispatch({ type: 'MOVE_TILE', grid, inventory, isCleared: isLevelCleared, isNewClear: val })
+    dispatch({
+      type: 'MOVE_TILE',
+      grid,
+      inventory,
+      isCleared: isLevelCleared,
+      isNewClear: val
+    })
   }, [grid, inventory, isLevelCleared])
 
   const checkFullAndVerify = useCallback((currentGrid: GridCell[]) => {
@@ -118,7 +160,12 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
         const isNew = levelIndex >= maxProgress
         const nextMax = Math.max(levelIndex + 1, maxProgress)
         StorageService.setMaxProgress(nextMax)
-        dispatch({ type: 'SET_CLEARED', isCleared: true, isNewClear: isNew, maxProgress: nextMax })
+        dispatch({
+          type: 'SET_CLEARED',
+          isCleared: true,
+          isNewClear: isNew,
+          maxProgress: nextMax
+        })
       } else {
         showToast(result.reason || 'Invalid statements.', 'error')
       }
@@ -138,18 +185,39 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
 
       const newGrid = [...grid]
       if (cell.char !== null) {
-        newInventory.push({ id: Date.now(), char: cell.char })
+        newInventory.push({
+          id: Date.now(),
+          char: cell.char
+        })
       }
-      newGrid[target.index] = { ...cell, char: movedTile.char }
-      dispatch({ type: 'SET_GRID', grid: newGrid })
-      dispatch({ type: 'SET_INVENTORY', inventory: newInventory })
+      newGrid[target.index] = {
+        ...cell,
+        char: movedTile.char
+      }
+      dispatch({
+        type: 'SET_GRID',
+        grid: newGrid
+      })
+      dispatch({
+        type: 'SET_INVENTORY',
+        inventory: newInventory
+      })
       checkFullAndVerify(newGrid)
     } else if (item.source === 'grid' && item.index !== undefined) {
       const newGrid = [...grid]
       const sourceChar = newGrid[item.index].char
-      newGrid[item.index] = { ...newGrid[item.index], char: cell.char }
-      newGrid[target.index] = { ...cell, char: sourceChar }
-      dispatch({ type: 'SET_GRID', grid: newGrid })
+      newGrid[item.index] = {
+        ...newGrid[item.index],
+        char: cell.char
+      }
+      newGrid[target.index] = {
+        ...cell,
+        char: sourceChar
+      }
+      dispatch({
+        type: 'SET_GRID',
+        grid: newGrid
+      })
       checkFullAndVerify(newGrid)
     }
   }, [grid, inventory, checkFullAndVerify])
@@ -159,15 +227,32 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
     const newGrid = [...grid]
     const char = newGrid[item.index].char
     if (!char) return
-    newGrid[item.index] = { ...newGrid[item.index], char: null }
-    dispatch({ type: 'SET_GRID', grid: newGrid })
-    dispatch({ type: 'SET_INVENTORY', inventory: [...inventory, { id: Date.now(), char }] })
+    newGrid[item.index] = {
+      ...newGrid[item.index],
+      char: null
+    }
+    dispatch({
+      type: 'SET_GRID',
+      grid: newGrid
+    })
+    dispatch({
+      type: 'SET_INVENTORY',
+      inventory: [...inventory, {
+        id: Date.now(),
+        char
+      }]
+    })
   }, [grid, inventory])
 
   const handleQuickClick = useCallback((item: DragItem) => {
     if (item.source === 'inventory') {
       const firstEmpty = grid.findIndex(c => c.type !== 'block' && c.char === null)
-      if (firstEmpty !== -1) handleDrop(item, { type: 'grid', index: firstEmpty })
+      if (firstEmpty !== -1) {
+        handleDrop(item, {
+          type: 'grid',
+          index: firstEmpty
+        })
+      }
     } else if (item.source === 'grid') {
       handleReturnToInventory(item)
     }
@@ -185,7 +270,13 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
 
     const isGridEmpty = grid.every(cell => !cell.char)
     if (!isGridEmpty) {
-      StorageService.setCurrentPlay({ levelIndex, grid, inventory, isLevelCleared, isNewClear })
+      StorageService.setCurrentPlay({
+        levelIndex,
+        grid,
+        inventory,
+        isLevelCleared,
+        isNewClear
+      })
     } else {
       const saved = StorageService.getCurrentPlay()
       if (saved && saved.levelIndex === levelIndex) {

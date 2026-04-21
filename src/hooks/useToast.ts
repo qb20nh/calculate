@@ -6,12 +6,24 @@ interface ToastState {
 }
 
 export const useToast = () => {
-  const [toast, setToast] = useState<ToastState>({ message: '', type: '' })
+  const [toast, setToast] = useState<ToastState>({
+    message: '',
+    type: ''
+  })
 
   const showToast = useCallback((message: string, type: string = 'success') => {
-    setToast({ message, type })
-    setTimeout(() => setToast({ message: '', type: '' }), 3000)
+    setToast({
+      message,
+      type
+    })
+    setTimeout(() => setToast({
+      message: '',
+      type: ''
+    }), 3000)
   }, [])
 
-  return { toast, showToast }
+  return {
+    toast,
+    showToast
+  }
 }

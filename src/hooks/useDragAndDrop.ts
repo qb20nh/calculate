@@ -35,7 +35,11 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragInfo.isDragging) return
-      setDragInfo(prev => ({ ...prev, x: e.clientX, y: e.clientY }))
+      setDragInfo(prev => ({
+        ...prev,
+        x: e.clientX,
+        y: e.clientY
+      }))
 
       const ghost = document.getElementById('drag-ghost')
       if (ghost) ghost.style.display = 'none'
@@ -52,7 +56,10 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
         const type = dropZone.getAttribute('data-dropzone') as HoverTarget['type']
         const indexStr = dropZone.getAttribute('data-index')
         const index = indexStr !== null ? parseInt(indexStr, 10) : undefined
-        setHoverTarget({ type, index })
+        setHoverTarget({
+          type,
+          index
+        })
       } else {
         setHoverTarget(null)
       }
@@ -72,7 +79,17 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
         }
       }
 
-      setDragInfo({ isDragging: false, item: null, startX: 0, startY: 0, startTime: 0, x: 0, y: 0, offsetX: 0, offsetY: 0 })
+      setDragInfo({
+        isDragging: false,
+        item: null,
+        startX: 0,
+        startY: 0,
+        startTime: 0,
+        x: 0,
+        y: 0,
+        offsetX: 0,
+        offsetY: 0
+      })
       setHoverTarget(null)
     }
 
@@ -89,5 +106,9 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
     }
   }, [dragInfo.isDragging, dragInfo.startX, dragInfo.startY, dragInfo.startTime, dragInfo.item, hoverTarget, onDrop, onQuickClick])
 
-  return { dragInfo, hoverTarget, startDrag }
+  return {
+    dragInfo,
+    hoverTarget,
+    startDrag
+  }
 }

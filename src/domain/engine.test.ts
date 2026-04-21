@@ -92,16 +92,37 @@ describe('getNormalizedRelations', () => {
 describe('getGroupedTiles', () => {
   it('should group tiles and sort them by SORT_ORDER', () => {
     const tiles = [
-      { id: 1, char: '2' },
-      { id: 2, char: '+' },
-      { id: 3, char: '2' },
-      { id: 4, char: '1' }
+      {
+        id: 1,
+        char: '2'
+      },
+      {
+        id: 2,
+        char: '+'
+      },
+      {
+        id: 3,
+        char: '2'
+      },
+      {
+        id: 4,
+        char: '1'
+      }
     ]
     const grouped = getGroupedTiles(tiles)
     expect(grouped).toEqual([
-      { char: '1', count: 1 },
-      { char: '2', count: 2 },
-      { char: '+', count: 1 }
+      {
+        char: '1',
+        count: 1
+      },
+      {
+        char: '2',
+        count: 2
+      },
+      {
+        char: '+',
+        count: 1
+      }
     ])
   })
 })

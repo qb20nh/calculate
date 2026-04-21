@@ -2,7 +2,10 @@ import { SORT_ORDER } from '@/constants/gameData'
 
 import { TileItem, ValidationResult } from './types'
 
-const parseStatement = (str: string): { expressions: string[], comparators: string[] } => {
+const parseStatement = (str: string): {
+  expressions: string[],
+  comparators: string[]
+} => {
   const comparators: string[] = []
   const expressions: string[] = []
   let currentExpr = ''
@@ -22,7 +25,10 @@ const parseStatement = (str: string): { expressions: string[], comparators: stri
     }
   }
   expressions.push(currentExpr)
-  return { expressions, comparators }
+  return {
+    expressions,
+    comparators
+  }
 }
 
 const evaluateExpression = (expr: string): number => {
@@ -53,8 +59,18 @@ const evaluateExpression = (expr: string): number => {
 export const isValidEquation = (str: string): ValidationResult => {
   const { expressions, comparators } = parseStatement(str)
 
-  if (comparators.length === 0) return { valid: false, reason: 'Must contain a comparator (=, <, >, <>).' }
-  if (expressions.some(e => e === '')) return { valid: false, reason: 'Misplaced comparators.' }
+  if (comparators.length === 0) {
+    return {
+      valid: false,
+      reason: 'Must contain a comparator (=, <, >, <>).'
+    }
+  }
+  if (expressions.some(e => e === '')) {
+    return {
+      valid: false,
+      reason: 'Misplaced comparators.'
+    }
+  }
 
   for (let i = 0; i < comparators.length; i++) {
     const leftExpr = expressions[i]
@@ -63,20 +79,36 @@ export const isValidEquation = (str: string): ValidationResult => {
     const rightHasOp = /[0-9][+−×÷]/.test(rightExpr)
 
     if (!leftHasOp && !rightHasOp) {
-      return { valid: false, reason: `Invalid comparison: neither side of '${comparators[i]}' contains an operator.` }
+      return {
+        valid: false,
+        reason: `Invalid comparison: neither side of '${comparators[i]}' contains an operator.`
+      }
     }
   }
 
   const values: number[] = []
   for (const expr of expressions) {
     try {
-      if (/\b0[0-9]+/.test(expr)) return { valid: false, reason: 'Leading zeros not allowed.' }
+      if (/\b0[0-9]+/.test(expr)) {
+        return {
+          valid: false,
+          reason: 'Leading zeros not allowed.'
+        }
+      }
 
       const val = evaluateExpression(expr)
-      if (!Number.isFinite(val)) return { valid: false, reason: 'Invalid mathematical result (e.g., division by zero).' }
+      if (!Number.isFinite(val)) {
+        return {
+          valid: false,
+          reason: 'Invalid mathematical result (e.g., division by zero).'
+        }
+      }
       values.push(val)
     } catch {
-      return { valid: false, reason: `Invalid syntax in expression: ${expr}` }
+      return {
+        valid: false,
+        reason: `Invalid syntax in expression: ${expr}`
+      }
     }
   }
 
@@ -84,10 +116,30 @@ export const isValidEquation = (str: string): ValidationResult => {
     const left = values[i]
     const right = values[i + 1]
     const comp = comparators[i]
-    if (comp === '=' && !(left === right)) return { valid: false, reason: `Mathematically false: ${left} = ${right}` }
-    if (comp === '<' && !(left < right)) return { valid: false, reason: `Mathematically false: ${left} < ${right}` }
-    if (comp === '>' && !(left > right)) return { valid: false, reason: `Mathematically false: ${left} > ${right}` }
-    if (comp === '<>' && !(left !== right)) return { valid: false, reason: `Mathematically false: ${left} <> ${right}` }
+    if (comp === '=' && !(left === right)) {
+      return {
+        valid: false,
+        reason: `Mathematically false: ${left} = ${right}`
+      }
+    }
+    if (comp === '<' && !(left < right)) {
+      return {
+        valid: false,
+        reason: `Mathematically false: ${left} < ${right}`
+      }
+    }
+    if (comp === '>' && !(left > right)) {
+      return {
+        valid: false,
+        reason: `Mathematically false: ${left} > ${right}`
+      }
+    }
+    if (comp === '<>' && !(left !== right)) {
+      return {
+        valid: false,
+        reason: `Mathematically false: ${left} <> ${right}`
+      }
+    }
   }
 
   return { valid: true }
@@ -135,7 +187,10 @@ export const getNormalizedRelations = (statement: string): string[] => {
  * @param tilesArray Array of TileItem objects
  * @returns Sorted array of grouped tiles with counts
  */
-export const getGroupedTiles = (tilesArray: TileItem[]): { char: string; count: number }[] => {
+export const getGroupedTiles = (tilesArray: TileItem[]): {
+  char: string;
+  count: number
+}[] => {
   const counts: Record<string, number> = {}
   tilesArray.forEach(t => { counts[t.char] = (counts[t.char] || 0) + 1 })
   return Object.keys(counts)
@@ -146,5 +201,8 @@ export const getGroupedTiles = (tilesArray: TileItem[]): { char: string; count: 
       if (idxB === -1) idxB = 99
       return idxA - idxB
     })
-    .map(char => ({ char, count: counts[char] }))
+    .map(char => ({
+      char,
+      count: counts[char]
+    }))
 }

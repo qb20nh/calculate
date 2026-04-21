@@ -19,7 +19,10 @@ export const useDailyChallenge = (showToast: (msg: string, type?: string) => voi
       }
     }
     return {
-      pool: DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })),
+      pool: DAILY_POOL.map((char, i) => ({
+        id: `d-${i}`,
+        char
+      })),
       current: [],
       submitted: [],
       knownRelations: new Set<string>()
@@ -97,7 +100,10 @@ export const useDailyChallenge = (showToast: (msg: string, type?: string) => voi
 
   const handleQuickClick = useCallback((item: DragItem) => {
     if (item.source === 'pool') {
-      handleDrop(item, { type: 'builder', index: dailyCurrent.length })
+      handleDrop(item, {
+        type: 'builder',
+        index: dailyCurrent.length
+      })
     } else if (item.source === 'builder') {
       handleDrop(item, { type: 'pool' })
     }

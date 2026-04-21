@@ -15,17 +15,14 @@ export default defineConfig({
     },
   },
   plugins: [
-    // @ts-expect-error - babel property exists at runtime but may not be recognized by current type definitions
     react({
-      ...(skipCompiler
+      babel: skipCompiler
         ? {}
         : {
-            babel: {
-              plugins: [
-                ['babel-plugin-react-compiler', { target: '19' }],
-              ],
-            },
-          })
+            plugins: [
+              ['babel-plugin-react-compiler', { target: '19' }],
+            ],
+          }
     })
   ],
   test: {
