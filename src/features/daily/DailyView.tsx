@@ -7,13 +7,14 @@ import { getGroupedTiles } from '@/domain/engine'
 import { useDailyChallenge } from '@/hooks/useDailyChallenge'
 import { useDailyTimer } from '@/hooks/useDailyTimer'
 import { useDragAndDrop } from '@/hooks/useDragAndDrop'
+import { useRouter } from '@/hooks/useRouter'
 
 interface DailyViewProps {
-  onBack: () => void;
   showToast: (msg: string, type?: string) => void;
 }
 
-export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
+export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
+  const { navigate } = useRouter()
   const {
     dailyPool, dailyCurrent, dailySubmitted,
     submitStatement, handleDrop, handleQuickClick, clearBuilder
@@ -37,7 +38,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
     >
       <div className='mb-4 flex w-full max-w-4xl items-center justify-between'>
         <button
-          onClick={onBack} className='
+          onClick={() => { void navigate('menu') }} className='
             rounded-full p-2 transition-colors
             hover:bg-slate-800
           '

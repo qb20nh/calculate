@@ -6,16 +6,17 @@ import { ResetDialog } from '@/components/ResetDialog'
 import { getGroupedTiles } from '@/domain/engine'
 import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { usePuzzleGame } from '@/hooks/usePuzzleGame'
+import { useRouter } from '@/hooks/useRouter'
 
 import { Grid } from './Grid'
 import { Inventory } from './Inventory'
 
 interface PuzzleViewProps {
-  onBack: () => void;
   showToast: (msg: string, type?: string) => void;
 }
 
-export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => {
+export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
+  const { navigate } = useRouter()
   const {
     levelIndex, setLevelIndex,
     maxProgress,
@@ -48,7 +49,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
     >
       <div className='mb-8 flex w-full max-w-4xl items-start justify-between'>
         <button
-          onClick={onBack} className='
+          onClick={() => { void navigate('menu') }} className='
             mt-1 rounded-full p-2 transition-colors
             hover:bg-slate-800
           '

@@ -1,14 +1,10 @@
 import { AlertCircle, Calendar, Play } from 'lucide-react'
 import React from 'react'
 
-import { ViewType } from '@/domain/types'
+import { useRouter } from '@/hooks/useRouter'
 
-interface MainMenuProps {
-  onNavigate: (view: ViewType) => void;
-  onPreload?: (view: ViewType) => void;
-}
-
-export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, onPreload }) => {
+export const MainMenu: React.FC = () => {
+  const { navigate, preload } = useRouter()
   return (
     <div className='
       flex min-h-screen flex-col items-center justify-center bg-slate-900 p-4
@@ -28,9 +24,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, onPreload }) => 
 
         <div className='mx-auto flex w-full max-w-md flex-col gap-4'>
           <button
-            onClick={() => onNavigate('main')}
-            onPointerEnter={() => onPreload?.('main')}
-            onPointerDown={() => onPreload?.('main')}
+            onClick={() => { void navigate('main') }}
+            onPointerEnter={() => { void preload('main') }}
+            onPointerDown={() => { void preload('main') }}
             className='
               flex w-full items-center justify-center gap-3 rounded-xl
               bg-blue-600 py-4 text-xl font-bold shadow-lg transition-all
@@ -40,9 +36,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, onPreload }) => 
             <Play size={24} /> Main Puzzles
           </button>
           <button
-            onClick={() => onNavigate('daily')}
-            onPointerEnter={() => onPreload?.('daily')}
-            onPointerDown={() => onPreload?.('daily')}
+            onClick={() => { void navigate('daily') }}
+            onPointerEnter={() => { void preload('daily') }}
+            onPointerDown={() => { void preload('daily') }}
             className='
               flex w-full items-center justify-center gap-3 rounded-xl
               bg-emerald-600 py-4 text-xl font-bold shadow-lg transition-all
