@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Calendar, ArrowLeft, Check, RotateCcw, AlertCircle, Trophy } from 'lucide-react';
+import { Play, Calendar, ArrowLeft, Check, RotateCcw, AlertCircle, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // --- GAME DATA & LEVELS ---
 const LEVELS = [
@@ -195,11 +195,11 @@ const getProceduralLevel = (levelIndex) => {
 
     return {
         id: levelId,
-        name: `Procedural Stage ${levelId}`,
+        name: "",
         rows, cols,
         layout,
         inventory: inventoryChars,
-        description: levelId <= 5 ? "Procedural stages begin. Find the hidden intersections!" : "Watch out for extra decoy tiles!"
+        description: ""
     };
 };
 
@@ -379,10 +379,18 @@ export default function App() {
     const [currentLevelData, setCurrentLevelData] = useState(null);
     const [grid, setGrid] = useState([]);
     const [inventory, setInventory] = useState([]);
+    const [maxProgress, setMaxProgress] = useState(() => {
+        const saved = localStorage.getItem('mathScrabbleProgress');
+        return saved !== null ? parseInt(saved, 10) : 0;
+    });
 
     const [dailyPool, setDailyPool] = useState([]);
     const [dailyCurrent, setDailyCurrent] = useState([]);
     const [dailySubmitted, setDailySubmitted] = useState([]);
+
+    const [isLevelCleared, setIsLevelCleared] = useState(false);
+    const [isNewClear, setIsNewClear] = useState(false);
+    const [timeLeft, setTimeLeft] = useState("");
 
     // --- DRAG AND DROP STATE ---
     const [dragInfo, setDragInfo] = useState({
@@ -394,14 +402,62 @@ export default function App() {
         offsetX: 0, offsetY: 0,
     });
     const [hoverTarget, setHoverTarget] = useState(null); // { type, index }
+    const resetDialogRef = useRef(null);
 
     useEffect(() => {
         if (view === 'main') loadLevel(levelIndex);
         if (view === 'daily') loadDaily();
     }, [view, levelIndex]);
 
+    // --- AUTO-SAVE MAIN PUZZLE ---
+    useEffect(() => {
+        if (view !== 'main' || !currentLevelData) return;
+        const state = { grid, inventory, isLevelCleared, isNewClear };
+        localStorage.setItem(`mathScrabble_save_main_${levelIndex}`, JSON.stringify(state));
+    }, [grid, inventory, isLevelCleared, isNewClear, levelIndex, view, currentLevelData]);
+
+    // --- AUTO-SAVE DAILY CHALLENGE ---
+    useEffect(() => {
+        if (view !== 'daily') return;
+        const date = new Date().toISOString().split('T')[0];
+        const state = { dailyPool, dailyCurrent, dailySubmitted };
+        localStorage.setItem(`mathScrabble_save_daily_${date}`, JSON.stringify(state));
+    }, [dailyPool, dailyCurrent, dailySubmitted, view]);
+
+    useEffect(() => {
+        if (view !== 'daily') return;
+        const updateTimer = () => {
+            const now = new Date();
+            const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const diff = tomorrow.getTime() - now.getTime();
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+        };
+        updateTimer();
+        const timer = setInterval(updateTimer, 1000);
+        return () => clearInterval(timer);
+    }, [view]);
+
     const loadLevel = (index) => {
         const level = index < LEVELS.length ? LEVELS[index] : getProceduralLevel(index);
+        const saved = localStorage.getItem(`mathScrabble_save_main_${index}`);
+        
+        if (saved) {
+            try {
+                const { grid: savedGrid, inventory: savedInventory, isLevelCleared: savedCleared, isNewClear: savedNew } = JSON.parse(saved);
+                setGrid(savedGrid);
+                setInventory(savedInventory);
+                setIsLevelCleared(savedCleared || false);
+                setIsNewClear(savedNew || false);
+                setCurrentLevelData(level);
+                return;
+            } catch (e) {
+                console.error("Failed to restore saved level", e);
+            }
+        }
+
         const initialGrid = level.layout.map((typeCode) => ({
             type: typeCode === 1 ? 'block' : 'empty',
             char: null
@@ -409,11 +465,29 @@ export default function App() {
         setGrid(initialGrid);
         setInventory(level.inventory.map((char, i) => ({ id: i, char })));
         setCurrentLevelData(level);
+        setIsLevelCleared(false);
+        setIsNewClear(false);
     };
 
     const loadDaily = () => {
-        setDailyPool(DAILY_POOL.map((char, i) => ({ id: i, char })));
+        const date = new Date().toISOString().split('T')[0];
+        const saved = localStorage.getItem(`mathScrabble_save_daily_${date}`);
+
+        if (saved) {
+            try {
+                const { dailyPool: savedPool, dailyCurrent: savedCurrent, dailySubmitted: savedSubmitted } = JSON.parse(saved);
+                setDailyPool(savedPool);
+                setDailyCurrent(savedCurrent);
+                setDailySubmitted(savedSubmitted);
+                return;
+            } catch (e) {
+                console.error("Failed to restore daily save", e);
+            }
+        }
+
+        setDailyPool(DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })));
         setDailyCurrent([]);
+        setDailySubmitted([]);
     };
 
     // --- DRAG ENGINE ---
@@ -594,23 +668,28 @@ export default function App() {
             const result = checkGridValidity(currentGrid, level.cols);
             if (result.valid) {
                 showToast("Brilliant! Stage Clear.", "success");
-                setTimeout(() => {
-                    if (levelIndex + 1 < 1000) {
-                        const nextLevel = levelIndex + 1;
-                        setLevelIndex(nextLevel);
-                        localStorage.setItem('mathScrabbleProgress', nextLevel.toString());
-                    } else {
-                        showToast("Campaign Completed! You are a Math God.", "success");
-                        setView('menu');
-                    }
-                }, 2000);
+                setIsLevelCleared(true);
+                if (levelIndex >= maxProgress) {
+                    setIsNewClear(true);
+                }
+                const nextSavedLevel = Math.max(levelIndex + 1, maxProgress);
+                localStorage.setItem('mathScrabbleProgress', nextSavedLevel.toString());
+                setMaxProgress(nextSavedLevel);
             } else {
                 showToast(result.reason, "error");
             }
         }
     };
 
-    const resetLevel = () => loadLevel(levelIndex);
+    const resetLevel = () => {
+        resetDialogRef.current?.showModal();
+    };
+
+    const handleResetConfirm = () => {
+        localStorage.removeItem(`mathScrabble_save_main_${levelIndex}`);
+        loadLevel(levelIndex);
+        resetDialogRef.current?.close();
+    };
 
     const submitDailyStatement = () => {
         if (dailyCurrent.length === 0) return;
@@ -668,14 +747,50 @@ export default function App() {
         if (!level) return null;
         const groupedInventory = getGroupedTiles(inventory);
 
+        const isGridEmpty = grid.every(cell => !cell.char);
+
         return (
-            <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4">
-                <div className="w-full max-w-4xl flex justify-between items-center mb-8">
-                    <button onClick={() => setView('menu')} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+            <div className="h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4 overflow-hidden">
+                <div className="w-full max-w-4xl flex justify-between items-start mb-8">
+                    <button onClick={() => setView('menu')} className="p-2 hover:bg-slate-800 rounded-full transition-colors mt-1">
                         <ArrowLeft size={28} />
                     </button>
-                    <h2 className="text-2xl font-bold">Level {level.id}: {level.name}</h2>
-                    <button onClick={resetLevel} className="p-2 hover:bg-slate-800 rounded-full transition-colors" title="Reset Level">
+                    
+                    <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-6">
+                            <button 
+                                onClick={() => setLevelIndex(levelIndex - 1)} 
+                                disabled={levelIndex === 0}
+                                className="p-1 hover:bg-slate-800 rounded-lg disabled:opacity-10 transition-all"
+                                title="Previous Level"
+                            >
+                                <ChevronLeft size={40} />
+                            </button>
+                            
+                            <h2 className="text-4xl font-black tracking-tight">Level {level.id}</h2>
+                            
+                            <button 
+                                onClick={() => setLevelIndex(levelIndex + 1)} 
+                                disabled={!isLevelCleared && levelIndex >= maxProgress}
+                                className={`p-1 rounded-lg transition-all ${isNewClear ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30' : (isLevelCleared || levelIndex < maxProgress) ? 'hover:bg-slate-800' : 'disabled:opacity-10'}`}
+                                title="Next Level"
+                            >
+                                <ChevronRight size={40} />
+                            </button>
+                        </div>
+                        {level.name && (
+                            <p className="text-blue-400 mt-2 font-bold tracking-widest uppercase text-xs opacity-80">
+                                {level.name}
+                            </p>
+                        )}
+                    </div>
+
+                    <button 
+                        onClick={resetLevel} 
+                        disabled={isGridEmpty}
+                        className="p-2 hover:bg-slate-800 rounded-full transition-colors mt-1 disabled:opacity-10" 
+                        title="Reset Level"
+                    >
                         <RotateCcw size={28} />
                     </button>
                 </div>
@@ -686,21 +801,22 @@ export default function App() {
                     {/* The Grid container wrapper for scrolling large levels */}
                     <div className="w-full max-w-full overflow-auto flex justify-center items-center px-4">
                         <div
-                            className="bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-2xl relative flex-shrink-0"
+                            className="relative flex-shrink-0"
                             style={{ display: 'grid', gridTemplateColumns: `repeat(${level.cols}, 1fr)`, gap: '8px' }}
                         >
                             {grid.map((cell, idx) => {
+                                if (cell.type === 'block') return <div key={idx} />;
+
                                 const isHovered = hoverTarget?.type === 'grid' && hoverTarget.index === idx;
                                 const isBeingDragged = dragInfo.item?.source === 'grid' && dragInfo.item?.index === idx;
 
                                 return (
                                     <div
                                         key={idx}
-                                        data-dropzone={cell.type === 'empty' ? "grid" : null}
+                                        data-dropzone="grid"
                                         data-index={idx}
                                         className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all 
-                    ${cell.type === 'block' ? 'bg-slate-900/50 shadow-inner' : 'bg-slate-700 shadow-inner'}
-                    ${isHovered && cell.type !== 'block' ? 'ring-4 ring-blue-400 scale-105 bg-slate-600 z-10' : ''}
+                    ${isHovered ? 'ring-4 ring-blue-400 scale-105 bg-slate-600 z-10' : 'bg-slate-700/30 shadow-inner'}
                   `}
                                     >
                                         {cell.char && !isBeingDragged && (
@@ -741,89 +857,104 @@ export default function App() {
         const groupedDailyPool = getGroupedTiles(dailyPool);
 
         return (
-            <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4">
-                <div className="w-full max-w-4xl flex justify-between items-center mb-8">
+            <div className="h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4 overflow-hidden">
+                <div className="w-full max-w-4xl flex justify-between items-center mb-4">
                     <button onClick={() => setView('menu')} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
                         <ArrowLeft size={28} />
                     </button>
-                    <h2 className="text-2xl font-bold flex items-center gap-2"><Calendar className="text-emerald-400" /> Daily Challenge</h2>
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
+                            <Calendar className="text-emerald-400" /> Daily Challenge
+                        </h2>
+                        <div className="flex items-center justify-center gap-3 mt-1">
+                            <span className="text-slate-400 text-sm font-medium">
+                                {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-emerald-400 text-sm font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
+                                {timeLeft} left
+                            </span>
+                        </div>
+                    </div>
                     <div className="w-10"></div>
                 </div>
 
-                <p className="text-slate-400 mb-8 max-w-lg text-center">
-                    Drag and drop tiles to build unique true statements.
-                </p>
+                <div className="flex-1 w-full overflow-auto flex flex-col items-center px-4 pb-12">
+                    <p className="text-slate-400 mb-8 max-w-lg text-center">
+                        Drag and drop tiles to build unique true statements.
+                    </p>
 
-                {/* Builder Area */}
-                <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl mb-8">
-                    <div className="text-sm text-slate-400 mb-2">Statement Builder:</div>
-                    <div
-                        data-dropzone="builder"
-                        className={`min-h-[80px] bg-slate-900 rounded-xl p-4 flex flex-wrap gap-2 items-center mb-6 shadow-inner border transition-colors ${hoverTarget?.type === 'builder' ? 'border-emerald-500/50' : 'border-slate-700'}`}
-                    >
-                        {dailyCurrent.map((tile, idx) => {
-                            const isBeingDragged = dragInfo.item?.source === 'builder' && dragInfo.item?.index === idx;
-                            return (
-                                <div
-                                    key={tile.id}
-                                    data-dropzone="builder"
-                                    data-index={idx}
-                                    className="relative flex items-center justify-center"
-                                >
-                                    <Tile
-                                        char={tile.char}
-                                        isFaded={isBeingDragged}
-                                        onPointerDown={(e) => startDrag(e, { source: 'builder', index: idx, char: tile.char })}
-                                    />
-                                </div>
-                            );
-                        })}
-                        {dailyCurrent.length === 0 && <span className="text-slate-600 italic ml-2 pointer-events-none">Drag tiles here...</span>}
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                        <button onClick={() => { setDailyPool([...dailyPool, ...dailyCurrent]); setDailyCurrent([]); }} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-                            <RotateCcw size={16} /> Clear
-                        </button>
-                        <button
-                            onClick={submitDailyStatement}
-                            className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                            disabled={dailyCurrent.length === 0}
+                    {/* Builder Area */}
+                    <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl mb-8">
+                        <div className="text-sm text-slate-400 mb-2">Statement Builder:</div>
+                        <div
+                            data-dropzone="builder"
+                            className={`min-h-[80px] bg-slate-900 rounded-xl p-4 flex flex-wrap gap-2 items-center mb-6 shadow-inner border transition-colors ${hoverTarget?.type === 'builder' ? 'border-emerald-500/50' : 'border-slate-700'}`}
                         >
-                            Submit Statement
-                        </button>
-                    </div>
-                </div>
+                            {dailyCurrent.map((tile, idx) => {
+                                const isBeingDragged = dragInfo.item?.source === 'builder' && dragInfo.item?.index === idx;
+                                return (
+                                    <div
+                                        key={tile.id}
+                                        data-dropzone="builder"
+                                        data-index={idx}
+                                        className="relative flex items-center justify-center"
+                                    >
+                                        <Tile
+                                            char={tile.char}
+                                            isFaded={isBeingDragged}
+                                            onPointerDown={(e) => startDrag(e, { source: 'builder', index: idx, char: tile.char })}
+                                        />
+                                    </div>
+                                );
+                            })}
+                            {dailyCurrent.length === 0 && <span className="text-slate-600 italic ml-2 pointer-events-none">Drag tiles here...</span>}
+                        </div>
 
-                {/* Pool Area */}
-                <div data-dropzone="pool" className={`w-full max-w-2xl mb-12 p-4 rounded-xl border border-transparent transition-colors ${hoverTarget?.type === 'pool' ? 'bg-slate-800/50 border-slate-600' : ''}`}>
-                    <div className="text-sm text-slate-400 mb-2">Today's Pool:</div>
-                    <div className="flex flex-wrap gap-4 pt-2">
-                        {groupedDailyPool.map((grp) => (
-                            <Tile
-                                key={grp.char}
-                                char={grp.char}
-                                count={grp.count}
-                                onPointerDown={(e) => startDrag(e, { source: 'pool', char: grp.char })}
-                            />
-                        ))}
+                        <div className="flex justify-between items-center">
+                            <button onClick={() => { setDailyPool([...dailyPool, ...dailyCurrent]); setDailyCurrent([]); }} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                                <RotateCcw size={16} /> Clear
+                            </button>
+                            <button
+                                onClick={submitDailyStatement}
+                                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+                                disabled={dailyCurrent.length === 0}
+                            >
+                                Submit Statement
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                {/* Discovered List */}
-                <div className="w-full max-w-2xl bg-slate-800/50 rounded-2xl p-6 border border-slate-700 mb-12">
-                    <h3 className="font-bold text-xl mb-4 flex items-center gap-2"><Trophy className="text-yellow-400" /> Discovered Statements ({dailySubmitted.length})</h3>
-                    {dailySubmitted.length === 0 ? (
-                        <p className="text-slate-500 italic">No statements found yet. Get calculating!</p>
-                    ) : (
-                        <div className="flex flex-col gap-3">
-                            {dailySubmitted.map((stmt, idx) => (
-                                <div key={idx} className="bg-slate-800 px-4 py-3 rounded-lg border border-slate-600 font-mono text-xl tracking-widest text-emerald-300 shadow">
-                                    {stmt}
-                                </div>
+                    {/* Pool Area */}
+                    <div data-dropzone="pool" className={`w-full max-w-2xl mb-12 p-4 transition-colors ${hoverTarget?.type === 'pool' ? 'bg-slate-800/30 rounded-xl' : ''}`}>
+                        <div className="text-sm text-slate-400 mb-2">Today's Pool:</div>
+                        <div className="flex flex-wrap gap-4 pt-2">
+                            {groupedDailyPool.map((grp) => (
+                                <Tile
+                                    key={grp.char}
+                                    char={grp.char}
+                                    count={grp.count}
+                                    onPointerDown={(e) => startDrag(e, { source: 'pool', char: grp.char })}
+                                />
                             ))}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Discovered List */}
+                    <div className="w-full max-w-2xl bg-slate-800/50 rounded-2xl p-6 border border-slate-700 mb-12">
+                        <h3 className="font-bold text-xl mb-4 flex items-center gap-2"><Trophy className="text-yellow-400" /> Discovered Statements ({dailySubmitted.length})</h3>
+                        {dailySubmitted.length === 0 ? (
+                            <p className="text-slate-500 italic">No statements found yet. Get calculating!</p>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                {dailySubmitted.map((stmt, idx) => (
+                                    <div key={idx} className="bg-slate-800 px-4 py-3 rounded-lg border border-slate-600 font-mono text-xl tracking-widest text-emerald-300 shadow">
+                                        {stmt}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -850,6 +981,36 @@ export default function App() {
             {view === 'menu' && renderMenu()}
             {view === 'main' && renderMainPuzzle()}
             {view === 'daily' && renderDaily()}
+
+            {/* CONFIRM RESET DIALOG */}
+            <dialog 
+                ref={resetDialogRef} 
+                className="fixed inset-0 m-auto bg-slate-800 text-white p-8 rounded-3xl border border-slate-700 shadow-2xl backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm open:flex flex-col items-center justify-center"
+            >
+                <div className="flex flex-col items-center gap-6 max-w-xs">
+                    <div className="bg-red-500/20 p-4 rounded-full">
+                        <RotateCcw size={48} className="text-red-400" />
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-2xl font-bold mb-2">Reset Level?</h3>
+                        <p className="text-slate-400 text-sm">This will clear the entire board and return all tiles to your inventory.</p>
+                    </div>
+                    <div className="flex gap-4 w-full">
+                        <button 
+                            onClick={() => resetDialogRef.current?.close()} 
+                            className="flex-1 py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition-colors text-sm"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleResetConfirm} 
+                            className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/20 text-sm"
+                        >
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </dialog>
         </div>
     );
 }
