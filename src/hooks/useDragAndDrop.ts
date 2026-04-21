@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DragInfo, HoverTarget } from '../types/game';
+import { DragInfo, HoverTarget } from '../domain/types';
 
 export const useDragAndDrop = (onDrop: (item: any, target: any) => void, onQuickClick: (item: any) => void) => {
     const [dragInfo, setDragInfo] = useState<DragInfo>({

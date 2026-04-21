@@ -2,7 +2,7 @@ import React from 'react';
 import { RotateCcw } from 'lucide-react';
 
 interface ResetDialogProps {
-    dialogRef: React.RefObject<HTMLDialogElement>;
+    dialogRef: React.RefObject<HTMLDialogElement | null>;
     onConfirm: () => void;
 }
 

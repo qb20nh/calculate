@@ -5,7 +5,7 @@ describe('LevelService', () => {
     it('should load a static level', () => {
         const level = LevelService.getLevel(0);
         expect(level.id).toBe(1);
-        expect(level.name).toBe("The Basics");
+        expect(level.displayTitle).toBe("Tutorial 1");
     });
 
     it('should generate a procedural level for high indices', () => {

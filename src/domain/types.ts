@@ -12,7 +12,8 @@ export interface TileItem {
 
 export interface Level {
     id: number;
-    name: string;
+    displayTitle: string;
+    displaySubtitle: string;
     rows: number;
     cols: number;
     layout: number[];
@@ -36,4 +37,16 @@ export interface DragItem {
 export interface HoverTarget {
     type: 'grid' | 'inventory' | 'pool' | 'builder';
     index?: number;
+}
+
+export interface DragInfo {
+    isDragging: boolean;
+    item: DragItem | null;
+    startX: number;
+    startY: number;
+    startTime: number;
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
 }

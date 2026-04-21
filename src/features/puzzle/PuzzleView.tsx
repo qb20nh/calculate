@@ -57,7 +57,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                             <ChevronLeft size={40} />
                         </button>
                         
-                        <h2 className="text-4xl font-black tracking-tight">Level {currentLevelData.id}</h2>
+                        <h2 className="text-4xl font-black tracking-tight">{currentLevelData.displayTitle}</h2>
                         
                         <button 
                             onClick={() => setLevelIndex(levelIndex + 1)} 
@@ -68,9 +68,9 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                             <ChevronRight size={40} />
                         </button>
                     </div>
-                    {currentLevelData.name && (
+                    {currentLevelData.displaySubtitle && (
                         <p className="text-blue-400 mt-2 font-bold tracking-widest uppercase text-xs opacity-80">
-                            {currentLevelData.name}
+                            {currentLevelData.displaySubtitle}
                         </p>
                     )}
                 </div>

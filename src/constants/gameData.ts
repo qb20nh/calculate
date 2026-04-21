@@ -3,7 +3,8 @@ import { Level } from '../domain/types';
 export const LEVELS: Level[] = [
     {
         id: 1,
-        name: "The Basics",
+        displayTitle: "Tutorial 1",
+        displaySubtitle: "The Basics",
         rows: 1, cols: 5,
         layout: [0, 0, 0, 0, 0],
         inventory: ['4', '+', '4', '=', '8', '2', '>'],
@@ -11,7 +12,8 @@ export const LEVELS: Level[] = [
     },
     {
         id: 2,
-        name: "Chain Reaction",
+        displayTitle: "Tutorial 2",
+        displaySubtitle: "Chain Reaction",
         rows: 1, cols: 7,
         layout: [0, 0, 0, 0, 0, 0, 0],
         inventory: ['1', '+', '2', '=', '3', '<', '9', '5', '−'],
@@ -19,7 +21,8 @@ export const LEVELS: Level[] = [
     },
     {
         id: 3,
-        name: "The Crossword",
+        displayTitle: "Tutorial 3",
+        displaySubtitle: "The Crossword",
         rows: 5, cols: 5,
         layout: [
             0, 0, 0, 0, 0,

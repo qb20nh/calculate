@@ -143,7 +143,8 @@ export const getProceduralLevel = (levelIndex: number): Level => {
 
     return {
         id: levelId,
-        name: "",
+        displayTitle: `Level ${levelId - 3}`,
+        displaySubtitle: "",
         rows, cols,
         layout,
         inventory: inventoryChars,
