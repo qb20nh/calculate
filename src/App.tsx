@@ -387,6 +387,7 @@ export default function App() {
     const [dailyPool, setDailyPool] = useState([]);
     const [dailyCurrent, setDailyCurrent] = useState([]);
     const [dailySubmitted, setDailySubmitted] = useState([]);
+    const [dailyKnownRelations, setDailyKnownRelations] = useState(new Set());
 
     const [isLevelCleared, setIsLevelCleared] = useState(false);
     const [isNewClear, setIsNewClear] = useState(false);
@@ -420,9 +421,14 @@ export default function App() {
     useEffect(() => {
         if (view !== 'daily') return;
         const date = new Date().toISOString().split('T')[0];
-        const state = { dailyPool, dailyCurrent, dailySubmitted };
+        const state = { 
+            dailyPool, 
+            dailyCurrent, 
+            dailySubmitted, 
+            dailyKnownRelations: Array.from(dailyKnownRelations) 
+        };
         localStorage.setItem(`mathScrabble_save_daily_${date}`, JSON.stringify(state));
-    }, [dailyPool, dailyCurrent, dailySubmitted, view]);
+    }, [dailyPool, dailyCurrent, dailySubmitted, dailyKnownRelations, view]);
 
     useEffect(() => {
         if (view !== 'daily') return;
@@ -475,10 +481,16 @@ export default function App() {
 
         if (saved) {
             try {
-                const { dailyPool: savedPool, dailyCurrent: savedCurrent, dailySubmitted: savedSubmitted } = JSON.parse(saved);
+                const { 
+                    dailyPool: savedPool, 
+                    dailyCurrent: savedCurrent, 
+                    dailySubmitted: savedSubmitted,
+                    dailyKnownRelations: savedKnown
+                } = JSON.parse(saved);
                 setDailyPool(savedPool);
                 setDailyCurrent(savedCurrent);
                 setDailySubmitted(savedSubmitted);
+                setDailyKnownRelations(new Set(savedKnown || []));
                 return;
             } catch (e) {
                 console.error("Failed to restore daily save", e);
@@ -488,6 +500,7 @@ export default function App() {
         setDailyPool(DAILY_POOL.map((char, i) => ({ id: `d-${i}`, char })));
         setDailyCurrent([]);
         setDailySubmitted([]);
+        setDailyKnownRelations(new Set());
     };
 
     // --- DRAG ENGINE ---
@@ -700,15 +713,73 @@ export default function App() {
             showToast(result.reason, "error");
             return;
         }
-        if (dailySubmitted.includes(statement)) {
-            showToast("You already found this statement!", "error");
+
+        // --- UNIQUENESS & DECOMPOSITION LOGIC ---
+        // 1. Decompose into singular relations (A=B<C -> A=B and B<C)
+        let comparators = [];
+        let expressions = [];
+        let currentExpr = "";
+        for (let i = 0; i < statement.length; i++) {
+            if (statement[i] === '<' && statement[i + 1] === '>') {
+                expressions.push(currentExpr);
+                comparators.push('<>');
+                currentExpr = "";
+                i++;
+            } else if (['=', '<', '>'].includes(statement[i])) {
+                expressions.push(currentExpr);
+                comparators.push(statement[i]);
+                currentExpr = "";
+            } else {
+                currentExpr += statement[i];
+            }
+        }
+        expressions.push(currentExpr);
+
+        // 2. Normalize expressions and relations
+        const normalizeExpr = (expr) => {
+            // Sort terms of addition and multiplication to handle commutativity (1+2 vs 2+1)
+            return expr.split('+').map(part => 
+                part.split('×').sort().join('×')
+            ).sort().join('+');
+        };
+
+        const currentRelations = [];
+        for (let i = 0; i < comparators.length; i++) {
+            let left = normalizeExpr(expressions[i]);
+            let right = normalizeExpr(expressions[i+1]);
+            let op = comparators[i];
+
+            // Normalize commutative operators (= and <>) by sorting sides
+            if (op === '=' || op === '<>') {
+                const sorted = [left, right].sort();
+                currentRelations.push(`${sorted[0]}${op}${sorted[1]}`);
+            } else if (op === '>') {
+                // Normalize > to < by swapping sides
+                currentRelations.push(`${right}<${left}`);
+            } else {
+                currentRelations.push(`${left}${op}${right}`);
+            }
+        }
+
+        // 3. Check if at least one relation is new
+        const isNew = currentRelations.some(rel => !dailyKnownRelations.has(rel));
+
+        if (!isNew) {
+            showToast("Mathematically redundant statement.", "error");
             return;
         }
 
+        // --- ACCEPT SUBMISSION ---
+        const newKnown = new Set(dailyKnownRelations);
+        currentRelations.forEach(rel => newKnown.add(rel));
+        
+        setDailyKnownRelations(newKnown);
         setDailySubmitted([statement, ...dailySubmitted]);
-        showToast("Valid statement found!", "success");
+        
+        // Return tiles to pool and clear current
         setDailyPool([...dailyPool, ...dailyCurrent]);
         setDailyCurrent([]);
+        showToast("New discovery!", "success");
     };
 
 
