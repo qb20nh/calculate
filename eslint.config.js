@@ -8,6 +8,7 @@ import eslintReact from '@eslint-react/eslint-plugin';
 import tailwind from 'eslint-plugin-better-tailwindcss';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import html from '@html-eslint/eslint-plugin';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
@@ -30,6 +31,17 @@ export default defineConfig([
   })),
   tailwind.configs.recommended,
   jsxA11y.flatConfigs.recommended,
+  {
+    files: ['**/*.html'],
+    plugins: {
+      html,
+    },
+    language: 'html/html',
+    rules: {
+      ...html.configs.recommended.rules,
+      'html/indent': ['error', 2],
+    },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     ...eslintReact.configs['recommended-type-checked'],
