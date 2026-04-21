@@ -21,6 +21,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
     const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(handleDrop, handleQuickClick);
     const timeLeft = useDailyTimer(true);
 
+    const formattedDate = React.useMemo(() => new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), []);
     const groupedDailyPool = getGroupedTiles(dailyPool);
 
     return (
@@ -35,7 +36,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
                     </h2>
                     <div className="flex items-center justify-center gap-3 mt-1">
                         <span className="text-slate-400 text-sm font-medium">
-                            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            {formattedDate}
                         </span>
                         <span className="text-slate-600">•</span>
                         <span className="text-emerald-400 text-sm font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
@@ -114,8 +115,8 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
                         <p className="text-slate-500 italic">No statements found yet. Get calculating!</p>
                     ) : (
                         <div className="flex flex-col gap-3">
-                            {dailySubmitted.map((stmt, idx) => (
-                                <div key={idx} className="bg-slate-800 px-4 py-3 rounded-lg border border-slate-600 font-mono text-xl tracking-widest text-emerald-300 shadow">
+                            {dailySubmitted.map((stmt) => (
+                                <div key={stmt} className="bg-slate-800 px-4 py-3 rounded-lg border border-slate-600 font-mono text-xl tracking-widest text-emerald-300 shadow">
                                     {stmt}
                                 </div>
                             ))}

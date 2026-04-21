@@ -45,8 +45,8 @@ export const getProceduralLevel = (levelIndex: number): Level => {
     if (levelId > 50) maxWords = 5;
     if (levelId > 100) maxWords = Math.min(8, 5 + Math.floor((levelId - 100) / 50));
 
-    let board = new Map<string, string>();
-    let placedWords: { word: string; x: number; y: number; isHoriz: boolean }[] = [];
+    const board = new Map<string, string>();
+    const placedWords: { word: string; x: number; y: number; isHoriz: boolean }[] = [];
 
     const canPlace = (word: string, startX: number, startY: number, isHoriz: boolean, currentBoard: Map<string, string>) => {
         for (let i = 0; i < word.length; i++) {
@@ -72,7 +72,7 @@ export const getProceduralLevel = (levelIndex: number): Level => {
         return true;
     };
 
-    let firstWord = generateEquationString(levelId);
+    const firstWord = generateEquationString(levelId);
     for (let i = 0; i < firstWord.length; i++) board.set(`${i},0`, firstWord[i]);
     placedWords.push({ word: firstWord, x: 0, y: 0, isHoriz: true });
 
@@ -87,12 +87,12 @@ export const getProceduralLevel = (levelIndex: number): Level => {
 
         let newWord = "";
         for (let genAttempts = 0; genAttempts < 30; genAttempts++) {
-            let cand = generateEquationString(levelId);
+            const cand = generateEquationString(levelId);
             if (cand.includes(targetChar)) { newWord = cand; break; }
         }
         if (!newWord) continue;
 
-        let indices = [];
+        const indices = [];
         for (let i = 0; i < newWord.length; i++) if (newWord[i] === targetChar) indices.push(i);
         const newCharIdx = indices[getRandomInt(0, indices.length - 1)];
 
@@ -111,7 +111,7 @@ export const getProceduralLevel = (levelIndex: number): Level => {
     }
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (let key of board.keys()) {
+    for (const key of board.keys()) {
         const [x, y] = key.split(',').map(Number);
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -124,7 +124,7 @@ export const getProceduralLevel = (levelIndex: number): Level => {
     const layout = Array(rows * cols).fill(1);
     const inventoryChars: string[] = [];
 
-    for (let [key, char] of board.entries()) {
+    for (const [key, char] of board.entries()) {
         const [x, y] = key.split(',').map(Number);
         layout[(y - minY) * cols + (x - minX)] = 0;
         inventoryChars.push(char);

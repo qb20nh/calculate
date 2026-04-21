@@ -5,7 +5,6 @@ import { Inventory } from './Inventory';
 import { usePuzzleGame } from '../../hooks/usePuzzleGame';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { getGroupedTiles } from '../../domain/engine';
-import { Tile } from '../../components/Tile';
 import { ResetDialog } from '../../components/ResetDialog';
 import { DragGhost } from '../../components/DragGhost';
 

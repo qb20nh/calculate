@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { DragInfo, HoverTarget } from '../domain/types';
+import { DragInfo, HoverTarget, DragItem } from '../domain/types';
 
-export const useDragAndDrop = (onDrop: (item: any, target: any) => void, onQuickClick: (item: any) => void) => {
+export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | null) => void, onQuickClick: (item: DragItem) => void) => {
     const [dragInfo, setDragInfo] = useState<DragInfo>({
         isDragging: false,
         item: null,
@@ -12,7 +12,7 @@ export const useDragAndDrop = (onDrop: (item: any, target: any) => void, onQuick
     });
     const [hoverTarget, setHoverTarget] = useState<HoverTarget | null>(null);
 
-    const startDrag = (e: React.PointerEvent, item: any) => {
+    const startDrag = (e: React.PointerEvent, item: DragItem) => {
         e.preventDefault();
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setDragInfo({
@@ -43,7 +43,7 @@ export const useDragAndDrop = (onDrop: (item: any, target: any) => void, onQuick
 
             const dropZone = elemUnder.closest('[data-dropzone]');
             if (dropZone) {
-                const type = dropZone.getAttribute('data-dropzone') as any;
+                const type = dropZone.getAttribute('data-dropzone') as HoverTarget['type'];
                 const indexStr = dropZone.getAttribute('data-index');
                 const index = indexStr !== null ? parseInt(indexStr, 10) : undefined;
                 setHoverTarget({ type, index });
@@ -58,10 +58,12 @@ export const useDragAndDrop = (onDrop: (item: any, target: any) => void, onQuick
             const dist = Math.hypot(e.clientX - dragInfo.startX, e.clientY - dragInfo.startY);
             const time = Date.now() - dragInfo.startTime;
 
-            if (dist < 10 && time < 300) {
-                onQuickClick(dragInfo.item);
-            } else {
-                onDrop(dragInfo.item, hoverTarget);
+            if (dragInfo.item) {
+                if (dist < 10 && time < 300) {
+                    onQuickClick(dragInfo.item);
+                } else {
+                    onDrop(dragInfo.item, hoverTarget);
+                }
             }
 
             setDragInfo({ isDragging: false, item: null, startX: 0, startY: 0, startTime: 0, x: 0, y: 0, offsetX: 0, offsetY: 0 });

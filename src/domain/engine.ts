@@ -2,8 +2,8 @@ import { ValidationResult, TileItem } from './types';
 import { SORT_ORDER } from '../constants/gameData';
 
 const parseStatement = (str: string): { expressions: string[], comparators: string[] } => {
-    let comparators: string[] = [];
-    let expressions: string[] = [];
+    const comparators: string[] = [];
+    const expressions: string[] = [];
     let currentExpr = "";
 
     for (let i = 0; i < str.length; i++) {
@@ -31,33 +31,33 @@ export const isValidEquation = (str: string): ValidationResult => {
     if (expressions.some(e => e === "")) return { valid: false, reason: "Misplaced comparators." };
 
     for (let i = 0; i < comparators.length; i++) {
-        let leftExpr = expressions[i];
-        let rightExpr = expressions[i + 1];
-        let leftHasOp = /[0-9][+−×÷]/.test(leftExpr);
-        let rightHasOp = /[0-9][+−×÷]/.test(rightExpr);
+        const leftExpr = expressions[i];
+        const rightExpr = expressions[i + 1];
+        const leftHasOp = /[0-9][+−×÷]/.test(leftExpr);
+        const rightHasOp = /[0-9][+−×÷]/.test(rightExpr);
 
         if (!leftHasOp && !rightHasOp) {
             return { valid: false, reason: `Invalid comparison: neither side of '${comparators[i]}' contains an operator.` };
         }
     }
 
-    let values: number[] = [];
-    for (let expr of expressions) {
+    const values: number[] = [];
+    for (const expr of expressions) {
         try {
             if (/\b0[0-9]+/.test(expr)) return { valid: false, reason: "Leading zeros not allowed." };
-            // eslint-disable-next-line no-new-func
-            let val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)();
+             
+            const val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)();
             if (!Number.isFinite(val)) return { valid: false, reason: "Invalid mathematical result (e.g., division by zero)." };
             values.push(val);
-        } catch (e) {
+        } catch {
             return { valid: false, reason: `Invalid syntax in expression: ${expr}` };
         }
     }
 
     for (let i = 0; i < comparators.length; i++) {
-        let left = values[i];
-        let right = values[i + 1];
-        let comp = comparators[i];
+        const left = values[i];
+        const right = values[i + 1];
+        const comp = comparators[i];
         if (comp === '=' && !(left === right)) return { valid: false, reason: `Mathematically false: ${left} = ${right}` };
         if (comp === '<' && !(left < right)) return { valid: false, reason: `Mathematically false: ${left} < ${right}` };
         if (comp === '>' && !(left > right)) return { valid: false, reason: `Mathematically false: ${left} > ${right}` };
@@ -78,9 +78,9 @@ export const getNormalizedRelations = (statement: string): string[] => {
 
     const currentRelations: string[] = [];
     for (let i = 0; i < comparators.length; i++) {
-        let left = normalizeExpr(expressions[i]);
-        let right = normalizeExpr(expressions[i + 1]);
-        let op = comparators[i];
+        const left = normalizeExpr(expressions[i]);
+        const right = normalizeExpr(expressions[i + 1]);
+        const op = comparators[i];
 
         if (op === '=' || op === '<>') {
             const sorted = [left, right].sort();

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [
     react({
-      // @ts-ignore - babel property exists at runtime but may not be recognized by current type definitions
+      // @ts-expect-error - babel property exists at runtime but may not be recognized by current type definitions
       babel: {
         plugins: [
           ["babel-plugin-react-compiler", { target: '19' }],

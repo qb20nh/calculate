@@ -1,11 +1,11 @@
 import React from 'react';
-import { HoverTarget } from '../../domain/types';
+import { HoverTarget, DragItem } from '../../domain/types';
 import { Tile } from '../../components/Tile';
 
 interface InventoryProps {
     groupedInventory: { char: string; count: number }[];
     hoverTarget: HoverTarget | null;
-    onStartDrag: (e: React.PointerEvent, item: any) => void;
+    onStartDrag: (e: React.PointerEvent, item: DragItem) => void;
 }
 
 export const Inventory: React.FC<InventoryProps> = ({ groupedInventory, hoverTarget, onStartDrag }) => {

@@ -12,7 +12,7 @@ const splitmix64 = (seed: bigint): bigint => {
 };
 
 export const setSeed = (seed: number) => {
-    let s = BigInt(seed);
+    const s = BigInt(seed);
     state[0] = splitmix64(s);
     state[1] = splitmix64(state[0]);
     state[2] = splitmix64(state[1]);
@@ -25,7 +25,6 @@ setSeed(12345);
 export const seededRandom = (): number => {
     const s0 = state[0];
     const s1 = state[1];
-    const s2 = state[2];
     const s3 = state[3];
 
     const result = (rotl(s0 + s3, 23n) + s0) & 0xffffffffffffffffn;

@@ -4,7 +4,7 @@ import { getProceduralLevel, generateEquationString } from './procedural';
 describe('procedural level generation', () => {
     it('should generate levels of increasing complexity', () => {
         const level1 = getProceduralLevel(0);
-        const level20 = getProceduralLevel(19);
+        getProceduralLevel(19);
         const level100 = getProceduralLevel(99);
 
         expect(level1.id).toBe(1);

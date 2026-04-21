@@ -6,6 +6,7 @@ const ReactCompilerConfig = {
 };
 
 export default defineConfig({
+  base: '/calculate/',
   plugins: [
     react({
       babel: {

@@ -6,11 +6,11 @@ const scanLines = (
     innerLimit: number,
     getCell: (outer: number, inner: number) => GridCell
 ): string[] => {
-    let words: string[] = [];
+    const words: string[] = [];
     for (let o = 0; o < outerLimit; o++) {
         let currentStr = "";
         for (let i = 0; i < innerLimit; i++) {
-            let cell = getCell(o, i);
+            const cell = getCell(o, i);
             if (cell.type !== 'block' && cell.char) {
                 currentStr += cell.char;
             } else {
@@ -38,7 +38,7 @@ export const validateGrid = (grid: GridCell[], cols: number): ValidationResult =
         return { valid: false, reason: "No statements formed." };
     }
 
-    for (let word of words) {
+    for (const word of words) {
         const res = isValidEquation(word);
         if (!res.valid) return res;
     }

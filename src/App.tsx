@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, lazy } from 'react';
 import { ViewType } from './domain/types';
 import { MainMenu } from './features/menu/MainMenu';
 import { Toast } from './components/Toast';
@@ -17,7 +17,7 @@ const LoadingSpinner = () => (
 
 export default function App() {
     const [view, setView] = useState<ViewType>('menu');
-    const [warmedViews, setWarmedViews] = useState<Set<ViewType>>(new Set());
+    const [warmedViews, setWarmedViews] = useState<Set<ViewType>>(() => new Set());
     const { toast, showToast } = useToast();
 
     const handlePreload = (v: ViewType) => {

@@ -11,7 +11,7 @@ const getParsed = (key: string) => {
     if (!saved) return null;
     try {
         return JSON.parse(saved);
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -37,7 +37,7 @@ export const StorageService = {
 
     getDailySave: (date: string) => getParsed(KEYS.DAILY_SAVE(date)),
 
-    setDailySave: (date: string, state: any) => {
+    setDailySave: (date: string, state: unknown) => {
         localStorage.setItem(KEYS.DAILY_SAVE(date), JSON.stringify(state));
     }
 };
