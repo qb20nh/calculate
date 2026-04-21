@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "lint": "eslint .",
+    "lint": "eslint . --cache",
     "lint:suppressed": "node scripts/count-suppressions.js",
-    "format": "eslint . --fix",
+    "format": "eslint . --fix --cache",
     "build": "pnpm lint && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server && node scripts/prerender.js",
     "preview": "vite preview",
     "jscpd": "jscpd src",
