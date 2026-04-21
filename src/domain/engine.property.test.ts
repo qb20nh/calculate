@@ -80,10 +80,10 @@ describe('engine.ts (property-based)', () => {
   })
 
   describe('getNormalizedRelations', () => {
-    it('should produce the same relations for "a=b" and "b=a"', () => {
-      // Use alphanumeric strings without comparators to avoid complex parsing issues
-      const partArb = fc.string({ minLength: 1 }).filter(s => !/[=<>!]/.test(s))
+    // Use alphanumeric strings without comparators to avoid complex parsing issues
+    const partArb = fc.string({ minLength: 1 }).filter(s => !/[=<>!]/.test(s))
 
+    it('should produce the same relations for "a=b" and "b=a"', () => {
       fc.assert(
         fc.property(partArb, partArb, (a, b) => {
           const res1 = getNormalizedRelations(`${a}=${b}`)
@@ -94,8 +94,6 @@ describe('engine.ts (property-based)', () => {
     })
 
     it('should produce consistent relations for "a<b" and "b>a"', () => {
-      const partArb = fc.string({ minLength: 1 }).filter(s => !/[=<>!]/.test(s))
-
       fc.assert(
         fc.property(partArb, partArb, (a, b) => {
           const res1 = getNormalizedRelations(`${a}<${b}`)
