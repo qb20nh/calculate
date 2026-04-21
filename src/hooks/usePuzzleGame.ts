@@ -157,7 +157,6 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
       const result = validateGrid(currentGrid, currentLevelData.cols)
       if (result.valid) {
         showToast('Brilliant! Stage Clear.', 'success')
-        const isNew = levelIndex >= maxProgress
         const nextMax = Math.max(levelIndex + 1, maxProgress)
         StorageService.setMaxProgress(nextMax)
         dispatch({
