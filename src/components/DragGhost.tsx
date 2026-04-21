@@ -1,6 +1,7 @@
 import React from 'react'
 
-import { DragInfo } from '../domain/types'
+import { DragInfo } from '@/domain/types'
+
 import { Tile } from './Tile'
 
 interface DragGhostProps {

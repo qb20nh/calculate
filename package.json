@@ -49,5 +49,10 @@
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
+  },
+  "knip": {
+    "entry": [
+      "src/entry-server.tsx"
+    ]
   }
 }

@@ -1,4 +1,4 @@
-import { GridCell, TileItem } from '../domain/types'
+import { GridCell, TileItem } from '@/domain/types'
 
 interface SavedPlayState {
   levelIndex: number;

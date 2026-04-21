@@ -1,6 +1,6 @@
-import { LEVELS } from '../constants/gameData'
-import { getProceduralLevel } from '../domain/procedural'
-import { GridCell, Level } from '../domain/types'
+import { LEVELS } from '@/constants/gameData'
+import { getProceduralLevel } from '@/domain/procedural'
+import { GridCell, Level } from '@/domain/types'
 
 export const LevelService = {
   getLevel: (index: number): Level => {

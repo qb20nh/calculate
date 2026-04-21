@@ -1,7 +1,7 @@
 import { AlertCircle, Calendar, Play } from 'lucide-react'
 import React from 'react'
 
-import { ViewType } from '../../domain/types'
+import { ViewType } from '@/domain/types'
 
 interface MainMenuProps {
   onNavigate: (view: ViewType) => void;

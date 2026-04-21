@@ -1,12 +1,12 @@
 import { ArrowLeft, Calendar, RotateCcw, Trophy } from 'lucide-react'
 import React from 'react'
 
-import { DragGhost } from '../../components/DragGhost'
-import { Tile } from '../../components/Tile'
-import { getGroupedTiles } from '../../domain/engine'
-import { useDailyChallenge } from '../../hooks/useDailyChallenge'
-import { useDailyTimer } from '../../hooks/useDailyTimer'
-import { useDragAndDrop } from '../../hooks/useDragAndDrop'
+import { DragGhost } from '@/components/DragGhost'
+import { Tile } from '@/components/Tile'
+import { getGroupedTiles } from '@/domain/engine'
+import { useDailyChallenge } from '@/hooks/useDailyChallenge'
+import { useDailyTimer } from '@/hooks/useDailyTimer'
+import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 
 interface DailyViewProps {
   onBack: () => void;

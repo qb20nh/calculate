@@ -1,10 +1,19 @@
-/// <reference types="node" />
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const skipCompiler = process.env.SKIP_COMPILER === 'true'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   plugins: [
     // @ts-expect-error - babel property exists at runtime but may not be recognized by current type definitions
     react({

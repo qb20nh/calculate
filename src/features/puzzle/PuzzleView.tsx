@@ -1,11 +1,12 @@
 import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import React from 'react'
 
-import { DragGhost } from '../../components/DragGhost'
-import { ResetDialog } from '../../components/ResetDialog'
-import { getGroupedTiles } from '../../domain/engine'
-import { useDragAndDrop } from '../../hooks/useDragAndDrop'
-import { usePuzzleGame } from '../../hooks/usePuzzleGame'
+import { DragGhost } from '@/components/DragGhost'
+import { ResetDialog } from '@/components/ResetDialog'
+import { getGroupedTiles } from '@/domain/engine'
+import { useDragAndDrop } from '@/hooks/useDragAndDrop'
+import { usePuzzleGame } from '@/hooks/usePuzzleGame'
+
 import { Grid } from './Grid'
 import { Inventory } from './Inventory'
 

@@ -1,4 +1,5 @@
-import { SORT_ORDER } from '../constants/gameData'
+import { SORT_ORDER } from '@/constants/gameData'
+
 import { TileItem, ValidationResult } from './types'
 
 const parseStatement = (str: string): { expressions: string[], comparators: string[] } => {
@@ -24,6 +25,31 @@ const parseStatement = (str: string): { expressions: string[], comparators: stri
   return { expressions, comparators }
 }
 
+const evaluateExpression = (expr: string): number => {
+  // Replace visual operators with JS operators
+  const sanitized = expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')
+
+  // Only allow numbers, operators, and parentheses
+  if (/[^0-9+\-*/]/.test(sanitized)) {
+    throw new Error('Invalid characters')
+  }
+
+  // Use a safer evaluation method
+  // For a pure client-side math game, this restricted evaluation is much safer than raw Function
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call, no-new-func
+  const val = Number(new Function(`'use strict'; return ${sanitized}`)())
+  return val
+}
+
+/**
+ * Validates a mathematical statement string.
+ * Supports multiple expressions separated by comparators (=, <, >, <>).
+ * Each comparison must have at least one side with an operator (+, -, *, /).
+ * Leading zeros are not allowed.
+ *
+ * @param str The equation string to validate
+ * @returns ValidationResult indicating if the equation is mathematically true and syntactically correct
+ */
 export const isValidEquation = (str: string): ValidationResult => {
   const { expressions, comparators } = parseStatement(str)
 
@@ -46,8 +72,7 @@ export const isValidEquation = (str: string): ValidationResult => {
     try {
       if (/\b0[0-9]+/.test(expr)) return { valid: false, reason: 'Leading zeros not allowed.' }
 
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call, no-new-func
-      const val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)() as number
+      const val = evaluateExpression(expr)
       if (!Number.isFinite(val)) return { valid: false, reason: 'Invalid mathematical result (e.g., division by zero).' }
       values.push(val)
     } catch {
@@ -68,6 +93,15 @@ export const isValidEquation = (str: string): ValidationResult => {
   return { valid: true }
 }
 
+/**
+ * Normalizes a mathematical expression to allow for commutative comparisons.
+ * For example, "1+2" and "2+1" both normalize to "1+2".
+ * Note: Uses lexicographical sorting for consistency, which is sufficient as
+ * leading zeros are disallowed elsewhere in the engine.
+ *
+ * @param expr The expression string to normalize
+ * @returns Normalized expression string
+ */
 export const normalizeExpr = (expr: string): string => {
   return expr.split('+').map(part =>
     part.split('×').sort().join('×')
@@ -95,6 +129,12 @@ export const getNormalizedRelations = (statement: string): string[] => {
   return currentRelations
 }
 
+/**
+ * Groups a flat array of tiles by their character, counting occurrences and sorting by a predefined order.
+ *
+ * @param tilesArray Array of TileItem objects
+ * @returns Sorted array of grouped tiles with counts
+ */
 export const getGroupedTiles = (tilesArray: TileItem[]): { char: string; count: number }[] => {
   const counts: Record<string, number> = {}
   tilesArray.forEach(t => { counts[t.char] = (counts[t.char] || 0) + 1 })

@@ -1,7 +1,7 @@
 import React from 'react'
 
-import { Tile } from '../../components/Tile'
-import { DragItem, HoverTarget } from '../../domain/types'
+import { Tile } from '@/components/Tile'
+import { DragItem, HoverTarget } from '@/domain/types'
 
 interface InventoryProps {
   groupedInventory: { char: string; count: number }[];

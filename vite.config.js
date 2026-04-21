@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const ReactCompilerConfig = {
   target: '19' // Target React 19
@@ -7,6 +11,11 @@ const ReactCompilerConfig = {
 
 export default defineConfig({
   base: '/calculate/',
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   plugins: [
     react({
       babel: {
