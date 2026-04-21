@@ -172,8 +172,37 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
     }
   }, [currentLevelData, levelIndex, maxProgress, showToast])
 
+  const handleReturnToInventory = useCallback((item: DragItem) => {
+    if (item.source !== 'grid' || item.index === undefined) return
+    const newGrid = [...grid]
+    const char = newGrid[item.index].char
+    if (!char) return
+    newGrid[item.index] = {
+      ...newGrid[item.index],
+      char: null
+    }
+    dispatch({
+      type: 'SET_GRID',
+      grid: newGrid
+    })
+    dispatch({
+      type: 'SET_INVENTORY',
+      inventory: [...inventory, {
+        id: Date.now(),
+        char
+      }]
+    })
+  }, [grid, inventory])
+
   const handleDrop = useCallback((item: DragItem, target: HoverTarget | null) => {
-    if (!target || target.type !== 'grid' || target.index === undefined) return
+    if (!target) return
+
+    if (target.type === 'inventory') {
+      handleReturnToInventory(item)
+      return
+    }
+
+    if (target.type !== 'grid' || target.index === undefined) return
 
     const cell = grid[target.index]
     if (cell.type === 'block') return
@@ -220,29 +249,7 @@ export const usePuzzleGame = (showToast: (msg: string, type?: string) => void) =
       })
       checkFullAndVerify(newGrid)
     }
-  }, [grid, inventory, checkFullAndVerify])
-
-  const handleReturnToInventory = useCallback((item: DragItem) => {
-    if (item.source !== 'grid' || item.index === undefined) return
-    const newGrid = [...grid]
-    const char = newGrid[item.index].char
-    if (!char) return
-    newGrid[item.index] = {
-      ...newGrid[item.index],
-      char: null
-    }
-    dispatch({
-      type: 'SET_GRID',
-      grid: newGrid
-    })
-    dispatch({
-      type: 'SET_INVENTORY',
-      inventory: [...inventory, {
-        id: Date.now(),
-        char
-      }]
-    })
-  }, [grid, inventory])
+  }, [grid, inventory, checkFullAndVerify, handleReturnToInventory])
 
   const handleQuickClick = useCallback((item: DragItem) => {
     if (item.source === 'inventory') {
