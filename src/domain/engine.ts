@@ -1,7 +1,7 @@
 import { ValidationResult, TileItem } from './types';
 import { SORT_ORDER } from '../constants/gameData';
 
-export const isValidEquation = (str: string): ValidationResult => {
+const parseStatement = (str: string): { expressions: string[], comparators: string[] } => {
     let comparators: string[] = [];
     let expressions: string[] = [];
     let currentExpr = "";
@@ -21,6 +21,11 @@ export const isValidEquation = (str: string): ValidationResult => {
         }
     }
     expressions.push(currentExpr);
+    return { expressions, comparators };
+};
+
+export const isValidEquation = (str: string): ValidationResult => {
+    const { expressions, comparators } = parseStatement(str);
 
     if (comparators.length === 0) return { valid: false, reason: "Must contain a comparator (=, <, >, <>)." };
     if (expressions.some(e => e === "")) return { valid: false, reason: "Misplaced comparators." };
@@ -69,24 +74,7 @@ export const normalizeExpr = (expr: string): string => {
 };
 
 export const getNormalizedRelations = (statement: string): string[] => {
-    let comparators: string[] = [];
-    let expressions: string[] = [];
-    let currentExpr = "";
-    for (let i = 0; i < statement.length; i++) {
-        if (statement[i] === '<' && statement[i + 1] === '>') {
-            expressions.push(currentExpr);
-            comparators.push('<>');
-            currentExpr = "";
-            i++;
-        } else if (['=', '<', '>'].includes(statement[i])) {
-            expressions.push(currentExpr);
-            comparators.push(statement[i]);
-            currentExpr = "";
-        } else {
-            currentExpr += statement[i];
-        }
-    }
-    expressions.push(currentExpr);
+    const { expressions, comparators } = parseStatement(statement);
 
     const currentRelations: string[] = [];
     for (let i = 0; i < comparators.length; i++) {

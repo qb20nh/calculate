@@ -1,0 +1,7 @@
+{
+  "threshold": 1,
+  "reporters": ["console", "html"],
+  "ignore": ["node_modules", "dist", "artifacts", "coverage"],
+  "absolute": true,
+  "mode": "strict"
+}

@@ -1,15 +1,16 @@
 import { GridCell, ValidationResult } from './types';
 import { isValidEquation } from './engine';
 
-export const extractWordsFromGrid = (grid: GridCell[], cols: number): string[] => {
-    let rows = grid.length / cols;
+const scanLines = (
+    outerLimit: number,
+    innerLimit: number,
+    getCell: (outer: number, inner: number) => GridCell
+): string[] => {
     let words: string[] = [];
-
-    // Horizontal
-    for (let r = 0; r < rows; r++) {
+    for (let o = 0; o < outerLimit; o++) {
         let currentStr = "";
-        for (let c = 0; c < cols; c++) {
-            let cell = grid[r * cols + c];
+        for (let i = 0; i < innerLimit; i++) {
+            let cell = getCell(o, i);
             if (cell.type !== 'block' && cell.char) {
                 currentStr += cell.char;
             } else {
@@ -19,23 +20,15 @@ export const extractWordsFromGrid = (grid: GridCell[], cols: number): string[] =
         }
         if (currentStr.length > 1) words.push(currentStr);
     }
-
-    // Vertical
-    for (let c = 0; c < cols; c++) {
-        let currentStr = "";
-        for (let r = 0; r < rows; r++) {
-            let cell = grid[r * cols + c];
-            if (cell.type !== 'block' && cell.char) {
-                currentStr += cell.char;
-            } else {
-                if (currentStr.length > 1) words.push(currentStr);
-                currentStr = "";
-            }
-        }
-        if (currentStr.length > 1) words.push(currentStr);
-    }
-
     return words;
+};
+
+export const extractWordsFromGrid = (grid: GridCell[], cols: number): string[] => {
+    const rows = grid.length / cols;
+    return [
+        ...scanLines(rows, cols, (r, c) => grid[r * cols + c]), // Horizontal
+        ...scanLines(cols, rows, (c, r) => grid[r * cols + c])  // Vertical
+    ];
 };
 
 export const validateGrid = (grid: GridCell[], cols: number): ValidationResult => {

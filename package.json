@@ -6,17 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cpd": "jscpd src",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.4",
     "autoprefixer": "^10.5.0",
+    "jscpd": "^4.0.9",
+    "jsdom": "^29.0.2",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.3",
-    "vite": "^8.0.9"
+    "vite": "^8.0.9",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",

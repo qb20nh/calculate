@@ -6,6 +6,16 @@ const KEYS = {
     DAILY_SAVE: (date: string) => `mathScrabble_save_daily_${date}`,
 };
 
+const getParsed = (key: string) => {
+    const saved = localStorage.getItem(key);
+    if (!saved) return null;
+    try {
+        return JSON.parse(saved);
+    } catch (e) {
+        return null;
+    }
+};
+
 export const StorageService = {
     getMaxProgress: (): number => {
         return parseInt(localStorage.getItem(KEYS.PROGRESS) || '0', 10);
@@ -15,15 +25,7 @@ export const StorageService = {
         localStorage.setItem(KEYS.PROGRESS, level.toString());
     },
 
-    getCurrentPlay: () => {
-        const saved = localStorage.getItem(KEYS.CURRENT_PLAY);
-        if (!saved) return null;
-        try {
-            return JSON.parse(saved);
-        } catch (e) {
-            return null;
-        }
-    },
+    getCurrentPlay: () => getParsed(KEYS.CURRENT_PLAY),
 
     setCurrentPlay: (state: { levelIndex: number; grid: GridCell[]; inventory: TileItem[]; isLevelCleared: boolean; isNewClear: boolean }) => {
         localStorage.setItem(KEYS.CURRENT_PLAY, JSON.stringify(state));
@@ -33,15 +35,7 @@ export const StorageService = {
         localStorage.removeItem(KEYS.CURRENT_PLAY);
     },
 
-    getDailySave: (date: string) => {
-        const saved = localStorage.getItem(KEYS.DAILY_SAVE(date));
-        if (!saved) return null;
-        try {
-            return JSON.parse(saved);
-        } catch (e) {
-            return null;
-        }
-    },
+    getDailySave: (date: string) => getParsed(KEYS.DAILY_SAVE(date)),
 
     setDailySave: (date: string, state: any) => {
         localStorage.setItem(KEYS.DAILY_SAVE(date), JSON.stringify(state));

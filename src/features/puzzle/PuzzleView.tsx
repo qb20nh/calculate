@@ -7,6 +7,7 @@ import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { getGroupedTiles } from '../../domain/engine';
 import { Tile } from '../../components/Tile';
 import { ResetDialog } from '../../components/ResetDialog';
+import { DragGhost } from '../../components/DragGhost';
 
 interface PuzzleViewProps {
     onBack: () => void;
@@ -101,19 +102,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ onBack, showToast }) => 
                 onStartDrag={startDrag} 
             />
 
-            {/* GHOST ELEMENT FOR DRAGGING */}
-            {dragInfo.isDragging && dragInfo.item && (
-                <div
-                    id="drag-ghost"
-                    className="fixed pointer-events-none z-[100]"
-                    style={{
-                        left: `${dragInfo.x - dragInfo.offsetX}px`,
-                        top: `${dragInfo.y - dragInfo.offsetY}px`,
-                    }}
-                >
-                    <Tile char={dragInfo.item.char} />
-                </div>
-            )}
+            <DragGhost dragInfo={dragInfo} />
 
             <ResetDialog dialogRef={resetDialogRef} onConfirm={handleResetConfirm} />
         </div>

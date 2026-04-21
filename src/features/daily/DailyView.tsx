@@ -5,6 +5,7 @@ import { useDailyChallenge } from '../../hooks/useDailyChallenge';
 import { useDailyTimer } from '../../hooks/useDailyTimer';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { getGroupedTiles } from '../../domain/engine';
+import { DragGhost } from '../../components/DragGhost';
 
 interface DailyViewProps {
     onBack: () => void;
@@ -123,19 +124,7 @@ export const DailyView: React.FC<DailyViewProps> = ({ onBack, showToast }) => {
                 </div>
             </div>
 
-            {/* GHOST ELEMENT FOR DRAGGING */}
-            {dragInfo.isDragging && dragInfo.item && (
-                <div
-                    id="drag-ghost"
-                    className="fixed pointer-events-none z-[100]"
-                    style={{
-                        left: `${dragInfo.x - dragInfo.offsetX}px`,
-                        top: `${dragInfo.y - dragInfo.offsetY}px`,
-                    }}
-                >
-                    <Tile char={dragInfo.item.char} />
-                </div>
-            )}
+            <DragGhost dragInfo={dragInfo} />
         </div>
     );
 };
