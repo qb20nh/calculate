@@ -1,452 +1,241 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Calendar, ArrowLeft, Check, RotateCcw, AlertCircle, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Calendar, ArrowLeft, RotateCcw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-// --- GAME DATA & LEVELS ---
-const LEVELS = [
-    {
-        id: 1,
-        name: "The Basics",
-        rows: 1, cols: 5,
-        layout: [0, 0, 0, 0, 0],
-        inventory: ['4', '+', '4', '=', '8', '2', '>'],
-        description: "Form a true statement. Remember: at least one side needs a math operator!"
-    },
-    {
-        id: 2,
-        name: "Chain Reaction",
-        rows: 1, cols: 7,
-        layout: [0, 0, 0, 0, 0, 0, 0],
-        inventory: ['1', '+', '2', '=', '3', '<', '9', '5', '−'],
-        description: "You can chain comparators together!"
-    },
-    {
-        id: 3,
-        name: "The Crossword",
-        rows: 5, cols: 5,
-        layout: [
-            0, 0, 0, 0, 0,
-            0, 1, 1, 1, 0,
-            0, 0, 0, 0, 0,
-            0, 1, 1, 1, 0,
-            0, 0, 0, 0, 0
-        ],
-        inventory: ['3', '+', '2', '=', '5', '×', '−', '2', '×', '2', '=', '4', '=', '=', '6', '−', '5', '=', '1', '9', '+', '<', '>'],
-        description: "Statements must be mathematically true reading left-to-right AND top-to-bottom."
-    }
-];
+// Types
+import { Level, TileItem, GridCell, DragItem, HoverTarget } from './types/game';
 
-const DAILY_POOL = ['1', '2', '2', '3', '4', '5', '8', '+', '+', '−', '×', '=', '=', '<', '>'];
-const SORT_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '−', '×', '÷', '=', '<', '>'];
+// Constants
+import { LEVELS, DAILY_POOL } from './constants/gameData';
 
-// --- PROCEDURAL GENERATOR ---
-let currentSeed = 12345;
-const setSeed = (seed) => { currentSeed = seed; };
-const seededRandom = () => {
-    let t = currentSeed += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-};
+// Utilities
+import { isValidEquation, getNormalizedRelations } from './utils/math';
+import { getProceduralLevel } from './utils/levelGenerator';
+import { getGroupedTiles as getGroupedTilesUtil } from './utils/gameUtils';
 
-const getRandomInt = (min, max) => Math.floor(seededRandom() * (max - min + 1)) + min;
+// Components
+import { Tile } from './components/Tile';
+import { Toast } from './components/Toast';
+import { ResetDialog } from './components/ResetDialog';
+import { Grid } from './components/Grid';
+import { Inventory } from './components/Inventory';
+import { DailyChallenge } from './components/DailyChallenge';
 
-const generateEquationString = (levelId) => {
-    const maxVal = Math.min(100, 5 + Math.floor(levelId / 2));
-    const useAdvanced = levelId > 5 && seededRandom() > 0.5;
+// Hooks
+import { useDragAndDrop } from './hooks/useDragAndDrop';
+import { useDailyTimer } from './hooks/useDailyTimer';
 
-    const ops = ['+', '−', '×'];
-    if (levelId > 10) ops.push('÷');
-
-    const op = ops[getRandomInt(0, ops.length - 1)];
-    let a, b, c;
-    if (op === '+') {
-        a = getRandomInt(1, maxVal); b = getRandomInt(1, maxVal); c = a + b;
-    } else if (op === '−') {
-        c = getRandomInt(1, maxVal); b = getRandomInt(1, maxVal); a = c + b;
-    } else if (op === '×') {
-        a = getRandomInt(1, Math.min(maxVal, 15)); b = getRandomInt(1, Math.min(maxVal, 15)); c = a * b;
-    } else if (op === '÷') {
-        c = getRandomInt(1, Math.min(maxVal, 10)); b = getRandomInt(1, Math.min(maxVal, 10)); a = c * b;
-    }
-
-    let eq = `${a}${op}${b}=${c}`;
-
-    if (useAdvanced) {
-        const comp = ['<', '>', '<>'][getRandomInt(0, 2)];
-        const lastVal = c;
-        if (comp === '<') eq += `<${lastVal + getRandomInt(1, maxVal)}`;
-        if (comp === '>') eq += `>${lastVal - getRandomInt(1, Math.max(1, lastVal - 1))}`;
-        if (comp === '<>') eq += `<>${lastVal + getRandomInt(1, maxVal)}`;
-    }
-    return eq;
-};
-
-const getProceduralLevel = (levelIndex) => {
-    const levelId = levelIndex + 1;
-    setSeed(levelId * 12345); // Deterministic seed based on level number
-
-    let maxWords = 1;
-    if (levelId > 3) maxWords = 2;
-    if (levelId > 10) maxWords = 3;
-    if (levelId > 25) maxWords = 4;
-    if (levelId > 50) maxWords = 5;
-    if (levelId > 100) maxWords = Math.min(8, 5 + Math.floor((levelId - 100) / 50));
-
-    let board = new Map();
-    let placedWords = [];
-
-    const canPlace = (word, startX, startY, isHoriz, currentBoard) => {
-        for (let i = 0; i < word.length; i++) {
-            const x = isHoriz ? startX + i : startX;
-            const y = isHoriz ? startY : startY + i;
-            const key = `${x},${y}`;
-            // Ensure we only overlap matching characters
-            if (currentBoard.has(key) && currentBoard.get(key) !== word[i]) return false;
-
-            // Ensure we don't accidentally create parallel adjacent words
-            if (isHoriz) {
-                if (!currentBoard.has(key)) {
-                    if (currentBoard.has(`${x},${y - 1}`) || currentBoard.has(`${x},${y + 1}`)) return false;
-                }
-                if (i === 0 && currentBoard.has(`${x - 1},${y}`)) return false;
-                if (i === word.length - 1 && currentBoard.has(`${x + 1},${y}`)) return false;
-            } else {
-                if (!currentBoard.has(key)) {
-                    if (currentBoard.has(`${x - 1},${y}`) || currentBoard.has(`${x + 1},${y}`)) return false;
-                }
-                if (i === 0 && currentBoard.has(`${x},${y - 1}`)) return false;
-                if (i === word.length - 1 && currentBoard.has(`${x},${y + 1}`)) return false;
-            }
-        }
-        return true;
-    };
-
-    let firstWord = generateEquationString(levelId);
-    for (let i = 0; i < firstWord.length; i++) board.set(`${i},0`, firstWord[i]);
-    placedWords.push({ word: firstWord, x: 0, y: 0, isHoriz: true });
-
-    let attempts = 0;
-    while (placedWords.length < maxWords && attempts < 150) {
-        attempts++;
-        const targetWord = placedWords[getRandomInt(0, placedWords.length - 1)];
-        const charIdx = getRandomInt(0, targetWord.word.length - 1);
-        const targetChar = targetWord.word[charIdx];
-        const intersectX = targetWord.isHoriz ? targetWord.x + charIdx : targetWord.x;
-        const intersectY = targetWord.isHoriz ? targetWord.y : targetWord.y + charIdx;
-
-        let newWord = "";
-        for (let genAttempts = 0; genAttempts < 30; genAttempts++) {
-            let cand = generateEquationString(levelId);
-            if (cand.includes(targetChar)) { newWord = cand; break; }
-        }
-        if (!newWord) continue;
-
-        let indices = [];
-        for (let i = 0; i < newWord.length; i++) if (newWord[i] === targetChar) indices.push(i);
-        const newCharIdx = indices[getRandomInt(0, indices.length - 1)];
-
-        const isHoriz = !targetWord.isHoriz;
-        const startX = isHoriz ? intersectX - newCharIdx : intersectX;
-        const startY = isHoriz ? intersectY : intersectY - newCharIdx;
-
-        if (canPlace(newWord, startX, startY, isHoriz, board)) {
-            for (let i = 0; i < newWord.length; i++) {
-                const x = isHoriz ? startX + i : startX;
-                const y = isHoriz ? startY : startY + i;
-                board.set(`${x},${y}`, newWord[i]);
-            }
-            placedWords.push({ word: newWord, x: startX, y: startY, isHoriz });
-        }
-    }
-
-    // Extract Bounding Box
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (let key of board.keys()) {
-        const [x, y] = key.split(',').map(Number);
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-    }
-
-    const cols = maxX - minX + 1;
-    const rows = maxY - minY + 1;
-    const layout = Array(rows * cols).fill(1); // 1 = block
-    const inventoryChars = [];
-
-    for (let [key, char] of board.entries()) {
-        const [x, y] = key.split(',').map(Number);
-        layout[(y - minY) * cols + (x - minX)] = 0; // 0 = empty playable space
-        inventoryChars.push(char);
-    }
-
-    // Add random noise tiles to increase difficulty
-    const numNoise = Math.floor(levelId / 5);
-    const noisePool = ['+', '−', '×', '=', '<', '>', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    for (let i = 0; i < numNoise; i++) {
-        inventoryChars.push(noisePool[getRandomInt(0, noisePool.length - 1)]);
-    }
-
-    // Shuffle inventory array
-    for (let i = inventoryChars.length - 1; i > 0; i--) {
-        const j = Math.floor(seededRandom() * (i + 1));
-        [inventoryChars[i], inventoryChars[j]] = [inventoryChars[j], inventoryChars[i]];
-    }
-
-    return {
-        id: levelId,
-        name: "",
-        rows, cols,
-        layout,
-        inventory: inventoryChars,
-        description: ""
-    };
-};
-
-// --- MATH LOGIC ENGINE ---
-const isValidEquation = (str) => {
-    if (str.length < 3) return { valid: false, reason: "Too short." };
-    if (!/^[0-9+−×÷=<>]+$/.test(str)) return { valid: false, reason: "Invalid characters." };
-
-    let comparators = [];
-    let expressions = [];
-    let currentExpr = "";
-
-    for (let i = 0; i < str.length; i++) {
-        if (str[i] === '<' && str[i + 1] === '>') {
-            expressions.push(currentExpr);
-            comparators.push('<>');
-            currentExpr = "";
-            i++;
-        } else if (['=', '<', '>'].includes(str[i])) {
-            expressions.push(currentExpr);
-            comparators.push(str[i]);
-            currentExpr = "";
-        } else {
-            currentExpr += str[i];
-        }
-    }
-    expressions.push(currentExpr);
-
-    if (comparators.length === 0) return { valid: false, reason: "Must contain a comparator (=, <, >, <>)." };
-    if (expressions.some(e => e === "")) return { valid: false, reason: "Misplaced comparators." };
-
-    for (let i = 0; i < comparators.length; i++) {
-        let leftExpr = expressions[i];
-        let rightExpr = expressions[i + 1];
-        let leftHasOp = /[0-9][+−×÷]/.test(leftExpr);
-        let rightHasOp = /[0-9][+−×÷]/.test(rightExpr);
-
-        if (!leftHasOp && !rightHasOp) {
-            return { valid: false, reason: `Invalid comparison: neither side of '${comparators[i]}' contains an operator.` };
-        }
-    }
-
-    let values = [];
-    for (let expr of expressions) {
-        try {
-            if (/\b0[0-9]+/.test(expr)) return { valid: false, reason: "Leading zeros not allowed." };
-            let val = Function(`'use strict'; return (${expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')})`)();
-            if (!Number.isFinite(val)) return { valid: false, reason: "Invalid mathematical result (e.g., division by zero)." };
-            values.push(val);
-        } catch (e) {
-            return { valid: false, reason: `Invalid syntax in expression: ${expr}` };
-        }
-    }
-
-    for (let i = 0; i < comparators.length; i++) {
-        let left = values[i];
-        let right = values[i + 1];
-        let comp = comparators[i];
-        if (comp === '=' && !(left === right)) return { valid: false, reason: `Mathematically false: ${left} = ${right}` };
-        if (comp === '<' && !(left < right)) return { valid: false, reason: `Mathematically false: ${left} < ${right}` };
-        if (comp === '>' && !(left > right)) return { valid: false, reason: `Mathematically false: ${left} > ${right}` };
-        if (comp === '<>' && !(left !== right)) return { valid: false, reason: `Mathematically false: ${left} <> ${right}` };
-    }
-
-    return { valid: true };
-};
-
-const checkGridValidity = (grid, cols) => {
-    let rows = grid.length / cols;
-    let words = [];
-
-    for (let r = 0; r < rows; r++) {
-        let currentStr = "";
-        for (let c = 0; c < cols; c++) {
-            let cell = grid[r * cols + c];
-            if (cell.type !== 'block' && cell.char) {
-                currentStr += cell.char;
-            } else {
-                if (currentStr.length > 1) words.push(currentStr);
-                currentStr = "";
-            }
-        }
-        if (currentStr.length > 1) words.push(currentStr);
-    }
-
-    for (let c = 0; c < cols; c++) {
-        let currentStr = "";
-        for (let r = 0; r < rows; r++) {
-            let cell = grid[r * cols + c];
-            if (cell.type !== 'block' && cell.char) {
-                currentStr += cell.char;
-            } else {
-                if (currentStr.length > 1) words.push(currentStr);
-                currentStr = "";
-            }
-        }
-        if (currentStr.length > 1) words.push(currentStr);
-    }
-
-    if (words.length === 0) return { valid: false, reason: "No equations formed." };
-
-    for (let word of words) {
-        let res = isValidEquation(word);
-        if (!res.valid) return { valid: false, reason: res.reason };
-    }
-
-    const isFull = grid.every(cell => cell.type === 'block' || cell.char !== null);
-    if (!isFull) return { valid: false, reason: "Fill all empty spaces.", isFull: false };
-
-    return { valid: true };
-};
-
-const getGroupedTiles = (tilesArray) => {
-    const counts = {};
-    tilesArray.forEach(t => counts[t.char] = (counts[t.char] || 0) + 1);
-    return Object.keys(counts)
-        .sort((a, b) => {
-            let idxA = SORT_ORDER.indexOf(a);
-            let idxB = SORT_ORDER.indexOf(b);
-            if (idxA === -1) idxA = 99;
-            if (idxB === -1) idxB = 99;
-            return idxA - idxB;
-        })
-        .map(char => ({ char, count: counts[char] }));
-};
-
-// --- UI COMPONENTS ---
-const Tile = ({ char, count, isFaded, onPointerDown }) => {
-    const isOperator = ['+', '−', '×', '÷'].includes(char);
-    const isComparator = ['=', '<', '>'].includes(char);
-
-    return (
-        <div
-            onPointerDown={onPointerDown}
-            style={{ touchAction: 'none' }}
-            className={`relative w-10 h-10 sm:w-14 sm:h-14 rounded-lg shadow flex items-center justify-center text-2xl font-bold cursor-grab active:cursor-grabbing select-none transition-all duration-200
-        ${isFaded ? 'opacity-30 scale-95' : 'hover:scale-105 hover:shadow-md z-10'}
-        ${isOperator ? 'bg-orange-100 text-orange-600 border-orange-200' :
-                    isComparator ? 'bg-blue-100 text-blue-600 border-blue-200' :
-                        'bg-white text-slate-800 border-slate-200'} border-2`}
-        >
-            {char}
-            {count !== undefined && count > 1 && (
-                <div className="absolute -top-2 -right-2 bg-slate-900 text-yellow-400 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-slate-600 shadow-sm z-20">
-                    {count}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const Toast = ({ message, type }) => {
-    if (!message) return null;
-    return (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 z-[150] whitespace-nowrap
-      ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-            {type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
-            {message}
-        </div>
-    );
-};
-
-// --- MAIN APP ---
 export default function App() {
-    const [view, setView] = useState('menu');
+    const [view, setView] = useState<'menu' | 'main' | 'daily'>('menu');
     const [toast, setToast] = useState({ message: '', type: '' });
 
-    const showToast = (message, type = 'error') => {
+    // Game Progress
+    const [levelIndex, setLevelIndex] = useState(() => {
+        return parseInt(localStorage.getItem('mathScrabbleCurrentLevel') || '0', 10);
+    });
+    const [maxProgress, setMaxProgress] = useState(() => {
+        return parseInt(localStorage.getItem('mathScrabbleProgress') || '0', 10);
+    });
+
+    // Game State
+    const [currentLevelData, setCurrentLevelData] = useState<Level | null>(null);
+    const [grid, setGrid] = useState<GridCell[]>([]);
+    const [inventory, setInventory] = useState<TileItem[]>([]);
+    
+    // Daily State
+    const [dailyPool, setDailyPool] = useState<TileItem[]>([]);
+    const [dailyCurrent, setDailyCurrent] = useState<TileItem[]>([]);
+    const [dailySubmitted, setDailySubmitted] = useState<string[]>([]);
+    const [dailyKnownRelations, setDailyKnownRelations] = useState<Set<string>>(new Set());
+
+    const [isLevelCleared, setIsLevelCleared] = useState(false);
+    const [isNewClear, setIsNewClear] = useState(false);
+
+    const resetDialogRef = useRef<HTMLDialogElement>(null);
+    const timeLeft = useDailyTimer(view === 'daily');
+
+    // --- TOAST HELPER ---
+    const showToast = (message: string, type: string = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast({ message: '', type: '' }), 3000);
     };
 
-    const [levelIndex, setLevelIndex] = useState(() => {
-        const saved = localStorage.getItem('mathScrabbleProgress');
-        return saved !== null ? parseInt(saved, 10) : 0;
-    });
-    const [currentLevelData, setCurrentLevelData] = useState(null);
-    const [grid, setGrid] = useState([]);
-    const [inventory, setInventory] = useState([]);
-    const [maxProgress, setMaxProgress] = useState(() => {
-        const saved = localStorage.getItem('mathScrabbleProgress');
-        return saved !== null ? parseInt(saved, 10) : 0;
-    });
+    // --- GAME LOGIC ---
+    const checkFullAndVerify = useCallback((currentGrid: GridCell[]) => {
+        if (!currentLevelData) return;
+        const isFull = currentGrid.every(c => c.type === 'block' || c.char !== null);
+        if (isFull) {
+            const result = isValidEquation(currentGrid.map(c => c.char || ' ').join('')); // Simplified check for grid
+            // Note: In real Scrabble/Equate, we check rows and columns.
+            // Using the existing checkGridValidity logic which was missing in the view_file but implied.
+            // Re-implementing a simple version or keeping the structure.
+            // Actually, I'll need to re-extract checkGridValidity.
+        }
+    }, [currentLevelData]);
 
-    const [dailyPool, setDailyPool] = useState([]);
-    const [dailyCurrent, setDailyCurrent] = useState([]);
-    const [dailySubmitted, setDailySubmitted] = useState([]);
-    const [dailyKnownRelations, setDailyKnownRelations] = useState(new Set());
+    // I'll need checkGridValidity from App.tsx. Let me fetch it.
+    // Actually, I'll just re-implement it briefly as it was simple loop.
+    const checkGridValidityLocal = useCallback((grid: GridCell[], cols: number) => {
+        let rows = grid.length / cols;
+        let words = [];
 
-    const [isLevelCleared, setIsLevelCleared] = useState(false);
-    const [isNewClear, setIsNewClear] = useState(false);
-    const [timeLeft, setTimeLeft] = useState("");
+        // Horizontal
+        for (let r = 0; r < rows; r++) {
+            let currentStr = "";
+            for (let c = 0; c < cols; c++) {
+                let cell = grid[r * cols + c];
+                if (cell.type !== 'block' && cell.char) {
+                    currentStr += cell.char;
+                } else {
+                    if (currentStr.length > 1) words.push(currentStr);
+                    currentStr = "";
+                }
+            }
+            if (currentStr.length > 1) words.push(currentStr);
+        }
 
-    // --- DRAG AND DROP STATE ---
-    const [dragInfo, setDragInfo] = useState({
-        isDragging: false,
-        item: null,
-        startX: 0, startY: 0,
-        startTime: 0,
-        x: 0, y: 0,
-        offsetX: 0, offsetY: 0,
-    });
-    const [hoverTarget, setHoverTarget] = useState(null); // { type, index }
-    const resetDialogRef = useRef(null);
+        // Vertical
+        for (let c = 0; c < cols; c++) {
+            let currentStr = "";
+            for (let r = 0; r < rows; r++) {
+                let cell = grid[r * cols + c];
+                if (cell.type !== 'block' && cell.char) {
+                    currentStr += cell.char;
+                } else {
+                    if (currentStr.length > 1) words.push(currentStr);
+                    currentStr = "";
+                }
+            }
+            if (currentStr.length > 1) words.push(currentStr);
+        }
 
-    useEffect(() => {
-        if (view === 'main') loadLevel(levelIndex);
-        if (view === 'daily') loadDaily();
-    }, [view, levelIndex]);
+        for (let word of words) {
+            const res = isValidEquation(word);
+            if (!res.valid) return res;
+        }
 
-    // --- AUTO-SAVE MAIN PUZZLE ---
-    useEffect(() => {
-        if (view !== 'main' || !currentLevelData) return;
-        const state = { grid, inventory, isLevelCleared, isNewClear };
-        localStorage.setItem(`mathScrabble_save_main_${levelIndex}`, JSON.stringify(state));
-    }, [grid, inventory, isLevelCleared, isNewClear, levelIndex, view, currentLevelData]);
+        return words.length > 0 ? { valid: true } : { valid: false, reason: "No statements formed." };
+    }, []);
 
-    // --- AUTO-SAVE DAILY CHALLENGE ---
-    useEffect(() => {
-        if (view !== 'daily') return;
-        const date = new Date().toISOString().split('T')[0];
-        const state = { 
-            dailyPool, 
-            dailyCurrent, 
-            dailySubmitted, 
-            dailyKnownRelations: Array.from(dailyKnownRelations) 
-        };
-        localStorage.setItem(`mathScrabble_save_daily_${date}`, JSON.stringify(state));
-    }, [dailyPool, dailyCurrent, dailySubmitted, dailyKnownRelations, view]);
+    const checkFullAndVerifyReal = useCallback((currentGrid: GridCell[]) => {
+        if (!currentLevelData) return;
+        const isFull = currentGrid.every(c => c.type === 'block' || c.char !== null);
+        if (isFull) {
+            const result = checkGridValidityLocal(currentGrid, currentLevelData.cols);
+            if (result.valid) {
+                showToast("Brilliant! Stage Clear.", "success");
+                setIsLevelCleared(true);
+                if (levelIndex >= maxProgress) {
+                    setIsNewClear(true);
+                }
+                const nextSavedLevel = Math.max(levelIndex + 1, maxProgress);
+                localStorage.setItem('mathScrabbleProgress', nextSavedLevel.toString());
+                setMaxProgress(nextSavedLevel);
+            } else {
+                showToast(result.reason || "Invalid statements.", "error");
+            }
+        }
+    }, [currentLevelData, levelIndex, maxProgress, checkGridValidityLocal]);
 
-    useEffect(() => {
-        if (view !== 'daily') return;
-        const updateTimer = () => {
-            const now = new Date();
-            const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-            const diff = tomorrow.getTime() - now.getTime();
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
-        };
-        updateTimer();
-        const timer = setInterval(updateTimer, 1000);
-        return () => clearInterval(timer);
-    }, [view]);
+    // --- DROP HANDLERS ---
+    const onDrop = useCallback((item: DragItem, target: HoverTarget | null) => {
+        if (!target) return;
 
-    const loadLevel = (index) => {
+        if (view === 'main') {
+            if (item.source === 'inventory' && target.type === 'grid' && target.index !== undefined) {
+                const cell = grid[target.index];
+                if (cell.type === 'block') return;
+
+                const newInventory = [...inventory];
+                const invIdx = newInventory.findIndex(t => t.char === item.char);
+                const [movedTile] = newInventory.splice(invIdx, 1);
+
+                const newGrid = [...grid];
+                if (cell.char !== null) {
+                    newInventory.push({ id: Date.now(), char: cell.char });
+                }
+                newGrid[target.index] = { ...cell, char: movedTile.char };
+                setGrid(newGrid);
+                setInventory(newInventory);
+                checkFullAndVerifyReal(newGrid);
+            }
+            else if (item.source === 'grid' && target.type === 'grid' && item.index !== undefined && target.index !== undefined) {
+                const targetCell = grid[target.index];
+                if (targetCell.type === 'block') return;
+
+                const newGrid = [...grid];
+                const sourceChar = newGrid[item.index].char;
+                newGrid[item.index] = { ...newGrid[item.index], char: targetCell.char };
+                newGrid[target.index] = { ...targetCell, char: sourceChar };
+                setGrid(newGrid);
+                checkFullAndVerifyReal(newGrid);
+            }
+            else if (item.source === 'grid' && target.type === 'inventory' && item.index !== undefined) {
+                const newGrid = [...grid];
+                const char = newGrid[item.index].char;
+                if (!char) return;
+                newGrid[item.index] = { ...newGrid[item.index], char: null };
+                setGrid(newGrid);
+                setInventory([...inventory, { id: Date.now(), char }]);
+            }
+        }
+        else if (view === 'daily') {
+            if (item.source === 'pool' && target.type === 'builder') {
+                const newPool = [...dailyPool];
+                const poolIdx = newPool.findIndex(t => t.char === item.char);
+                const [movedTile] = newPool.splice(poolIdx, 1);
+
+                const newCurrent = [...dailyCurrent];
+                if (target.index !== undefined) {
+                    newCurrent.splice(target.index, 0, movedTile);
+                } else {
+                    newCurrent.push(movedTile);
+                }
+                setDailyPool(newPool);
+                setDailyCurrent(newCurrent);
+            }
+            else if (item.source === 'builder' && target.type === 'builder' && item.index !== undefined) {
+                if (item.index === target.index) return;
+                const newCurrent = [...dailyCurrent];
+                const [movedTile] = newCurrent.splice(item.index, 1);
+
+                let insertIdx = target.index !== undefined ? target.index : newCurrent.length;
+                if (target.index !== undefined && item.index < target.index) {
+                    insertIdx--;
+                }
+
+                newCurrent.splice(insertIdx, 0, movedTile);
+                setDailyCurrent(newCurrent);
+            }
+            else if (item.source === 'builder' && target.type === 'pool' && item.index !== undefined) {
+                const newCurrent = [...dailyCurrent];
+                const [movedTile] = newCurrent.splice(item.index, 1);
+                setDailyCurrent(newCurrent);
+                setDailyPool([...dailyPool, movedTile]);
+            }
+        }
+    }, [view, grid, inventory, dailyPool, dailyCurrent, checkFullAndVerifyReal]);
+
+    const onQuickClick = useCallback((item: DragItem) => {
+        if (view === 'main') {
+            if (item.source === 'inventory') {
+                const firstEmpty = grid.findIndex(c => c.type !== 'block' && c.char === null);
+                if (firstEmpty !== -1) onDrop(item, { type: 'grid', index: firstEmpty });
+            } else if (item.source === 'grid') {
+                onDrop(item, { type: 'inventory' });
+            }
+        } else if (view === 'daily') {
+            if (item.source === 'pool') {
+                onDrop(item, { type: 'builder', index: dailyCurrent.length });
+            } else if (item.source === 'builder') {
+                onDrop(item, { type: 'pool' });
+            }
+        }
+    }, [view, grid, dailyCurrent.length, onDrop]);
+
+    const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(onDrop, onQuickClick);
+
+    // --- STATE RECOVERY ---
+    const loadLevel = useCallback((index: number) => {
         const level = index < LEVELS.length ? LEVELS[index] : getProceduralLevel(index);
         const saved = localStorage.getItem(`mathScrabble_save_main_${index}`);
         
@@ -464,7 +253,7 @@ export default function App() {
             }
         }
 
-        const initialGrid = level.layout.map((typeCode) => ({
+        const initialGrid: GridCell[] = level.layout.map((typeCode) => ({
             type: typeCode === 1 ? 'block' : 'empty',
             char: null
         }));
@@ -473,9 +262,9 @@ export default function App() {
         setCurrentLevelData(level);
         setIsLevelCleared(false);
         setIsNewClear(false);
-    };
+    }, []);
 
-    const loadDaily = () => {
+    const loadDaily = useCallback(() => {
         const date = new Date().toISOString().split('T')[0];
         const saved = localStorage.getItem(`mathScrabble_save_daily_${date}`);
 
@@ -501,197 +290,60 @@ export default function App() {
         setDailyCurrent([]);
         setDailySubmitted([]);
         setDailyKnownRelations(new Set());
-    };
-
-    // --- DRAG ENGINE ---
-    const startDrag = (e, item) => {
-        e.preventDefault();
-        const rect = e.currentTarget.getBoundingClientRect();
-        setDragInfo({
-            isDragging: true,
-            item,
-            startX: e.clientX, startY: e.clientY,
-            startTime: Date.now(),
-            x: e.clientX, y: e.clientY,
-            offsetX: e.clientX - rect.left,
-            offsetY: e.clientY - rect.top,
-        });
-    };
+    }, []);
 
     useEffect(() => {
-        const handlePointerMove = (e) => {
-            if (!dragInfo.isDragging) return;
-            setDragInfo(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
+        if (view === 'main') loadLevel(levelIndex);
+        if (view === 'daily') loadDaily();
+    }, [view, levelIndex, loadLevel, loadDaily]);
 
-            // Temporarily hide ghost to find element underneath
-            const ghost = document.getElementById('drag-ghost');
-            if (ghost) ghost.style.display = 'none';
-            const elemUnder = document.elementFromPoint(e.clientX, e.clientY);
-            if (ghost) ghost.style.display = 'flex';
+    // --- AUTO-SAVE ---
+    useEffect(() => {
+        if (view !== 'main' || !currentLevelData) return;
+        const state = { grid, inventory, isLevelCleared, isNewClear };
+        localStorage.setItem(`mathScrabble_save_main_${levelIndex}`, JSON.stringify(state));
+        localStorage.setItem('mathScrabbleCurrentLevel', levelIndex.toString());
+    }, [grid, inventory, isLevelCleared, isNewClear, levelIndex, view, currentLevelData]);
 
-            if (!elemUnder) {
-                setHoverTarget(null);
-                return;
-            }
-
-            const dropZone = elemUnder.closest('[data-dropzone]');
-            if (dropZone) {
-                const type = dropZone.getAttribute('data-dropzone');
-                const indexStr = dropZone.getAttribute('data-index');
-                const index = indexStr !== null ? parseInt(indexStr, 10) : null;
-                setHoverTarget({ type, index });
-            } else {
-                setHoverTarget(null);
-            }
+    useEffect(() => {
+        if (view !== 'daily') return;
+        const date = new Date().toISOString().split('T')[0];
+        const state = { 
+            dailyPool, 
+            dailyCurrent, 
+            dailySubmitted, 
+            dailyKnownRelations: Array.from(dailyKnownRelations) 
         };
+        localStorage.setItem(`mathScrabble_save_daily_${date}`, JSON.stringify(state));
+    }, [dailyPool, dailyCurrent, dailySubmitted, dailyKnownRelations, view]);
 
-        const handlePointerUp = (e) => {
-            if (!dragInfo.isDragging) return;
+    // --- DAILY ACTIONS ---
+    const submitDailyStatement = () => {
+        if (dailyCurrent.length === 0) return;
+        const statement = dailyCurrent.map(t => t.char).join('');
+        const result = isValidEquation(statement);
 
-            const dist = Math.hypot(e.clientX - dragInfo.startX, e.clientY - dragInfo.startY);
-            const time = Date.now() - dragInfo.startTime;
-
-            // Treat as quick click if barely moved
-            if (dist < 10 && time < 300) {
-                handleQuickClick(dragInfo.item);
-            } else {
-                handleDrop(dragInfo.item, hoverTarget);
-            }
-
-            setDragInfo({ isDragging: false, item: null, startX: 0, startY: 0, startTime: 0, x: 0, y: 0, offsetX: 0, offsetY: 0 });
-            setHoverTarget(null);
-        };
-
-        if (dragInfo.isDragging) {
-            window.addEventListener('pointermove', handlePointerMove);
-            window.addEventListener('pointerup', handlePointerUp);
-            window.addEventListener('pointercancel', handlePointerUp);
+        if (!result.valid) {
+            showToast(result.reason || "Invalid equation", "error");
+            return;
         }
 
-        return () => {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('pointercancel', handlePointerUp);
-        };
-    }, [dragInfo.isDragging, dragInfo.startX, dragInfo.startY, dragInfo.startTime, dragInfo.item, hoverTarget, grid, inventory, dailyPool, dailyCurrent]);
+        const currentRelations = getNormalizedRelations(statement);
+        const isNew = currentRelations.some(rel => !dailyKnownRelations.has(rel));
 
-    // --- DROP HANDLER ---
-    const handleDrop = (item, target) => {
-        if (!target) return;
-
-        // View: Main Puzzle
-        if (view === 'main') {
-            if (item.source === 'inventory' && target.type === 'grid') {
-                const cell = grid[target.index];
-                if (cell.type === 'block') return;
-
-                const newInventory = [...inventory];
-                const invIdx = newInventory.findIndex(t => t.char === item.char);
-                const [movedTile] = newInventory.splice(invIdx, 1);
-
-                const newGrid = [...grid];
-                if (cell.char !== null) {
-                    newInventory.push({ id: Date.now(), char: cell.char }); // return existing
-                }
-                newGrid[target.index] = { ...cell, char: movedTile.char };
-                setGrid(newGrid);
-                setInventory(newInventory);
-                checkFullAndVerify(newGrid);
-            }
-            else if (item.source === 'grid' && target.type === 'grid') {
-                const targetCell = grid[target.index];
-                if (targetCell.type === 'block') return;
-
-                const newGrid = [...grid];
-                const sourceChar = newGrid[item.index].char;
-                newGrid[item.index] = { ...newGrid[item.index], char: targetCell.char }; // Swap
-                newGrid[target.index] = { ...targetCell, char: sourceChar };
-                setGrid(newGrid);
-                checkFullAndVerify(newGrid);
-            }
-            else if (item.source === 'grid' && target.type === 'inventory') {
-                const newGrid = [...grid];
-                const char = newGrid[item.index].char;
-                newGrid[item.index] = { ...newGrid[item.index], char: null };
-                setGrid(newGrid);
-                setInventory([...inventory, { id: Date.now(), char }]);
-            }
+        if (!isNew) {
+            showToast("Mathematically redundant statement.", "error");
+            return;
         }
-        // View: Daily Mode
-        else if (view === 'daily') {
-            if (item.source === 'pool' && target.type === 'builder') {
-                const newPool = [...dailyPool];
-                const poolIdx = newPool.findIndex(t => t.char === item.char);
-                const [movedTile] = newPool.splice(poolIdx, 1);
 
-                const newCurrent = [...dailyCurrent];
-                if (target.index !== null && target.index !== undefined) {
-                    newCurrent.splice(target.index, 0, movedTile);
-                } else {
-                    newCurrent.push(movedTile);
-                }
-                setDailyPool(newPool);
-                setDailyCurrent(newCurrent);
-            }
-            else if (item.source === 'builder' && target.type === 'builder') {
-                if (item.index === target.index) return;
-                const newCurrent = [...dailyCurrent];
-                const [movedTile] = newCurrent.splice(item.index, 1);
-
-                let insertIdx = target.index !== null ? target.index : newCurrent.length;
-                if (target.index !== null && item.index < target.index) {
-                    insertIdx--; // Adjust for the removed item shifting the array
-                }
-
-                newCurrent.splice(insertIdx, 0, movedTile);
-                setDailyCurrent(newCurrent);
-            }
-            else if (item.source === 'builder' && target.type === 'pool') {
-                const newCurrent = [...dailyCurrent];
-                const [movedTile] = newCurrent.splice(item.index, 1);
-                setDailyCurrent(newCurrent);
-                setDailyPool([...dailyPool, movedTile]);
-            }
-        }
-    };
-
-    // --- CLICK FALLBACK HANDLERS ---
-    const handleQuickClick = (item) => {
-        if (view === 'main') {
-            if (item.source === 'inventory') {
-                // Place in first empty spot
-                const firstEmpty = grid.findIndex(c => c.type !== 'block' && c.char === null);
-                if (firstEmpty !== -1) handleDrop(item, { type: 'grid', index: firstEmpty });
-            } else if (item.source === 'grid') {
-                handleDrop(item, { type: 'inventory' });
-            }
-        } else if (view === 'daily') {
-            if (item.source === 'pool') {
-                handleDrop(item, { type: 'builder', index: dailyCurrent.length });
-            } else if (item.source === 'builder') {
-                handleDrop(item, { type: 'pool' });
-            }
-        }
-    };
-
-    const checkFullAndVerify = (currentGrid) => {
-        const isFull = currentGrid.every(c => c.type === 'block' || c.char !== null);
-        if (isFull) {
-            const level = currentLevelData;
-            const result = checkGridValidity(currentGrid, level.cols);
-            if (result.valid) {
-                showToast("Brilliant! Stage Clear.", "success");
-                setIsLevelCleared(true);
-                if (levelIndex >= maxProgress) {
-                    setIsNewClear(true);
-                }
-                const nextSavedLevel = Math.max(levelIndex + 1, maxProgress);
-                localStorage.setItem('mathScrabbleProgress', nextSavedLevel.toString());
-                setMaxProgress(nextSavedLevel);
-            } else {
-                showToast(result.reason, "error");
-            }
-        }
+        const newKnown = new Set(dailyKnownRelations);
+        currentRelations.forEach(rel => newKnown.add(rel));
+        
+        setDailyKnownRelations(newKnown);
+        setDailySubmitted([statement, ...dailySubmitted]);
+        setDailyPool([...dailyPool, ...dailyCurrent]);
+        setDailyCurrent([]);
+        showToast("New discovery!", "success");
     };
 
     const resetLevel = () => {
@@ -703,85 +355,6 @@ export default function App() {
         loadLevel(levelIndex);
         resetDialogRef.current?.close();
     };
-
-    const submitDailyStatement = () => {
-        if (dailyCurrent.length === 0) return;
-        const statement = dailyCurrent.map(t => t.char).join('');
-        const result = isValidEquation(statement);
-
-        if (!result.valid) {
-            showToast(result.reason, "error");
-            return;
-        }
-
-        // --- UNIQUENESS & DECOMPOSITION LOGIC ---
-        // 1. Decompose into singular relations (A=B<C -> A=B and B<C)
-        let comparators = [];
-        let expressions = [];
-        let currentExpr = "";
-        for (let i = 0; i < statement.length; i++) {
-            if (statement[i] === '<' && statement[i + 1] === '>') {
-                expressions.push(currentExpr);
-                comparators.push('<>');
-                currentExpr = "";
-                i++;
-            } else if (['=', '<', '>'].includes(statement[i])) {
-                expressions.push(currentExpr);
-                comparators.push(statement[i]);
-                currentExpr = "";
-            } else {
-                currentExpr += statement[i];
-            }
-        }
-        expressions.push(currentExpr);
-
-        // 2. Normalize expressions and relations
-        const normalizeExpr = (expr) => {
-            // Sort terms of addition and multiplication to handle commutativity (1+2 vs 2+1)
-            return expr.split('+').map(part => 
-                part.split('×').sort().join('×')
-            ).sort().join('+');
-        };
-
-        const currentRelations = [];
-        for (let i = 0; i < comparators.length; i++) {
-            let left = normalizeExpr(expressions[i]);
-            let right = normalizeExpr(expressions[i+1]);
-            let op = comparators[i];
-
-            // Normalize commutative operators (= and <>) by sorting sides
-            if (op === '=' || op === '<>') {
-                const sorted = [left, right].sort();
-                currentRelations.push(`${sorted[0]}${op}${sorted[1]}`);
-            } else if (op === '>') {
-                // Normalize > to < by swapping sides
-                currentRelations.push(`${right}<${left}`);
-            } else {
-                currentRelations.push(`${left}${op}${right}`);
-            }
-        }
-
-        // 3. Check if at least one relation is new
-        const isNew = currentRelations.some(rel => !dailyKnownRelations.has(rel));
-
-        if (!isNew) {
-            showToast("Mathematically redundant statement.", "error");
-            return;
-        }
-
-        // --- ACCEPT SUBMISSION ---
-        const newKnown = new Set(dailyKnownRelations);
-        currentRelations.forEach(rel => newKnown.add(rel));
-        
-        setDailyKnownRelations(newKnown);
-        setDailySubmitted([statement, ...dailySubmitted]);
-        
-        // Return tiles to pool and clear current
-        setDailyPool([...dailyPool, ...dailyCurrent]);
-        setDailyCurrent([]);
-        showToast("New discovery!", "success");
-    };
-
 
     // --- RENDERERS ---
     const renderMenu = () => (
@@ -814,10 +387,8 @@ export default function App() {
     );
 
     const renderMainPuzzle = () => {
-        const level = currentLevelData;
-        if (!level) return null;
-        const groupedInventory = getGroupedTiles(inventory);
-
+        if (!currentLevelData) return null;
+        const groupedInventory = getGroupedTilesUtil(inventory);
         const isGridEmpty = grid.every(cell => !cell.char);
 
         return (
@@ -838,7 +409,7 @@ export default function App() {
                                 <ChevronLeft size={40} />
                             </button>
                             
-                            <h2 className="text-4xl font-black tracking-tight">Level {level.id}</h2>
+                            <h2 className="text-4xl font-black tracking-tight">Level {currentLevelData.id}</h2>
                             
                             <button 
                                 onClick={() => setLevelIndex(levelIndex + 1)} 
@@ -849,9 +420,9 @@ export default function App() {
                                 <ChevronRight size={40} />
                             </button>
                         </div>
-                        {level.name && (
+                        {currentLevelData.name && (
                             <p className="text-blue-400 mt-2 font-bold tracking-widest uppercase text-xs opacity-80">
-                                {level.name}
+                                {currentLevelData.name}
                             </p>
                         )}
                     </div>
@@ -867,166 +438,11 @@ export default function App() {
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center w-full max-w-full overflow-hidden pb-8">
-                    <p className="text-slate-400 mb-8 max-w-lg text-center flex-shrink-0">{level.description}</p>
-
-                    {/* The Grid container wrapper for scrolling large levels */}
-                    <div className="w-full max-w-full overflow-auto flex justify-center items-center px-4">
-                        <div
-                            className="relative flex-shrink-0"
-                            style={{ display: 'grid', gridTemplateColumns: `repeat(${level.cols}, 1fr)`, gap: '8px' }}
-                        >
-                            {grid.map((cell, idx) => {
-                                if (cell.type === 'block') return <div key={idx} />;
-
-                                const isHovered = hoverTarget?.type === 'grid' && hoverTarget.index === idx;
-                                const isBeingDragged = dragInfo.item?.source === 'grid' && dragInfo.item?.index === idx;
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        data-dropzone="grid"
-                                        data-index={idx}
-                                        className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center transition-all 
-                    ${isHovered ? 'ring-4 ring-blue-400 scale-105 bg-slate-600 z-10' : 'bg-slate-700/30 shadow-inner'}
-                  `}
-                                    >
-                                        {cell.char && !isBeingDragged && (
-                                            <Tile char={cell.char} onPointerDown={(e) => startDrag(e, { source: 'grid', index: idx, char: cell.char })} />
-                                        )}
-                                        {isBeingDragged && (
-                                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg border-2 border-dashed border-slate-500 bg-slate-600/50" />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <p className="text-slate-400 mb-8 max-w-lg text-center flex-shrink-0">{currentLevelData.description}</p>
+                    <Grid grid={grid} cols={currentLevelData.cols} hoverTarget={hoverTarget} dragInfo={dragInfo} onStartDrag={startDrag} />
                 </div>
 
-                {/* Inventory Container */}
-                <div data-dropzone="inventory" className={`w-full max-w-3xl bg-slate-800/50 p-6 rounded-t-3xl border-t transition-colors mt-auto ${hoverTarget?.type === 'inventory' ? 'border-blue-400 bg-slate-800' : 'border-slate-700'}`}>
-                    <div className="flex justify-between items-end mb-4">
-                        <span className="text-slate-400 font-medium">Your Tiles (Drag or Click)</span>
-                    </div>
-                    <div className="flex flex-wrap gap-4 pt-2 min-h-[80px]">
-                        {groupedInventory.map((grp) => (
-                            <Tile
-                                key={grp.char}
-                                char={grp.char}
-                                count={grp.count}
-                                onPointerDown={(e) => startDrag(e, { source: 'inventory', char: grp.char })}
-                            />
-                        ))}
-                        {groupedInventory.length === 0 && <span className="text-slate-500 italic mt-2">All tiles placed.</span>}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    const renderDaily = () => {
-        const groupedDailyPool = getGroupedTiles(dailyPool);
-
-        return (
-            <div className="h-screen bg-slate-900 text-white flex flex-col items-center pt-8 px-4 overflow-hidden">
-                <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-                    <button onClick={() => setView('menu')} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                        <ArrowLeft size={28} />
-                    </button>
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
-                            <Calendar className="text-emerald-400" /> Daily Challenge
-                        </h2>
-                        <div className="flex items-center justify-center gap-3 mt-1">
-                            <span className="text-slate-400 text-sm font-medium">
-                                {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </span>
-                            <span className="text-slate-600">•</span>
-                            <span className="text-emerald-400 text-sm font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
-                                {timeLeft} left
-                            </span>
-                        </div>
-                    </div>
-                    <div className="w-10"></div>
-                </div>
-
-                <div className="flex-1 w-full overflow-auto flex flex-col items-center px-4 pb-12">
-                    <p className="text-slate-400 mb-8 max-w-lg text-center">
-                        Drag and drop tiles to build unique true statements.
-                    </p>
-
-                    {/* Builder Area */}
-                    <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl mb-8">
-                        <div className="text-sm text-slate-400 mb-2">Statement Builder:</div>
-                        <div
-                            data-dropzone="builder"
-                            className={`min-h-[80px] bg-slate-900 rounded-xl p-4 flex flex-wrap gap-2 items-center mb-6 shadow-inner border transition-colors ${hoverTarget?.type === 'builder' ? 'border-emerald-500/50' : 'border-slate-700'}`}
-                        >
-                            {dailyCurrent.map((tile, idx) => {
-                                const isBeingDragged = dragInfo.item?.source === 'builder' && dragInfo.item?.index === idx;
-                                return (
-                                    <div
-                                        key={tile.id}
-                                        data-dropzone="builder"
-                                        data-index={idx}
-                                        className="relative flex items-center justify-center"
-                                    >
-                                        <Tile
-                                            char={tile.char}
-                                            isFaded={isBeingDragged}
-                                            onPointerDown={(e) => startDrag(e, { source: 'builder', index: idx, char: tile.char })}
-                                        />
-                                    </div>
-                                );
-                            })}
-                            {dailyCurrent.length === 0 && <span className="text-slate-600 italic ml-2 pointer-events-none">Drag tiles here...</span>}
-                        </div>
-
-                        <div className="flex justify-between items-center">
-                            <button onClick={() => { setDailyPool([...dailyPool, ...dailyCurrent]); setDailyCurrent([]); }} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-                                <RotateCcw size={16} /> Clear
-                            </button>
-                            <button
-                                onClick={submitDailyStatement}
-                                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                                disabled={dailyCurrent.length === 0}
-                            >
-                                Submit Statement
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Pool Area */}
-                    <div data-dropzone="pool" className={`w-full max-w-2xl mb-12 p-4 transition-colors ${hoverTarget?.type === 'pool' ? 'bg-slate-800/30 rounded-xl' : ''}`}>
-                        <div className="text-sm text-slate-400 mb-2">Today's Pool:</div>
-                        <div className="flex flex-wrap gap-4 pt-2">
-                            {groupedDailyPool.map((grp) => (
-                                <Tile
-                                    key={grp.char}
-                                    char={grp.char}
-                                    count={grp.count}
-                                    onPointerDown={(e) => startDrag(e, { source: 'pool', char: grp.char })}
-                                />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Discovered List */}
-                    <div className="w-full max-w-2xl bg-slate-800/50 rounded-2xl p-6 border border-slate-700 mb-12">
-                        <h3 className="font-bold text-xl mb-4 flex items-center gap-2"><Trophy className="text-yellow-400" /> Discovered Statements ({dailySubmitted.length})</h3>
-                        {dailySubmitted.length === 0 ? (
-                            <p className="text-slate-500 italic">No statements found yet. Get calculating!</p>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                {dailySubmitted.map((stmt, idx) => (
-                                    <div key={idx} className="bg-slate-800 px-4 py-3 rounded-lg border border-slate-600 font-mono text-xl tracking-widest text-emerald-300 shadow">
-                                        {stmt}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <Inventory groupedInventory={groupedInventory} hoverTarget={hoverTarget} onStartDrag={startDrag} />
             </div>
         );
     };
@@ -1051,37 +467,23 @@ export default function App() {
 
             {view === 'menu' && renderMenu()}
             {view === 'main' && renderMainPuzzle()}
-            {view === 'daily' && renderDaily()}
+            {view === 'daily' && (
+                <DailyChallenge 
+                    dailyPool={dailyPool}
+                    dailyCurrent={dailyCurrent}
+                    dailySubmitted={dailySubmitted}
+                    timeLeft={timeLeft}
+                    hoverTarget={hoverTarget}
+                    dragInfo={dragInfo}
+                    onBack={() => setView('menu')}
+                    onStartDrag={startDrag}
+                    onClear={() => { setDailyPool([...dailyPool, ...dailyCurrent]); setDailyCurrent([]); }}
+                    onSubmit={submitDailyStatement}
+                    getGroupedTiles={getGroupedTilesUtil}
+                />
+            )}
 
-            {/* CONFIRM RESET DIALOG */}
-            <dialog 
-                ref={resetDialogRef} 
-                className="fixed inset-0 m-auto bg-slate-800 text-white p-8 rounded-3xl border border-slate-700 shadow-2xl backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm open:flex flex-col items-center justify-center"
-            >
-                <div className="flex flex-col items-center gap-6 max-w-xs">
-                    <div className="bg-red-500/20 p-4 rounded-full">
-                        <RotateCcw size={48} className="text-red-400" />
-                    </div>
-                    <div className="text-center">
-                        <h3 className="text-2xl font-bold mb-2">Reset Level?</h3>
-                        <p className="text-slate-400 text-sm">This will clear the entire board and return all tiles to your inventory.</p>
-                    </div>
-                    <div className="flex gap-4 w-full">
-                        <button 
-                            onClick={() => resetDialogRef.current?.close()} 
-                            className="flex-1 py-3 px-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition-colors text-sm"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleResetConfirm} 
-                            className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/20 text-sm"
-                        >
-                            Reset
-                        </button>
-                    </div>
-                </div>
-            </dialog>
+            <ResetDialog dialogRef={resetDialogRef} onConfirm={handleResetConfirm} />
         </div>
     );
 }
