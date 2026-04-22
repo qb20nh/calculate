@@ -2,8 +2,10 @@ import { SORT_ORDER } from '@/constants/gameData'
 
 import { TileItem, ValidationResult } from './types'
 
-const parseStatement = (str: string): {
-  expressions: string[],
+const parseStatement = (
+  str: string
+): {
+  expressions: string[]
   comparators: string[]
 } => {
   const comparators: string[] = []
@@ -33,7 +35,10 @@ const parseStatement = (str: string): {
 
 const evaluateExpression = (expr: string): number => {
   // Replace visual operators with JS operators
-  const sanitized = expr.replace(/×/g, '*').replace(/−/g, '-').replace(/÷/g, '/')
+  const sanitized = expr
+    .replaceAll('×', '*')
+    .replaceAll('−', '-')
+    .replaceAll('÷', '/')
 
   // Only allow numbers, operators, and parentheses
   if (/[^0-9+\-*/]/.test(sanitized)) {
@@ -65,7 +70,7 @@ export const isValidEquation = (str: string): ValidationResult => {
       reason: 'Must contain a comparator (=, <, >, <>).'
     }
   }
-  if (expressions.some(e => e === '')) {
+  if (expressions.includes('')) {
     return {
       valid: false,
       reason: 'Misplaced comparators.'
@@ -75,8 +80,8 @@ export const isValidEquation = (str: string): ValidationResult => {
   for (let i = 0; i < comparators.length; i++) {
     const leftExpr = expressions[i]
     const rightExpr = expressions[i + 1]
-    const leftHasOp = /[0-9][+−×÷]/.test(leftExpr)
-    const rightHasOp = /[0-9][+−×÷]/.test(rightExpr)
+    const leftHasOp = /\d[+−×÷]/.test(leftExpr)
+    const rightHasOp = /\d[+−×÷]/.test(rightExpr)
 
     if (!leftHasOp && !rightHasOp) {
       return {
@@ -89,7 +94,7 @@ export const isValidEquation = (str: string): ValidationResult => {
   const values: number[] = []
   for (const expr of expressions) {
     try {
-      if (/\b0[0-9]+/.test(expr)) {
+      if (/\b0\d+/.test(expr)) {
         return {
           valid: false,
           reason: 'Leading zeros not allowed.'
@@ -116,25 +121,25 @@ export const isValidEquation = (str: string): ValidationResult => {
     const left = values[i]
     const right = values[i + 1]
     const comp = comparators[i]
-    if (comp === '=' && !(left === right)) {
+    if (comp === '=' && left !== right) {
       return {
         valid: false,
         reason: `Mathematically false: ${left} = ${right}`
       }
     }
-    if (comp === '<' && !(left < right)) {
+    if (comp === '<' && left >= right) {
       return {
         valid: false,
         reason: `Mathematically false: ${left} < ${right}`
       }
     }
-    if (comp === '>' && !(left > right)) {
+    if (comp === '>' && left <= right) {
       return {
         valid: false,
         reason: `Mathematically false: ${left} > ${right}`
       }
     }
-    if (comp === '<>' && !(left !== right)) {
+    if (comp === '<>' && left === right) {
       return {
         valid: false,
         reason: `Mathematically false: ${left} <> ${right}`
@@ -155,9 +160,11 @@ export const isValidEquation = (str: string): ValidationResult => {
  * @returns Normalized expression string
  */
 export const normalizeExpr = (expr: string): string => {
-  return expr.split('+').map(part =>
-    part.split('×').sort().join('×')
-  ).sort().join('+')
+  return expr
+    .split('+')
+    .map((part) => part.split('×').sort().join('×'))
+    .sort()
+    .join('+')
 }
 
 export const getNormalizedRelations = (statement: string): string[] => {
@@ -187,12 +194,16 @@ export const getNormalizedRelations = (statement: string): string[] => {
  * @param tilesArray Array of TileItem objects
  * @returns Sorted array of grouped tiles with counts
  */
-export const getGroupedTiles = (tilesArray: TileItem[]): {
-  char: string;
+export const getGroupedTiles = (
+  tilesArray: TileItem[]
+): {
+  char: string
   count: number
 }[] => {
   const counts: Record<string, number> = {}
-  tilesArray.forEach(t => { counts[t.char] = (counts[t.char] || 0) + 1 })
+  tilesArray.forEach((t) => {
+    counts[t.char] = (counts[t.char] || 0) + 1
+  })
   return Object.keys(counts)
     .sort((a, b) => {
       let idxA = SORT_ORDER.indexOf(a)
@@ -201,7 +212,7 @@ export const getGroupedTiles = (tilesArray: TileItem[]): {
       if (idxB === -1) idxB = 99
       return idxA - idxB
     })
-    .map(char => ({
+    .map((char) => ({
       char,
       count: counts[char]
     }))

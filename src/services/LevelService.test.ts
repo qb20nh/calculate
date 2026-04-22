@@ -18,7 +18,7 @@ describe('LevelService', () => {
   it('should create an initial grid from a level with blocks', () => {
     const level = LevelService.getLevel(2) // Level 3 has blocks
     const grid = LevelService.createInitialGrid(level)
-    expect(grid.some(c => c.type === 'block')).toBe(true)
-    expect(grid.some(c => c.type === 'empty')).toBe(true)
+    expect(grid.some((c) => c.type === 'block')).toBe(true)
+    expect(grid.some((c) => c.type === 'empty')).toBe(true)
   })
 })

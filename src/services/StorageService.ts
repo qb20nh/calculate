@@ -1,23 +1,23 @@
 import { GridCell, TileItem } from '@/domain/types'
 
 interface SavedPlayState {
-  levelIndex: number;
-  grid: GridCell[];
-  inventory: TileItem[];
-  isLevelCleared: boolean;
+  levelIndex: number
+  grid: GridCell[]
+  inventory: TileItem[]
+  isLevelCleared: boolean
 }
 
 interface SavedDailyState {
-  dailyPool: TileItem[];
-  dailyCurrent: TileItem[];
-  dailySubmitted: string[];
-  dailyKnownRelations: string[];
+  dailyPool: TileItem[]
+  dailyCurrent: TileItem[]
+  dailySubmitted: string[]
+  dailyKnownRelations: string[]
 }
 
 const KEYS = {
   PROGRESS: 'mathScrabbleProgress',
   CURRENT_PLAY: 'mathScrabble_current_play',
-  DAILY_SAVE: (date: string) => `mathScrabble_save_daily_${date}`,
+  DAILY_SAVE: (date: string) => `mathScrabble_save_daily_${date}`
 }
 
 const getParsed = <T>(key: string): T | null => {
@@ -32,14 +32,15 @@ const getParsed = <T>(key: string): T | null => {
 
 export const StorageService = {
   getMaxProgress: (): number => {
-    return parseInt(localStorage.getItem(KEYS.PROGRESS) || '0', 10)
+    return Number.parseInt(localStorage.getItem(KEYS.PROGRESS) || '0', 10)
   },
 
   setMaxProgress: (level: number) => {
     localStorage.setItem(KEYS.PROGRESS, level.toString())
   },
 
-  getCurrentPlay: (): SavedPlayState | null => getParsed<SavedPlayState>(KEYS.CURRENT_PLAY),
+  getCurrentPlay: (): SavedPlayState | null =>
+    getParsed<SavedPlayState>(KEYS.CURRENT_PLAY),
 
   setCurrentPlay: (state: SavedPlayState) => {
     localStorage.setItem(KEYS.CURRENT_PLAY, JSON.stringify(state))
@@ -49,7 +50,8 @@ export const StorageService = {
     localStorage.removeItem(KEYS.CURRENT_PLAY)
   },
 
-  getDailySave: (date: string): SavedDailyState | null => getParsed<SavedDailyState>(KEYS.DAILY_SAVE(date)),
+  getDailySave: (date: string): SavedDailyState | null =>
+    getParsed<SavedDailyState>(KEYS.DAILY_SAVE(date)),
 
   setDailySave: (date: string, state: SavedDailyState) => {
     localStorage.setItem(KEYS.DAILY_SAVE(date), JSON.stringify(state))

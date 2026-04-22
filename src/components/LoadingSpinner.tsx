@@ -5,7 +5,9 @@ import React from 'react'
  *
  * A centered, animated spinner with a backdrop blur.
  */
-export const LoadingSpinner: React.FC<{ isVisible?: boolean }> = ({ isVisible = true }) => {
+export const LoadingSpinner: React.FC<{ isVisible?: boolean }> = ({
+  isVisible = true
+}) => {
   if (!isVisible) return null
   return (
     <div className='

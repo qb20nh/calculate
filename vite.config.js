@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -13,21 +14,19 @@ export default defineConfig({
   base: '/calculate/',
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+      '@': path.resolve(__dirname, './src')
+    }
   },
   plugins: [
     react({
       babel: {
-        plugins: [
-          ['babel-plugin-react-compiler', ReactCompilerConfig],
-        ],
-      },
+        plugins: [['babel-plugin-react-compiler', ReactCompilerConfig]]
+      }
     }),
+    legacy()
   ],
   build: {
     modulePreload: true,
-    target: 'esnext',
     rollupOptions: {
       output: {
         manualChunks(id) {

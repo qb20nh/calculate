@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react'
 export const useDailyTimer = (active: boolean) => {
   const calculateTimeLeft = () => {
     const now = new Date()
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const tomorrow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1
+    )
     const diff = tomorrow.getTime() - now.getTime()
     const h = Math.floor(diff / 3600000)
     const m = Math.floor((diff % 3600000) / 60000)

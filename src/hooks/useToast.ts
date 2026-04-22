@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 
 interface ToastState {
-  message: string;
-  type: string;
+  message: string
+  type: string
 }
 
 export const useToast = () => {
@@ -16,10 +16,14 @@ export const useToast = () => {
       message,
       type
     })
-    setTimeout(() => setToast({
-      message: '',
-      type: ''
-    }), 3000)
+    setTimeout(
+      () =>
+        setToast({
+          message: '',
+          type: ''
+        }),
+      3000
+    )
   }, [])
 
   return {

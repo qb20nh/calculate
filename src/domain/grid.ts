@@ -23,15 +23,21 @@ const scanLines = (
   return words
 }
 
-export const extractWordsFromGrid = (grid: GridCell[], cols: number): string[] => {
+export const extractWordsFromGrid = (
+  grid: GridCell[],
+  cols: number
+): string[] => {
   const rows = grid.length / cols
   return [
     ...scanLines(rows, cols, (r, c) => grid[r * cols + c]), // Horizontal
-    ...scanLines(cols, rows, (c, r) => grid[r * cols + c])  // Vertical
+    ...scanLines(cols, rows, (c, r) => grid[r * cols + c]) // Vertical
   ]
 }
 
-export const validateGrid = (grid: GridCell[], cols: number): ValidationResult => {
+export const validateGrid = (
+  grid: GridCell[],
+  cols: number
+): ValidationResult => {
   const words = extractWordsFromGrid(grid, cols)
 
   if (words.length === 0) {

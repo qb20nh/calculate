@@ -9,7 +9,8 @@ export const LEVELS: Level[] = [
     cols: 5,
     layout: [0, 0, 0, 0, 0],
     inventory: ['4', '+', '4', '=', '8', '2', '>'],
-    description: 'Form a true statement. Remember: at least one side needs a math operator!'
+    description:
+      'Form a true statement. Remember: at least one side needs a math operator!'
   },
   {
     id: 2,
@@ -28,14 +29,11 @@ export const LEVELS: Level[] = [
     rows: 5,
     cols: 5,
     layout: [
-      0, 0, 0, 0, 0,
-      0, 1, 1, 1, 0,
-      0, 0, 0, 0, 0,
-      0, 1, 1, 1, 0,
-      0, 0, 0, 0, 0
+      0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0
     ],
     inventory: ['3', '+', '2', '=', '5', '×', '−', '2', '×', '2', '=', '4', '=', '=', '6', '−', '5', '=', '1', '9', '+', '<', '>'],
-    description: 'Statements must be mathematically true reading left-to-right AND top-to-bottom.'
+    description:
+      'Statements must be mathematically true reading left-to-right AND top-to-bottom.'
   }
 ]
 

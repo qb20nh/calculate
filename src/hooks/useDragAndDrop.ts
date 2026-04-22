@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 
 import { DragInfo, DragItem, HoverTarget } from '@/domain/types'
 
-export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | null) => void, onQuickClick: (item: DragItem) => void) => {
+export const useDragAndDrop = (
+  onDrop: (item: DragItem, target: HoverTarget | null) => void,
+  onQuickClick: (item: DragItem) => void
+) => {
   const [dragInfo, setDragInfo] = useState<DragInfo>({
     isDragging: false,
     item: null,
@@ -28,14 +31,14 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
       x: e.clientX,
       y: e.clientY,
       offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
+      offsetY: e.clientY - rect.top
     })
   }
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragInfo.isDragging) return
-      setDragInfo(prev => ({
+      setDragInfo((prev) => ({
         ...prev,
         x: e.clientX,
         y: e.clientY
@@ -51,11 +54,11 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
         return
       }
 
-      const dropZone = elemUnder.closest('[data-dropzone]')
+      const dropZone = elemUnder.closest('[data-dropzone]') as HTMLElement
       if (dropZone) {
-        const type = dropZone.getAttribute('data-dropzone') as HoverTarget['type']
-        const indexStr = dropZone.getAttribute('data-index')
-        const index = indexStr !== null ? parseInt(indexStr, 10) : undefined
+        const type = dropZone.dataset.dropzone as HoverTarget['type']
+        const indexStr = dropZone.dataset.index ?? null
+        const index = indexStr === null ? undefined : Number.parseInt(indexStr, 10)
         setHoverTarget({
           type,
           index
@@ -68,7 +71,10 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
     const handlePointerUp = (e: PointerEvent) => {
       if (!dragInfo.isDragging) return
 
-      const dist = Math.hypot(e.clientX - dragInfo.startX, e.clientY - dragInfo.startY)
+      const dist = Math.hypot(
+        e.clientX - dragInfo.startX,
+        e.clientY - dragInfo.startY
+      )
       const time = Date.now() - dragInfo.startTime
 
       if (dragInfo.item) {
@@ -104,7 +110,16 @@ export const useDragAndDrop = (onDrop: (item: DragItem, target: HoverTarget | nu
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerUp)
     }
-  }, [dragInfo.isDragging, dragInfo.startX, dragInfo.startY, dragInfo.startTime, dragInfo.item, hoverTarget, onDrop, onQuickClick])
+  }, [
+    dragInfo.isDragging,
+    dragInfo.startX,
+    dragInfo.startY,
+    dragInfo.startTime,
+    dragInfo.item,
+    hoverTarget,
+    onDrop,
+    onQuickClick
+  ])
 
   return {
     dragInfo,

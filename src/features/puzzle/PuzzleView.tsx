@@ -12,22 +12,30 @@ import { Grid } from './Grid'
 import { Inventory } from './Inventory'
 
 interface PuzzleViewProps {
-  showToast: (msg: string, type?: string) => void;
+  showToast: (msg: string, type?: string) => void
 }
 
 export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
   const { navigate } = useRouter()
   const {
-    levelIndex, setLevelIndex,
+    levelIndex,
+    setLevelIndex,
     maxProgress,
     currentLevelData,
-    grid, inventory,
-    isLevelCleared, isNewClear, setIsNewClear,
+    grid,
+    inventory,
+    isLevelCleared,
+    isNewClear,
+    setIsNewClear,
     resetLevel,
-    handleDrop, handleQuickClick
+    handleDrop,
+    handleQuickClick
   } = usePuzzleGame(showToast)
 
-  const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(handleDrop, handleQuickClick)
+  const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(
+    handleDrop,
+    handleQuickClick
+  )
 
   const resetDialogRef = React.useRef<HTMLDialogElement>(null)
 
@@ -39,7 +47,7 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
   if (!currentLevelData) return null
 
   const groupedInventory = getGroupedTiles(inventory)
-  const isGridEmpty = grid.every(cell => !cell.char)
+  const isGridEmpty = grid.every((cell) => !cell.char)
 
   return (
     <div className='
@@ -49,7 +57,10 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
     >
       <div className='mb-8 flex w-full max-w-4xl items-start justify-between'>
         <button
-          onClick={() => { void navigate('menu') }} className='
+          onClick={() => {
+            void navigate('menu')
+          }}
+          className='
             mt-1 rounded-full p-2 transition-colors
             hover:bg-slate-800
           '
@@ -72,7 +83,9 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
               <ChevronLeft size={40} />
             </button>
 
-            <h2 className='text-4xl font-black tracking-tight'>{currentLevelData.displayTitle}</h2>
+            <h2 className='text-4xl font-black tracking-tight'>
+              {currentLevelData.displayTitle}
+            </h2>
 
             <button
               onClick={() => {
@@ -82,14 +95,16 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
               disabled={!isLevelCleared && levelIndex >= maxProgress}
               className={`
                 rounded-lg p-1 transition-all
-                ${isNewClear
-? `
-  bg-blue-600 text-white shadow-lg shadow-blue-500/30
-  hover:bg-blue-500
-`
-: (isLevelCleared || levelIndex < maxProgress)
-? 'hover:bg-slate-800'
-: 'disabled:opacity-10'}
+                ${
+                isNewClear
+                  ? `
+                    bg-blue-600 text-white shadow-lg shadow-blue-500/30
+                    hover:bg-blue-500
+                  `
+                  : isLevelCleared || levelIndex < maxProgress
+                    ? 'hover:bg-slate-800'
+                    : 'disabled:opacity-10'
+              }
               `}
               title='Next Level'
             >
@@ -126,7 +141,9 @@ export const PuzzleView: React.FC<PuzzleViewProps> = ({ showToast }) => {
         overflow-hidden pb-8
       '
       >
-        <p className='mb-8 max-w-lg shrink-0 text-center text-slate-400'>{currentLevelData.description}</p>
+        <p className='mb-8 max-w-lg shrink-0 text-center text-slate-400'>
+          {currentLevelData.description}
+        </p>
         <Grid
           grid={grid}
           cols={currentLevelData.cols}

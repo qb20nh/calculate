@@ -10,24 +10,36 @@ import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { useRouter } from '@/hooks/useRouter'
 
 interface DailyViewProps {
-  showToast: (msg: string, type?: string) => void;
+  showToast: (msg: string, type?: string) => void
 }
 
 export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
   const { navigate } = useRouter()
   const {
-    dailyPool, dailyCurrent, dailySubmitted,
-    submitStatement, handleDrop, handleQuickClick, clearBuilder
+    dailyPool,
+    dailyCurrent,
+    dailySubmitted,
+    submitStatement,
+    handleDrop,
+    handleQuickClick,
+    clearBuilder
   } = useDailyChallenge(showToast)
 
-  const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(handleDrop, handleQuickClick)
+  const { dragInfo, hoverTarget, startDrag } = useDragAndDrop(
+    handleDrop,
+    handleQuickClick
+  )
   const timeLeft = useDailyTimer(true)
 
-  const formattedDate = React.useMemo(() => new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  }), [])
+  const formattedDate = React.useMemo(
+    () =>
+      new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      }),
+    []
+  )
   const groupedDailyPool = getGroupedTiles(dailyPool)
 
   return (
@@ -38,7 +50,10 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
     >
       <div className='mb-4 flex w-full max-w-4xl items-center justify-between'>
         <button
-          onClick={() => { void navigate('menu') }} className='
+          onClick={() => {
+            void navigate('menu')
+          }}
+          className='
             rounded-full p-2 transition-colors
             hover:bg-slate-800
           '
@@ -88,13 +103,17 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
             className={`
               mb-6 flex min-h-[80px] flex-wrap items-center gap-2 rounded-xl
               border bg-slate-900 p-4 shadow-inner transition-colors
-              ${hoverTarget?.type === 'builder'
-? 'border-emerald-500/50'
-: 'border-slate-700'}
+              ${
+              hoverTarget?.type === 'builder'
+                ? 'border-emerald-500/50'
+                : 'border-slate-700'
+            }
             `}
           >
             {dailyCurrent.map((tile, idx) => {
-              const isBeingDragged = dragInfo.item?.source === 'builder' && dragInfo.item?.index === idx
+              const isBeingDragged =
+                dragInfo.item?.source === 'builder' &&
+                dragInfo.item?.index === idx
               return (
                 <div
                   key={tile.id}
@@ -105,21 +124,27 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
                   <Tile
                     char={tile.char}
                     isFaded={isBeingDragged}
-                    onPointerDown={(e) => startDrag(e, {
-                      source: 'builder',
-                      index: idx,
-                      char: tile.char
-                    })}
+                    onPointerDown={(e) =>
+                      startDrag(e, {
+                        source: 'builder',
+                        index: idx,
+                        char: tile.char
+                      })}
                   />
                 </div>
               )
             })}
-            {dailyCurrent.length === 0 && <span className='pointer-events-none ml-2 text-slate-600 italic'>Drag tiles here...</span>}
+            {dailyCurrent.length === 0 && (
+              <span className='pointer-events-none ml-2 text-slate-600 italic'>
+                Drag tiles here...
+              </span>
+            )}
           </div>
 
           <div className='flex items-center justify-between'>
             <button
-              onClick={clearBuilder} className='
+              onClick={clearBuilder}
+              className='
                 flex items-center gap-1 text-slate-400 transition-colors
                 hover:text-white
               '
@@ -144,9 +169,12 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
 
         {/* Pool Area */}
         <div
-          data-dropzone='pool' className={`
+          data-dropzone='pool'
+          className={`
             mb-12 w-full max-w-2xl p-4 transition-colors
-            ${hoverTarget?.type === 'pool' ? 'rounded-xl bg-slate-800/30' : ''}
+            ${
+            hoverTarget?.type === 'pool' ? 'rounded-xl bg-slate-800/30' : ''
+          }
           `}
         >
           <div className='mb-2 text-sm text-slate-400'>Today's Pool:</div>
@@ -156,10 +184,11 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
                 key={grp.char}
                 char={grp.char}
                 count={grp.count}
-                onPointerDown={(e) => startDrag(e, {
-                  source: 'pool',
-                  char: grp.char
-                })}
+                onPointerDown={(e) =>
+                  startDrag(e, {
+                    source: 'pool',
+                    char: grp.char
+                  })}
               />
             ))}
           </div>
@@ -171,25 +200,30 @@ export const DailyView: React.FC<DailyViewProps> = ({ showToast }) => {
           bg-slate-800/50 p-6
         '
         >
-          <h3 className='mb-4 flex items-center gap-2 text-xl font-bold'><Trophy className='text-yellow-400' /> Discovered Statements ({dailySubmitted.length})</h3>
+          <h3 className='mb-4 flex items-center gap-2 text-xl font-bold'>
+            <Trophy className='text-yellow-400' /> Discovered Statements (
+            {dailySubmitted.length})
+          </h3>
           {dailySubmitted.length === 0
             ? (
-              <p className='text-slate-500 italic'>No statements found yet. Get calculating!</p>
+            <p className='text-slate-500 italic'>
+              No statements found yet. Get calculating!
+            </p>
               )
             : (
-              <div className='flex flex-col gap-3'>
-                {dailySubmitted.map((stmt) => (
-                  <div
-                    key={stmt} className='
-                      rounded-lg border border-slate-600 bg-slate-800 px-4 py-3
-                      font-mono text-xl tracking-widest text-emerald-300
-                      shadow-sm
-                    '
-                  >
-                    {stmt}
-                  </div>
-                ))}
-              </div>
+            <div className='flex flex-col gap-3'>
+              {dailySubmitted.map((stmt) => (
+                <div
+                  key={stmt}
+                  className='
+                    rounded-lg border border-slate-600 bg-slate-800 px-4 py-3
+                    font-mono text-xl tracking-widest text-emerald-300 shadow-sm
+                  '
+                >
+                  {stmt}
+                </div>
+              ))}
+            </div>
               )}
         </div>
       </div>

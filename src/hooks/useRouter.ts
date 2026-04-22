@@ -3,12 +3,14 @@ import { createContext, useContext } from 'react'
 import { ViewType } from '../domain/types'
 
 interface RouterContextType {
-  view: ViewType;
-  navigate: (v: ViewType) => Promise<void>;
-  preload: (v: ViewType) => Promise<void>;
+  view: ViewType
+  navigate: (v: ViewType) => Promise<void>
+  preload: (v: ViewType) => Promise<void>
 }
 
-export const RouterContext = createContext<RouterContextType | undefined>(undefined)
+export const RouterContext = createContext<RouterContextType | undefined>(
+  undefined
+)
 
 /**
  * useRouter Hook

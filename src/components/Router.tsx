@@ -27,7 +27,10 @@ interface RouterProps {
  * Manages view state and handles declarative routing.
  * Uses useTransition to ensure seamless view handovers without empty screen gaps.
  */
-export const Router: React.FC<RouterProps> = ({ initialView = 'menu', children }) => {
+export const Router: React.FC<RouterProps> = ({
+  initialView = 'menu',
+  children
+}) => {
   const [view, setView] = useState<ViewType>(initialView)
   const [isGlobalLoading, setIsGlobalLoading] = useState(false)
   const [, startTransition] = useTransition()
@@ -40,15 +43,15 @@ export const Router: React.FC<RouterProps> = ({ initialView = 'menu', children }
         return {
           id: child.props.id,
           children: child.props.children,
-          prefetch: child.props.prefetch,
+          prefetch: child.props.prefetch
         }
       }
       return null
     })
-    .filter((route): route is RouteProps => route !== null && route.id)
+    .filter((route): route is RouteProps => route?.id)
 
   const preload = async (v: ViewType) => {
-    const route = routes.find(r => r.id === v)
+    const route = routes.find((r) => r.id === v)
     if (!route) return
 
     if (route.prefetch) {
@@ -60,7 +63,7 @@ export const Router: React.FC<RouterProps> = ({ initialView = 'menu', children }
   const navigate = async (v: ViewType) => {
     if (v === view) return
 
-    const route = routes.find(r => r.id === v)
+    const route = routes.find((r) => r.id === v)
     const isAlreadyLoaded = loadedRoutes.current.has(v) || !route?.prefetch
 
     if (isAlreadyLoaded) {
@@ -91,7 +94,7 @@ export const Router: React.FC<RouterProps> = ({ initialView = 'menu', children }
       value={{
         view,
         navigate,
-        preload,
+        preload
       }}
     >
       {/*

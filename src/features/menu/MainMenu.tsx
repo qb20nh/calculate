@@ -20,13 +20,21 @@ export const MainMenu: React.FC = () => {
         >
           Equate.
         </h1>
-        <p className='mb-12 text-xl text-slate-300'>The mathematical Scrabble challenge.</p>
+        <p className='mb-12 text-xl text-slate-300'>
+          The mathematical Scrabble challenge.
+        </p>
 
         <div className='mx-auto flex w-full max-w-md flex-col gap-4'>
           <button
-            onClick={() => { void navigate('main') }}
-            onPointerEnter={() => { void preload('main') }}
-            onPointerDown={() => { void preload('main') }}
+            onClick={() => {
+              void navigate('main')
+            }}
+            onPointerEnter={() => {
+              void preload('main')
+            }}
+            onPointerDown={() => {
+              void preload('main')
+            }}
             className='
               flex w-full items-center justify-center gap-3 rounded-xl
               bg-blue-600 py-4 text-xl font-bold shadow-lg transition-all
@@ -36,9 +44,15 @@ export const MainMenu: React.FC = () => {
             <Play size={24} /> Main Puzzles
           </button>
           <button
-            onClick={() => { void navigate('daily') }}
-            onPointerEnter={() => { void preload('daily') }}
-            onPointerDown={() => { void preload('daily') }}
+            onClick={() => {
+              void navigate('daily')
+            }}
+            onPointerEnter={() => {
+              void preload('daily')
+            }}
+            onPointerDown={() => {
+              void preload('daily')
+            }}
             className='
               flex w-full items-center justify-center gap-3 rounded-xl
               bg-emerald-600 py-4 text-xl font-bold shadow-lg transition-all
@@ -49,17 +63,29 @@ export const MainMenu: React.FC = () => {
           </button>
         </div>
 
-        <div className='
-          mt-12 rounded-xl bg-slate-800 p-6 text-left shadow-inner
-        '
-        >
+        <div className='mt-12 rounded-xl bg-slate-800 p-6 text-left shadow-inner'>
           <h3 className='mb-2 flex items-center gap-2 text-lg font-bold'>
             <AlertCircle className='text-blue-400' /> Core Rules
           </h3>
           <ul className='list-disc space-y-2 pl-5 text-slate-300'>
-            <li>Form multi-digit numbers and chain comparators (<span className='font-bold text-blue-400'>&gt;=, &lt;, &gt;, &lt;&gt;</span>).</li>
-            <li>Make <span className='font-bold text-blue-400'>&lt;&gt;</span> (not equal) by placing <span className='font-bold text-blue-400'>&gt;&lt;</span> and <span className='font-bold text-blue-400'>&gt;</span> adjacent to each other.</li>
-            <li>At least one side of any comparison must contain a mathematical operation (<span className='font-bold text-orange-400'>+, −, ×, ÷</span>).</li>
+            <li>
+              Form multi-digit numbers and chain comparators (
+              <span className='font-bold text-blue-400'>
+                &gt;=, &lt;, &gt;, &lt;&gt;
+              </span>
+              ).
+            </li>
+            <li>
+              Make <span className='font-bold text-blue-400'>&lt;&gt;</span>{' '}
+              (not equal) by placing{' '}
+              <span className='font-bold text-blue-400'>&gt;&lt;</span> and{' '}
+              <span className='font-bold text-blue-400'>&gt;</span> adjacent to
+              each other.
+            </li>
+            <li>
+              At least one side of any comparison must contain a mathematical
+              operation (<span className='font-bold text-orange-400'>+, −, ×, ÷</span>).
+            </li>
           </ul>
         </div>
       </div>

@@ -11,17 +11,15 @@ const skipCompiler = process.env.SKIP_COMPILER === 'true'
 export default defineConfig({
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+      '@': path.resolve(__dirname, './src')
+    }
   },
   plugins: [
     react({
       babel: skipCompiler
         ? {}
         : {
-            plugins: [
-              ['babel-plugin-react-compiler', { target: '19' }],
-            ],
+            plugins: [['babel-plugin-react-compiler', { target: '19' }]]
           }
     })
   ],

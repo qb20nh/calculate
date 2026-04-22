@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { getGroupedTiles, getNormalizedRelations, isValidEquation, normalizeExpr } from './engine'
+import {
+  getGroupedTiles,
+  getNormalizedRelations,
+  isValidEquation,
+  normalizeExpr
+} from './engine'
 
 describe('isValidEquation', () => {
   it('should validate a simple correct equation', () => {
@@ -11,7 +16,7 @@ describe('isValidEquation', () => {
   it('should fail an equation with no operator on either side', () => {
     const result = isValidEquation('3=3')
     expect(result.valid).toBe(false)
-    expect(result.reason).toContain('neither side of \'=\' contains an operator')
+    expect(result.reason).toContain("neither side of '=' contains an operator")
   })
 
   it('should fail an invalid mathematical result', () => {

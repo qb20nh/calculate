@@ -1,13 +1,18 @@
 import React from 'react'
 
 interface TileProps {
-  char: string;
-  count?: number;
-  isFaded?: boolean;
-  onPointerDown?: (e: React.PointerEvent) => void;
+  char: string
+  count?: number
+  isFaded?: boolean
+  onPointerDown?: (e: React.PointerEvent) => void
 }
 
-export const Tile: React.FC<TileProps> = ({ char, count, isFaded, onPointerDown }) => {
+export const Tile: React.FC<TileProps> = ({
+  char,
+  count,
+  isFaded,
+  onPointerDown
+}) => {
   const isOperator = ['+', '−', '×', '÷'].includes(char)
   const isComparator = ['=', '<', '>'].includes(char)
 
@@ -21,17 +26,21 @@ export const Tile: React.FC<TileProps> = ({ char, count, isFaded, onPointerDown 
         select-none
         active:cursor-grabbing
         sm:size-14
-        ${isOperator
+        ${
+        isOperator
           ? 'border-orange-200 bg-orange-100 text-orange-600'
           : isComparator
             ? 'border-blue-200 bg-blue-100 text-blue-600'
-            : 'border-slate-200 bg-white text-slate-800'}
-        ${isFaded
+            : 'border-slate-200 bg-white text-slate-800'
+      }
+        ${
+        isFaded
           ? 'scale-95 opacity-30'
           : `
             z-10
             hover:scale-105 hover:shadow-md
-          `}
+          `
+      }
       `}
     >
       {char}

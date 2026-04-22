@@ -2,11 +2,14 @@ import { RotateCcw } from 'lucide-react'
 import React from 'react'
 
 interface ResetDialogProps {
-  dialogRef: React.RefObject<HTMLDialogElement | null>;
-  onConfirm: () => void;
+  dialogRef: React.RefObject<HTMLDialogElement | null>
+  onConfirm: () => void
 }
 
-export const ResetDialog: React.FC<ResetDialogProps> = ({ dialogRef, onConfirm }) => {
+export const ResetDialog: React.FC<ResetDialogProps> = ({
+  dialogRef,
+  onConfirm
+}) => {
   return (
     <dialog
       ref={dialogRef}
@@ -23,7 +26,10 @@ export const ResetDialog: React.FC<ResetDialogProps> = ({ dialogRef, onConfirm }
         </div>
         <div className='text-center'>
           <h3 className='mb-2 text-2xl font-bold'>Reset Level?</h3>
-          <p className='text-sm text-slate-400'>This will clear the entire board and return all tiles to your inventory.</p>
+          <p className='text-sm text-slate-400'>
+            This will clear the entire board and return all tiles to your
+            inventory.
+          </p>
         </div>
         <div className='flex w-full gap-4'>
           <button

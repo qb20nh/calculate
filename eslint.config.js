@@ -12,9 +12,11 @@ import js from '@eslint/js'
 import neostandard from 'neostandard'
 import { defineConfig } from 'eslint/config'
 import { fixStylisticRules } from './scripts/eslint-v10-compat.js'
+import compat from 'eslint-plugin-compat'
 
 export default defineConfig([
   js.configs.recommended,
+  compat.configs['flat/recommended'],
   {
     ignores: ['dist', 'report', 'coverage', 'scripts'],
   },
@@ -74,6 +76,18 @@ export default defineConfig([
       tailwindcss: {
         entryPoint: 'src/style.css',
       },
+      polyfills: [
+        'Promise',
+        'Map',
+        'Set',
+        'Object.entries',
+        'Object.values',
+        'Object.fromEntries',
+        'Array.prototype.flat',
+        'Array.prototype.flatMap',
+        'Object.groupBy',
+        'Map.groupBy'
+      ],
     },
     plugins: {
       'react-hooks': reactHooks,
@@ -104,12 +118,52 @@ export default defineConfig([
     },
   },
   {
-    files: ['**/*.{js,ts,tsx}'],
+    files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {
       '@stylistic/space-before-function-paren': ['error', {
         anonymous: 'always',
         named: 'never',
         asyncArrow: 'always'
+      }],
+      '@stylistic/indent': ['error', 2, {
+        SwitchCase: 1,
+        flatTernaryExpressions: false,
+        ignoredNodes: [
+          'TemplateLiteral > TemplateElement', // Only ignore the string text
+          'JSXElement',
+          'JSXElement > *',
+          'JSXAttribute',
+          'JSXIdentifier',
+          'JSXNamespacedName',
+          'JSXMemberExpression',
+          'JSXSpreadAttribute',
+          'JSXExpressionContainer',
+          'JSXOpeningElement',
+          'JSXClosingElement',
+          'JSXFragment',
+          'JSXOpeningFragment',
+          'JSXClosingFragment',
+          'JSXText',
+          'JSXEmptyExpression',
+          'JSXSpreadChild'
+        ],
+        VariableDeclarator: 1,
+        outerIIFEBody: 1,
+        MemberExpression: 1,
+        FunctionDeclaration: {
+          parameters: 1,
+          body: 1
+        },
+        FunctionExpression: {
+          parameters: 1,
+          body: 1
+        },
+        CallExpression: { arguments: 1 },
+        ArrayExpression: 1,
+        ObjectExpression: 1,
+        ImportDeclaration: 1,
+        ignoreComments: false,
+        offsetTernaryExpressions: true
       }],
     },
   },
