@@ -1,6 +1,6 @@
 import { GridCell, TileItem } from '@/domain/types'
 
-interface SavedPlayState {
+export interface SavedPlayState {
   levelIndex: number
   grid: GridCell[]
   inventory: TileItem[]

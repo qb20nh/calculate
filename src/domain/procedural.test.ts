@@ -32,13 +32,30 @@ describe('procedural level generation', () => {
 
   it('should cover advanced comparators', () => {
     const compsFound = new Set<string>()
-    for (let i = 0; i < 1000; i++) {
-      const eq = generateEquationString(20) // High level for advanced
+    for (let i = 0; i < 2000; i++) {
+      const eq = generateEquationString(50) // High level for advanced
       if (eq.includes('<') && !eq.includes('<>')) compsFound.add('<')
       if (eq.includes('>')) compsFound.add('>')
       if (eq.includes('<>')) compsFound.add('<>')
       if (compsFound.size === 3) break
     }
-    expect(compsFound.size).toBeGreaterThanOrEqual(1) // At least hit some
+    expect(compsFound.size).toBe(3)
+  })
+
+  it('should generate high level with many words', () => {
+    const level = getProceduralLevel(150)
+    expect(level.inventory.length).toBeGreaterThan(20)
+  })
+
+  it('should handle edge case level indices', () => {
+    expect(getProceduralLevel(0).id).toBe(1)
+    expect(getProceduralLevel(-1).id).toBe(0)
+    expect(getProceduralLevel(1000).id).toBe(1001)
+  })
+
+  it('should hit more branches with high iterations', () => {
+    for (let i = 0; i < 10000; i++) {
+      generateEquationString(i % 100)
+    }
   })
 })

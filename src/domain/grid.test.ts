@@ -49,6 +49,13 @@ describe('grid logic', () => {
     expect(words).toContain('1+2=3')
   })
 
+  it('should extract multiple words in one line separated by blocks', () => {
+    const grid = createGrid('1+1=2#2+2=4')
+    const words = extractWordsFromGrid(grid, 11)
+    expect(words).toContain('1+1=2')
+    expect(words).toContain('2+2=4')
+  })
+
   it('should validate a correct grid', () => {
     const grid = createGrid('1+2=3')
     const result = validateGrid(grid, 5)

@@ -9,7 +9,7 @@ import {
   TileItem
 } from '@/domain/types'
 import { LevelService } from '@/services/LevelService'
-import { StorageService } from '@/services/StorageService'
+import { SavedPlayState, StorageService } from '@/services/StorageService'
 
 interface GameState {
   levelIndex: number
@@ -23,23 +23,27 @@ interface GameState {
 
 type Action =
   | {
-    type: 'LOAD_LEVEL'
-    index: number
+    type: 'LOAD_LEVEL';
+    index: number;
+    saved?: SavedPlayState | null;
+    maxProgress: number
   } |
   {
-    type: 'SET_GRID'
+    type: 'SET_GRID';
     grid: GridCell[]
   } |
   {
-    type: 'SET_INVENTORY'
+    type: 'SET_INVENTORY';
     inventory: TileItem[]
   } |
   {
-    type: 'MOVE_TILE'
-    grid: GridCell[]
-    inventory: TileItem[]
-    isCleared: boolean
-    isNewClear: boolean
+    type: 'DROP_ON_GRID';
+    item: DragItem;
+    targetIndex: number
+  } |
+  {
+    type: 'DROP_ON_INVENTORY';
+    item: DragItem
   } |
   {
     type: 'SET_CLEARED'
@@ -47,12 +51,18 @@ type Action =
     isNewClear: boolean
     maxProgress: number
   } |
-  { type: 'RESET_LEVEL' }
+  { type: 'RESET_LEVEL' } |
+  {
+    type: 'SET_NEW_CLEAR';
+    val: boolean
+  }
 
-const getInitialState = (idx: number): GameState => {
+const getInitialStateFromData = (
+  idx: number,
+  saved: SavedPlayState | null | undefined,
+  maxProgress: number
+): GameState => {
   const level = LevelService.getLevel(idx)
-  const saved = StorageService.getCurrentPlay()
-  const maxProgress = StorageService.getMaxProgress()
 
   if (saved?.levelIndex === idx) {
     return {
@@ -71,7 +81,7 @@ const getInitialState = (idx: number): GameState => {
     maxProgress,
     grid: LevelService.createInitialGrid(level),
     inventory: level.inventory.map((char, i) => ({
-      id: i,
+      id: `${idx}-${i}-${Date.now()}`,
       char
     })),
     isLevelCleared: false,
@@ -83,23 +93,71 @@ const getInitialState = (idx: number): GameState => {
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'LOAD_LEVEL':
-      return getInitialState(action.index)
-    case 'SET_GRID':
+      return getInitialStateFromData(action.index, action.saved, action.maxProgress)
+
+    case 'DROP_ON_GRID': {
+      const { item, targetIndex } = action
+      const cell = state.grid[targetIndex]
+      if (cell.type === 'block') return state
+
+      const newGrid = [...state.grid]
+      let newInventory = [...state.inventory]
+
+      if (item.source === 'inventory' || item.source === 'pool') {
+        const invIdx = newInventory.findIndex((t) => t.char === item.char)
+        if (invIdx === -1) return state
+        const [movedTile] = newInventory.splice(invIdx, 1)
+
+        if (cell.char !== null) {
+          newInventory = [...newInventory, {
+            id: `returned-${Date.now()}`,
+            char: cell.char
+          }]
+        }
+        newGrid[targetIndex] = {
+          ...cell,
+          char: movedTile.char
+        }
+      } else if (item.source === 'grid' && item.index !== undefined) {
+        const sourceChar = state.grid[item.index].char
+        newGrid[item.index] = {
+          ...newGrid[item.index],
+          char: cell.char
+        }
+        newGrid[targetIndex] = {
+          ...cell,
+          char: sourceChar
+        }
+      }
       return {
         ...state,
-        grid: action.grid
+        grid: newGrid,
+        inventory: newInventory
       }
-    case 'SET_INVENTORY':
+    }
+
+    case 'DROP_ON_INVENTORY': {
+      const { item } = action
+      if (item.source !== 'grid' || item.index === undefined) return state
+      const char = state.grid[item.index].char
+      if (!char) return state
+
+      const newGrid = [...state.grid]
+      newGrid[item.index] = {
+        ...newGrid[item.index],
+        char: null
+      }
+      const newInventory = [...state.inventory, {
+        id: `returned-${Date.now()}`,
+        char
+      }]
       return {
         ...state,
-        inventory: action.inventory
+        grid: newGrid,
+        inventory: newInventory
       }
-    case 'MOVE_TILE':
-      return {
-        ...state,
-        grid: action.grid,
-        inventory: action.inventory
-      }
+    }
+
     case 'SET_CLEARED':
       return {
         ...state,
@@ -107,8 +165,25 @@ function reducer(state: GameState, action: Action): GameState {
         isNewClear: action.isNewClear,
         maxProgress: action.maxProgress
       }
-    case 'RESET_LEVEL':
-      return getInitialState(state.levelIndex)
+
+    case 'SET_NEW_CLEAR':
+      return {
+        ...state,
+        isNewClear: action.val
+      }
+
+    case 'RESET_LEVEL': {
+      return {
+        ...state,
+        grid: LevelService.createInitialGrid(state.currentLevelData!),
+        inventory: state.currentLevelData!.inventory.map((char, i) => ({
+          id: `${state.levelIndex}-${i}-${Date.now()}`,
+          char
+        })),
+        isLevelCleared: false,
+        isNewClear: false
+      }
+    }
     default:
       return state
   }
@@ -126,8 +201,11 @@ export const usePuzzleGame = (
 ) => {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const saved = StorageService.getCurrentPlay()
-    return getInitialState(
-      saved ? saved.levelIndex : StorageService.getMaxProgress()
+    const maxProgress = StorageService.getMaxProgress()
+    return getInitialStateFromData(
+      saved ? saved.levelIndex : maxProgress,
+      saved,
+      maxProgress
     )
   })
 
@@ -143,24 +221,24 @@ export const usePuzzleGame = (
 
   // Actions
   const setLevelIndex = useCallback((index: number) => {
+    const saved = StorageService.getCurrentPlay()
+    const maxProgress = StorageService.getMaxProgress()
     dispatch({
       type: 'LOAD_LEVEL',
-      index
+      index,
+      saved,
+      maxProgress
     })
-  }, [])
+  }, [dispatch])
 
   const setIsNewClear = useCallback(
     (val: boolean) => {
-      // This is a bit of a hack to keep the API similar, but ideally we'd have a more specific action
       dispatch({
-        type: 'MOVE_TILE',
-        grid,
-        inventory,
-        isCleared: isLevelCleared,
-        isNewClear: val
+        type: 'SET_NEW_CLEAR',
+        val
       })
     },
-    [grid, inventory, isLevelCleared]
+    [dispatch]
   )
 
   const checkFullAndVerify = useCallback(
@@ -186,35 +264,17 @@ export const usePuzzleGame = (
         }
       }
     },
-    [currentLevelData, levelIndex, maxProgress, showToast]
+    [currentLevelData, levelIndex, maxProgress, showToast, dispatch]
   )
 
   const handleReturnToInventory = useCallback(
     (item: DragItem) => {
-      if (item.source !== 'grid' || item.index === undefined) return
-      const newGrid = [...grid]
-      const char = newGrid[item.index].char
-      if (!char) return
-      newGrid[item.index] = {
-        ...newGrid[item.index],
-        char: null
-      }
       dispatch({
-        type: 'SET_GRID',
-        grid: newGrid
-      })
-      dispatch({
-        type: 'SET_INVENTORY',
-        inventory: [
-          ...inventory,
-          {
-            id: Date.now(),
-            char
-          }
-        ]
+        type: 'DROP_ON_INVENTORY',
+        item
       })
     },
-    [grid, inventory]
+    [dispatch]
   )
 
   const handleDrop = useCallback(
@@ -228,54 +288,19 @@ export const usePuzzleGame = (
 
       if (target.type !== 'grid' || target.index === undefined) return
 
-      const cell = grid[target.index]
-      if (cell.type === 'block') return
-
-      if (item.source === 'inventory') {
-        const newInventory = [...inventory]
-        const invIdx = newInventory.findIndex((t) => t.char === item.char)
-        const [movedTile] = newInventory.splice(invIdx, 1)
-
-        const newGrid = [...grid]
-        if (cell.char !== null) {
-          newInventory.push({
-            id: Date.now(),
-            char: cell.char
-          })
-        }
-        newGrid[target.index] = {
-          ...cell,
-          char: movedTile.char
-        }
-        dispatch({
-          type: 'SET_GRID',
-          grid: newGrid
-        })
-        dispatch({
-          type: 'SET_INVENTORY',
-          inventory: newInventory
-        })
-        checkFullAndVerify(newGrid)
-      } else if (item.source === 'grid' && item.index !== undefined) {
-        const newGrid = [...grid]
-        const sourceChar = newGrid[item.index].char
-        newGrid[item.index] = {
-          ...newGrid[item.index],
-          char: cell.char
-        }
-        newGrid[target.index] = {
-          ...cell,
-          char: sourceChar
-        }
-        dispatch({
-          type: 'SET_GRID',
-          grid: newGrid
-        })
-        checkFullAndVerify(newGrid)
-      }
+      dispatch({
+        type: 'DROP_ON_GRID',
+        item,
+        targetIndex: target.index
+      })
     },
-    [grid, inventory, checkFullAndVerify, handleReturnToInventory]
+    [dispatch, handleReturnToInventory]
   )
+
+  // Watch for grid changes to trigger verification
+  useEffect(() => {
+    checkFullAndVerify(grid)
+  }, [grid, checkFullAndVerify])
 
   const handleQuickClick = useCallback(
     (item: DragItem) => {
@@ -299,9 +324,10 @@ export const usePuzzleGame = (
   const resetLevel = useCallback(() => {
     StorageService.removeCurrentPlay()
     dispatch({ type: 'RESET_LEVEL' })
-  }, [])
+  }, [dispatch])
 
   // Lifecycle
+  // Persist to storage
   useEffect(() => {
     if (!currentLevelData) return
     if (currentLevelData.id !== levelIndex + 1) return
@@ -324,7 +350,6 @@ export const usePuzzleGame = (
     grid,
     inventory,
     isLevelCleared,
-    isNewClear,
     levelIndex,
     currentLevelData
   ])

@@ -6,23 +6,46 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const toAbs = (p) => path.resolve(__dirname, p)
 
 async function prerender() {
-  // 1. Read the template index.html from dist
-  const template = fs.readFileSync(toAbs('../dist/index.html'), 'utf-8')
+  const templatePath = toAbs('../dist/index.html')
+  const serverEntryPath = toAbs('../dist/server/entry-server.js')
 
-  // 2. Load the server entry
-  // Note: We need to build the server bundle first
-  const { render } = await import('../dist/server/entry-server.js')
+  // 1. Verify existence of required files
+  if (!fs.existsSync(templatePath)) {
+    console.error(`Error: Template file not found at ${templatePath}. Did you run 'npm run build'?`)
+    process.exit(1)
+  }
 
-  // 3. Render the app
-  const appHtml = render()
+  if (!fs.existsSync(serverEntryPath)) {
+    console.error(`Error: Server entry not found at ${serverEntryPath}. Did you run 'npm run build'?`)
+    process.exit(1)
+  }
 
-  // 4. Inject the rendered HTML into the template
-  const html = template.replace('<!--ssr-outlet-->', appHtml)
+  try {
+    // 2. Read the template index.html from dist
+    const template = fs.readFileSync(templatePath, 'utf-8')
 
-  // 5. Write the final HTML back to dist/index.html
-  fs.writeFileSync(toAbs('../dist/index.html'), html)
+    // 3. Load the server entry
+    // Note: We need to build the server bundle first
+    const { render } = await import(serverEntryPath)
 
-  console.log('Successfully prerendered index.html')
+    if (typeof render !== 'function') {
+      throw new TypeError(`The server entry at ${serverEntryPath} does not export a "render" function.`)
+    }
+
+    // 4. Render the app
+    const appHtml = render()
+
+    // 5. Inject the rendered HTML into the template
+    const html = template.replace('<!--ssr-outlet-->', appHtml)
+
+    // 6. Write the final HTML back to dist/index.html
+    fs.writeFileSync(templatePath, html)
+
+    console.log('Successfully prerendered index.html')
+  } catch (err) {
+    console.error('Prerender failed:', err instanceof Error ? err.message : String(err))
+    process.exit(1)
+  }
 }
 
 await prerender()

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { DAILY_POOL } from '@/constants/gameData'
 import { getNormalizedRelations, isValidEquation } from '@/domain/engine'
+import { reorder } from '@/domain/reorder'
 import { DragItem, HoverTarget, TileItem } from '@/domain/types'
 import { StorageService } from '@/services/StorageService'
 
@@ -73,46 +74,38 @@ export const useDailyChallenge = (
   }, [dailyCurrent, dailyKnownRelations, showToast])
 
   const handleDrop = useCallback(
-    (item: DragItem, target: HoverTarget | null) => {
-      if (!target) return
+    (dragItem: DragItem, dropTarget: HoverTarget | null) => {
+      if (!dropTarget) return
 
-      if (item.source === 'pool' && target.type === 'builder') {
+      if (dragItem.source === 'pool' && dropTarget.type === 'builder') {
         const newPool = [...dailyPool]
-        const poolIdx = newPool.findIndex((t) => t.char === item.char)
+        const poolIdx = newPool.findIndex((t) => t.char === dragItem.char)
         const [movedTile] = newPool.splice(poolIdx, 1)
 
         const newCurrent = [...dailyCurrent]
-        if (target.index === undefined) {
+        if (dropTarget.index === undefined) {
           newCurrent.push(movedTile)
         } else {
-          newCurrent.splice(target.index, 0, movedTile)
+          newCurrent.splice(dropTarget.index, 0, movedTile)
         }
         setDailyPool(newPool)
         setDailyCurrent(newCurrent)
       } else if (
-        item.source === 'builder' &&
-        target.type === 'builder' &&
-        item.index !== undefined
+        dragItem.source === 'builder' &&
+        dropTarget.type === 'builder' &&
+        dragItem.index !== undefined
       ) {
-        if (item.index === target.index) return
-        const newCurrent = [...dailyCurrent]
-        const [movedTile] = newCurrent.splice(item.index, 1)
-
-        let insertIdx =
-          target.index ?? newCurrent.length
-        if (target.index !== undefined && item.index < target.index) {
-          insertIdx--
-        }
-
-        newCurrent.splice(insertIdx, 0, movedTile)
-        setDailyCurrent(newCurrent)
+        if (dragItem.index === dropTarget.index) return
+        setDailyCurrent((prev) =>
+          reorder(prev, dragItem.index!, dropTarget.index ?? prev.length)
+        )
       } else if (
-        item.source === 'builder' &&
-        target.type === 'pool' &&
-        item.index !== undefined
+        dragItem.source === 'builder' &&
+        dropTarget.type === 'pool' &&
+        dragItem.index !== undefined
       ) {
         const newCurrent = [...dailyCurrent]
-        const [movedTile] = newCurrent.splice(item.index, 1)
+        const [movedTile] = newCurrent.splice(dragItem.index, 1)
         setDailyCurrent(newCurrent)
         setDailyPool((prev) => [...prev, movedTile])
       }

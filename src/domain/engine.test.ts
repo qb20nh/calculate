@@ -13,6 +13,13 @@ describe('isValidEquation', () => {
     expect(result.valid).toBe(true)
   })
 
+  it('should validate chained equations', () => {
+    // Each comparison must have at least one side with an operator
+    // 1+1=2 (left has +), 2<3+0 (right has +)
+    const result = isValidEquation('1+1=2<3+0')
+    expect(result.valid).toBe(true)
+  })
+
   it('should fail an equation with no operator on either side', () => {
     const result = isValidEquation('3=3')
     expect(result.valid).toBe(false)
@@ -59,7 +66,32 @@ describe('isValidEquation', () => {
   })
 
   it('should fail infinite values', () => {
-    expect(isValidEquation('1/0=1').valid).toBe(false)
+    expect(isValidEquation('1÷0=1').valid).toBe(false)
+  })
+
+  it('should fail on invalid characters', () => {
+    // This is hard to trigger via isValidEquation because it filters mostly,
+    // but we can try something that slips through parseStatement
+    expect(isValidEquation('1$1=2').valid).toBe(false)
+  })
+
+  it('should fail on greater than false', () => {
+    expect(isValidEquation('1+1>3').valid).toBe(false)
+  })
+
+  it('should return invalid if no operators are found', () => {
+    // This hits line 89 in engine.ts
+    // It has a comparator (=) but no operators on either side
+    const result = isValidEquation('1=2')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toContain('contains an operator')
+  })
+
+  it('should fail misplaced comparators', () => {
+    // This hits line 73 in engine.ts
+    const result = isValidEquation('1=')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('Misplaced comparators.')
   })
 })
 
