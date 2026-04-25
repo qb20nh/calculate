@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'preact/hooks';
 
 export interface ProgressBarProps {
   /** Whether the progress bar should be in a loading state. */
