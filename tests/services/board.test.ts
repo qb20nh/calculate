@@ -1,9 +1,16 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { generateGame, validateBoard } from "@/services/board";
 import { OP_PLUS, REL_EQ } from "@/services/math";
 import type { Difficulty } from "@/services/storage";
 
 describe("board service", () => {
+  const difficultyRanges: Record<Difficulty, [number, number]> = {
+    Easy: [5, 7],
+    Medium: [10, 14],
+    Hard: [15, 21],
+  };
+
   it("should generate a playable game for all difficulties", () => {
     const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
     for (const diff of difficulties) {
@@ -17,15 +24,9 @@ describe("board service", () => {
   });
 
   it("should preserve generation constraints across stages", () => {
-    const inventoryRanges: Record<Difficulty, [number, number]> = {
-      Easy: [5, 7],
-      Medium: [10, 14],
-      Hard: [15, 21],
-    };
-
     const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
     for (const diff of difficulties) {
-      const [minInventory, maxInventory] = inventoryRanges[diff];
+      const [minInventory, maxInventory] = difficultyRanges[diff];
       for (let stage = 1; stage <= 10; stage++) {
         const game = generateGame(stage, diff);
 
@@ -34,6 +35,27 @@ describe("board service", () => {
         expect(validateBoard(game.board).valid).toBe(false);
       }
     }
+  });
+
+  it("should keep generation constraints under property runs", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 10_000 }),
+        fc.constantFrom<Difficulty>("Easy", "Medium", "Hard"),
+        (stage, diff) => {
+          const game = generateGame(stage, diff);
+          const [minInventory, maxInventory] = difficultyRanges[diff];
+
+          expect(game.status).toBe("playing");
+          expect(Object.keys(game.board).length).toBeGreaterThan(0);
+          expect(game.bank.length).toBeGreaterThan(0);
+          expect(game.bank.length).toBeGreaterThanOrEqual(minInventory);
+          expect(game.bank.length).toBeLessThanOrEqual(maxInventory);
+          expect(generateGame(stage, diff)).toEqual(game);
+        },
+      ),
+      { numRuns: 200 },
+    );
   });
 
   it("should generate deterministic games for the same stage and difficulty", () => {

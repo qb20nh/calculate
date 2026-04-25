@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   evaluateExpression,
@@ -15,6 +16,73 @@ import {
 } from "@/services/math";
 
 describe("math service", () => {
+  const referenceEvaluateExpression = (str: string) => {
+    if (str.length === 0) return null;
+
+    const normalized = str
+      .replaceAll(OP_MINUS, "-")
+      .replaceAll(OP_MULT, "*")
+      .replaceAll(OP_DIV, "/");
+
+    if (/[+\-*/]{2,}/.test(normalized)) return null;
+    if (/^[+\-*/]/.test(normalized)) return null;
+    if (/[+\-*/]$/.test(normalized)) return null;
+    if (!/^[0-9+\-*/]+$/.test(normalized)) return null;
+    if (/(^|[+\-*/])0\d+/.test(normalized)) return null;
+
+    const tokens = normalized.match(/\d+|[+\-*/]/g);
+    if (!tokens) return null;
+
+    const values: number[] = [];
+    const ops: Array<"+" | "-"> = [];
+
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (!t) return null;
+
+      if (t === "*" || t === "/") {
+        const left = values.pop();
+        if (left === undefined) return null;
+
+        const rightToken = tokens[++i];
+        if (!rightToken) return null;
+
+        const right = Number(rightToken);
+        if (!Number.isFinite(right)) return null;
+
+        if (t === "*") {
+          values.push(left * right);
+        } else {
+          if (right === 0) return null;
+          if (left % right !== 0) return null;
+          values.push(left / right);
+        }
+      } else if (t === "+" || t === "-") {
+        ops.push(t);
+      } else {
+        const value = Number(t);
+        if (!Number.isFinite(value)) return null;
+        values.push(value);
+      }
+    }
+
+    const first = values[0];
+    if (first === undefined) return null;
+
+    let res = first;
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      const right = values[i + 1];
+      if (right === undefined) return null;
+
+      if (op === "+") res += right;
+      if (op === "-") res -= right;
+    }
+
+    if (!Number.isFinite(res)) return null;
+    return res;
+  };
+
   it("should generate consistent hashes", () => {
     expect(getHashSeed("test")).toBe(getHashSeed("test"));
     expect(getHashSeed("test")).not.toBe(getHashSeed("other"));
@@ -51,6 +119,28 @@ describe("math service", () => {
     expect(evaluateExpression("2a+3")).toBeNull(); // No letters
   });
 
+  it("should match reference evaluator for generated expressions", () => {
+    const expressionArb = fc
+      .array(fc.integer({ min: 0, max: 999 }), { minLength: 1, maxLength: 6 })
+      .chain((terms) =>
+        fc
+          .array(fc.constantFrom("+", OP_MINUS, OP_MULT, OP_DIV), {
+            minLength: terms.length - 1,
+            maxLength: terms.length - 1,
+          })
+          .map((ops) => ({
+            expression: terms.map((term, index) => `${term}${ops[index] ?? ""}`).join(""),
+          })),
+      );
+
+    fc.assert(
+      fc.property(expressionArb, ({ expression }) => {
+        expect(evaluateExpression(expression)).toBe(referenceEvaluateExpression(expression));
+      }),
+      { numRuns: 300 },
+    );
+  });
+
   it("should generate valid statements", () => {
     const prng = xoshiro128pp(99);
     for (let i = 0; i < 50; i++) {
@@ -67,6 +157,20 @@ describe("math service", () => {
     expect(tokens.length).toBeGreaterThanOrEqual(5);
     expect(tokens.length).toBeLessThanOrEqual(10);
     expect(isValidEquation(tokens.map((val) => ({ val })))).toBe(true);
+  });
+
+  it("should always generate valid statements across seeds", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 0xffffffff }), (seed) => {
+        const prng = xoshiro128pp(seed);
+        const tokens = generateValidStatement(prng);
+
+        expect(tokens.length).toBeGreaterThanOrEqual(5);
+        expect(tokens.length).toBeLessThanOrEqual(10);
+        expect(isValidEquation(tokens.map((val) => ({ val })))).toBe(true);
+      }),
+      { numRuns: 400 },
+    );
   });
 
   describe("isValidEquation", () => {
