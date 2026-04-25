@@ -55,12 +55,6 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
             </button>
           ))}
         </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-xs text-slate-400 font-medium">
-            Progress is saved automatically to your browser.
-          </p>
-        </div>
       </div>
     </div>
   );

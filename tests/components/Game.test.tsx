@@ -183,6 +183,9 @@ describe("Game", () => {
   });
 
   it("should handle reset", async () => {
+    const generateGameSpy = vi.mocked(BoardService.generateGame);
+    generateGameSpy.mockClear();
+
     renderGame();
 
     await waitForGameLoaded();
@@ -194,7 +197,29 @@ describe("Game", () => {
     const resetButton = screen.getByLabelText("Reset Stage");
     fireEvent.click(resetButton);
 
+    const dialog = screen.getByRole("dialog", { name: "Reset this stage?" });
+    expect(dialog).toBeDefined();
+
+    fireEvent.click(screen.getByText("Reset"));
+
     expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+    expect(generateGameSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("should cancel reset when dialog is dismissed", async () => {
+    const generateGameSpy = vi.mocked(BoardService.generateGame);
+    generateGameSpy.mockClear();
+
+    renderGame();
+
+    await waitForGameLoaded();
+
+    const resetButton = screen.getByLabelText("Reset Stage");
+    fireEvent.click(resetButton);
+
+    expect(screen.getByRole("dialog", { name: "Reset this stage?" })).toBeDefined();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(generateGameSpy).toHaveBeenCalledTimes(1);
   });
 
   it("should handle back button", async () => {
@@ -295,14 +320,44 @@ describe("Game", () => {
 
     // Win screen should appear
     await waitFor(() => {
-      expect(screen.getByText("Perfect!")).toBeDefined();
+      expect(screen.getByRole("dialog", { name: "Perfect!" })).toBeDefined();
     });
 
-    expect(onWin).toHaveBeenCalled();
+    expect(onWin).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Next level"));
+    expect(onWin).toHaveBeenCalledWith(2);
+  });
 
-    fireEvent.click(screen.getByText("Continue"));
+  it("should dismiss win dialog without advancing", async () => {
+    const mockGame = {
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+      },
+      bank: [{ id: "b1", val: "1", type: "val" }],
+      initialBankSize: 1,
+      status: "playing",
+    };
+    vi.mocked(BoardService.generateGame).mockReturnValue(
+      mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
+    );
+    vi.mocked(BoardService.validateBoard).mockReturnValue({ valid: true });
+
+    renderGame({ onWin: vi.fn() });
+
+    await waitForGameLoaded();
+
+    fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
+    fireEvent.click(screen.getAllByLabelText("Place tile here")[0]);
+
     await waitFor(() => {
-      expect(screen.queryByText("Perfect!")).toBeNull();
+      expect(screen.getByRole("dialog", { name: "Perfect!" })).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText("Dismiss"));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
     });
   });
 

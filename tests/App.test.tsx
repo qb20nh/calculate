@@ -157,7 +157,7 @@ describe("App", () => {
     });
   });
 
-  it("should warn and return to the last available stage for locked routes", async () => {
+  it("should show a locked-level screen without auto redirect", async () => {
     setProgress({
       Easy: { current: 2, max: 2 },
       Medium: { current: 1, max: 1 },
@@ -167,11 +167,13 @@ describe("App", () => {
 
     render(<App />);
 
+    expect(await screen.findByText("Stage 7 locked")).toBeDefined();
     expect(
-      await screen.findByText("Stage 7 is locked. Returning to Easy — Stage 2."),
+      screen.getByText("Stage 7 is locked. Latest available is Easy — Stage 2."),
     ).toBeDefined();
+    expect(window.location.pathname).toBe("/game/easy/7");
 
-    await vi.advanceTimersByTimeAsync(1300);
+    fireEvent.click(screen.getByText("Latest available"));
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/game/easy/2");

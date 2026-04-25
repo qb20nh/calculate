@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
-import { Game, GameLoadingShell } from "@/components/Game";
+import { Game, UnavailableLevelShell } from "@/components/Game";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { parseDifficultySlug, parseStageParam, toGamePath } from "@/routes/routeUtils";
 import {
@@ -35,36 +35,21 @@ export default function GameRoute({
       ? ((savedState?.difficulty === difficulty ? savedState.stage : null) ??
         progress[difficulty].current)
       : parsedStage;
+  const latestAvailableStage = difficulty ? progress[difficulty].max : null;
   const isStageLocked =
     difficulty !== null && requestedStage !== null && requestedStage > progress[difficulty].max;
-  const stage = isStageLocked && difficulty ? progress[difficulty].max : requestedStage;
-
+  const stage = requestedStage;
   const targetPath = difficulty && stage ? toGamePath(difficulty, stage) : null;
-  const shouldRedirect = targetPath !== null && location.path !== targetPath;
+  const shouldRedirect = targetPath !== null && location.path !== targetPath && !isStageLocked;
   const lockedNotice =
-    difficulty && requestedStage && stage && isStageLocked
-      ? `Stage ${requestedStage} is locked. Returning to ${difficulty} — Stage ${stage}.`
+    difficulty && requestedStage && latestAvailableStage
+      ? `Stage ${requestedStage} is locked. Latest available is ${difficulty} — Stage ${latestAvailableStage}.`
       : undefined;
 
   useEffect(() => {
-    if (!shouldRedirect) return;
-
-    if (!isStageLocked) {
-      location.route(targetPath, true);
-      return;
-    }
-
-    const timer = setTimeout(() => location.route(targetPath, true), 1200);
-    return () => clearTimeout(timer);
-  }, [isStageLocked, location, shouldRedirect, targetPath]);
-
-  const initialGameState = useMemo<GameState | null>(() => {
-    if (!difficulty || !stage) return null;
-    if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
-    return savedState;
-  }, [difficulty, savedState, stage]);
-
-  if (!difficulty || !stage) return <NotFoundRoute />;
+    if (!shouldRedirect || !targetPath) return;
+    location.route(targetPath, true);
+  }, [location, shouldRedirect, targetPath]);
 
   const updateProgress = (nextStage: number, includeMax: boolean) => {
     setProgress((prev) => {
@@ -100,15 +85,23 @@ export default function GameRoute({
     saveGameState(state);
   };
 
-  if (shouldRedirect) {
+  const initialGameState = useMemo<GameState | null>(() => {
+    if (!difficulty || !stage) return null;
+    if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
+    return savedState;
+  }, [difficulty, savedState, stage]);
+
+  if (!difficulty || !stage) return <NotFoundRoute />;
+
+  if (isStageLocked && latestAvailableStage) {
     return (
-      <GameLoadingShell
+      <UnavailableLevelShell
         difficulty={difficulty}
-        stage={stage}
-        maxStage={progress[difficulty].max}
-        {...(lockedNotice ? { notice: lockedNotice } : {})}
+        requestedStage={stage}
+        availableStage={latestAvailableStage}
+        notice={lockedNotice || ""}
         onBack={handleBack}
-        onStageChange={handleStageChange}
+        onLatestAvailable={() => location.route(toGamePath(difficulty, latestAvailableStage))}
       />
     );
   }

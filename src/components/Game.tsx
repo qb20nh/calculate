@@ -128,7 +128,60 @@ const GameHeader: FunctionalComponent<{
   </div>
 );
 
-export const GameLoadingShell: FunctionalComponent<{
+export const UnavailableLevelShell: FunctionalComponent<{
+  difficulty: Difficulty;
+  requestedStage: number;
+  availableStage: number;
+  notice: string;
+  onBack: () => void;
+  onLatestAvailable: () => void;
+}> = ({ difficulty, requestedStage, availableStage, notice, onBack, onLatestAvailable }) => (
+  <div className="h-screen w-full flex flex-col overflow-hidden bg-slate-50">
+    <div className="flex justify-between items-center p-3 sm:p-4 bg-white shadow-sm z-20 shrink-0 border-b border-slate-100">
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back"
+        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors rounded-full"
+      >
+        <ChevronLeft width={20} height={20} strokeWidth={2.5} />
+      </button>
+      <div className="text-slate-400 text-sm font-semibold uppercase tracking-[0.2em]">
+        {difficulty}
+      </div>
+      <div className="w-10" />
+    </div>
+
+    <div className="flex-1 flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-xl">
+        <h1 className="text-3xl font-black tracking-tight text-slate-800">
+          Stage {requestedStage} locked
+        </h1>
+        <p className="mt-3 text-slate-500 font-medium">{notice}</p>
+        <p className="mt-2 text-sm text-slate-400">Latest available: Stage {availableStage}</p>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
+          >
+            Main menu
+          </button>
+          <button
+            type="button"
+            onClick={onLatestAvailable}
+            className="flex-1 rounded-2xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-xl transition hover:bg-indigo-700 active:scale-95"
+          >
+            Latest available
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const GameLoadingShell: FunctionalComponent<{
   difficulty: Difficulty;
   stage: number;
   maxStage: number;
@@ -168,6 +221,8 @@ export const Game: FunctionalComponent<GameProps> = ({
   const [gameState, setGameState] = useState<GameState | null>(initialState || null);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
 
   const boardContainerRef = useRef<HTMLDivElement>(null);
 
@@ -210,7 +265,7 @@ export const Game: FunctionalComponent<GameProps> = ({
         setGameState((prev) => (prev ? { ...prev, status: "won" } : null));
         setSelectedTileId(null);
         setToast(null);
-        onWin(stage + 1);
+        setIsCompletionDialogOpen(true);
       } else {
         setToast(validation.reason);
         timer = setTimeout(() => setToast(null), 3500);
@@ -268,9 +323,28 @@ export const Game: FunctionalComponent<GameProps> = ({
   };
 
   const resetLevel = () => {
+    setIsResetDialogOpen(true);
+  };
+
+  const confirmResetLevel = () => {
     const newGame = generateGame(stage, difficulty);
     setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
     setSelectedTileId(null);
+    setIsCompletionDialogOpen(false);
+    setIsResetDialogOpen(false);
+  };
+
+  const dismissCompletionDialog = () => {
+    setIsCompletionDialogOpen(false);
+    setGameState((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "playing",
+            solvedAcknowledged: true,
+          }
+        : null,
+    );
   };
 
   const groupedBank = useMemo(() => {
@@ -345,6 +419,41 @@ export const Game: FunctionalComponent<GameProps> = ({
       />
 
       <div className="flex-1 relative board-container" ref={boardContainerRef}>
+        <dialog
+          open={isResetDialogOpen}
+          className="rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl backdrop:bg-slate-900/50"
+          aria-labelledby="reset-dialog-title"
+          aria-describedby="reset-dialog-desc"
+        >
+          <div className="max-w-sm p-8 text-center">
+            <h2
+              id="reset-dialog-title"
+              className="text-2xl font-black tracking-tight text-slate-800"
+            >
+              Reset this stage?
+            </h2>
+            <p id="reset-dialog-desc" className="mt-3 text-slate-500 font-medium">
+              Current progress on this stage will be lost.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setIsResetDialogOpen(false)}
+                className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmResetLevel}
+                className="flex-1 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white shadow-xl transition hover:bg-red-700 active:scale-95"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </dialog>
+
         <div className="m-auto p-12 flex items-center justify-center animate-fade-in min-h-full min-w-full w-fit">
           <div
             className="grid gap-0 bg-slate-100/30 rounded-lg p-1"
@@ -377,40 +486,49 @@ export const Game: FunctionalComponent<GameProps> = ({
           </div>
         )}
 
-        {status === "won" && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center animate-fade-in p-4">
-            <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100 flex flex-col items-center text-center max-w-xs w-full">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                <Check
-                  width={40}
-                  height={40}
-                  strokeWidth={3}
-                  className="text-green-600"
-                  aria-label="Success"
-                />
-              </div>
-              <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Perfect!</h2>
-              <p className="text-slate-500 mb-8 font-medium">You cleared the board.</p>
+        <dialog
+          open={isCompletionDialogOpen}
+          className="rounded-[2rem] border border-slate-100 bg-white p-0 shadow-2xl backdrop:bg-slate-900/50"
+          aria-labelledby="completion-dialog-title"
+          aria-describedby="completion-dialog-desc"
+        >
+          <div className="max-w-xs w-full p-10 text-center">
+            <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <Check
+                width={40}
+                height={40}
+                strokeWidth={3}
+                className="text-green-600"
+                aria-label="Success"
+              />
+            </div>
+            <h2
+              id="completion-dialog-title"
+              className="text-3xl font-black text-slate-800 mb-2 tracking-tight"
+            >
+              Perfect!
+            </h2>
+            <p id="completion-dialog-desc" className="text-slate-500 mb-8 font-medium">
+              You cleared the board.
+            </p>
+            <div className="w-full flex flex-col gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  setGameState((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          status: "playing",
-                          solvedAcknowledged: true,
-                        }
-                      : null,
-                  )
-                }
+                onClick={dismissCompletionDialog}
+                className="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-4 px-8 rounded-2xl shadow-sm transform transition active:scale-95 text-lg"
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => onWin(stage + 1)}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
               >
-                Continue
+                Next level
               </button>
             </div>
           </div>
-        )}
+        </dialog>
       </div>
 
       <div className="bg-white border-t border-slate-200 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
