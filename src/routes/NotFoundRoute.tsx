@@ -8,7 +8,7 @@ export default function NotFoundRoute() {
       <a
         href={addBasePath("/")}
         target="_top"
-        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl shadow-xl transition active:scale-95"
+        className="theme-primary-bg text-white font-bold py-3 px-6 rounded-2xl shadow-xl transition active:scale-95"
       >
         Back to menu
       </a>

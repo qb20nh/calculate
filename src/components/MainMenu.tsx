@@ -20,7 +20,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 md:p-12 border border-slate-100">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mb-2">
-            Math <span className="text-indigo-600">Crossword</span>
+            Math <span>Crossword</span>
           </h1>
           <p className="text-slate-500 font-medium">Scrabble Edition</p>
         </div>
@@ -36,21 +36,14 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
               onClick={() => onStart(diff)}
               onPointerEnter={() => onStartIntent?.(diff)}
               onPointerDown={() => onStartIntent?.(diff)}
-              className="group w-full flex items-center justify-between p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all active:scale-95 text-left"
+              className="menu-difficulty-card group w-full flex items-center justify-between p-4 rounded-2xl border-2 hover:bg-slate-50 transition-all active:scale-95 text-left"
             >
               <div>
-                <h3 className="text-lg font-bold text-slate-700 group-hover:text-indigo-700">
-                  {diff}
-                </h3>
-                <p className="text-sm text-slate-400 group-hover:text-indigo-400">
-                  Max Stage: {progress[diff].max}
-                </p>
+                <h3 className="text-lg font-bold text-slate-700">{diff}</h3>
+                <p className="text-sm text-slate-400">Max Stage: {progress[diff].max}</p>
               </div>
-              <div className="bg-slate-100 group-hover:bg-indigo-600 p-2 rounded-full transition-colors">
-                <ChevronRight
-                  className="w-5 h-5 text-slate-400 group-hover:text-white"
-                  strokeWidth={3}
-                />
+              <div className="theme-btn-primary group-hover-theme-primary-bg p-2 rounded-full transition-colors">
+                <ChevronRight className="w-5 h-5 text-white" strokeWidth={3} />
               </div>
             </button>
           ))}

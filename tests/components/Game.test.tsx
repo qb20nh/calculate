@@ -103,7 +103,9 @@ describe("Game", () => {
 
     // Wait for it to be selected
     await waitFor(() => {
-      expect(requireValue(firstBankTile).className).toContain("ring-4");
+      const className = requireValue(firstBankTile).className;
+      expect(className).toContain("selected");
+      expect(className).not.toContain("scale-110");
     });
 
     // Find a fringe slot and click it
@@ -401,13 +403,15 @@ describe("Game", () => {
     expect(firstDeselectTile).toBeDefined();
     fireEvent.click(requireValue(firstDeselectTile));
     await waitFor(() => {
-      expect(requireValue(firstDeselectTile).className).toContain("ring-4");
+      const className = requireValue(firstDeselectTile).className;
+      expect(className).toContain("selected");
+      expect(className).not.toContain("scale-110");
     });
 
     // Click the same tile again to deselect
     fireEvent.click(requireValue(firstDeselectTile));
     await waitFor(() => {
-      expect(requireValue(firstDeselectTile).className).not.toContain("ring-4");
+      expect(requireValue(firstDeselectTile).className).not.toContain("selected");
     });
   });
 });

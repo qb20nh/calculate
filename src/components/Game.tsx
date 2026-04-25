@@ -22,8 +22,9 @@ const BoardCell: FunctionalComponent<{
   cell: (TileData & { isGiven?: boolean }) | undefined;
   isFringe: boolean;
   selectedTileId: string | null;
+  selectedTileType: TileData["type"] | null;
   onClick: (key: string) => void;
-}> = ({ cellKey, cell, isFringe, selectedTileId, onClick }) => {
+}> = ({ cellKey, cell, isFringe, selectedTileId, selectedTileType, onClick }) => {
   if (!cell && !isFringe) {
     return <div className="w-full h-full pointer-events-none" />;
   }
@@ -38,7 +39,11 @@ const BoardCell: FunctionalComponent<{
         onClick={handleAction}
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        className={cn("fringe-slot m-[1px]", selectedTileId && "highlight")}
+        className={cn(
+          "fringe-slot m-[1px]",
+          selectedTileId && selectedTileType && "highlight",
+          selectedTileType && `highlight-${selectedTileType}`,
+        )}
         aria-label="Place tile here"
       />
     );
@@ -58,7 +63,7 @@ const BoardCell: FunctionalComponent<{
       className={cn(
         "tile m-[1px] text-lg md:text-xl animate-fade-in select-none",
         typeClass,
-        selectedTileId === cell.id && "ring-4 ring-indigo-400 ring-offset-2",
+        selectedTileId === cell.id && `selected selected-${cell.type}`,
       )}
     >
       {content}
@@ -81,26 +86,26 @@ const GameHeader: FunctionalComponent<{
         type="button"
         onClick={onBack}
         aria-label="Back"
-        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors rounded-full"
+        className="p-2 text-slate-400 theme-primary-hover-text theme-primary-hover-bg transition-colors rounded-full"
       >
         <ChevronLeft width={20} height={20} strokeWidth={2.5} />
       </button>
 
       <div className="h-8 w-[1px] bg-slate-100 mx-1" />
 
-      <div className="flex items-center bg-indigo-50 rounded-full shadow-inner border border-indigo-100 overflow-hidden">
+      <div className="flex items-center theme-primary-bg-soft rounded-full shadow-inner theme-primary-border overflow-hidden">
         <button
           type="button"
           onClick={() => onStageChange(stage - 1)}
           disabled={stage <= 1}
-          className="px-2 py-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="px-2 py-1 text-slate-400 theme-primary-hover-text theme-primary-hover-bg disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
           aria-label="Previous Stage"
         >
           <ChevronLeft width={16} height={16} strokeWidth={3} />
         </button>
         <span
           id="skeleton-title"
-          className="px-2 py-1 text-indigo-800 text-sm font-bold whitespace-nowrap text-center min-w-[120px]"
+          className="px-2 py-1 theme-primary-text text-sm font-bold whitespace-nowrap text-center min-w-[120px]"
         >
           {difficulty} — Stage {stage}
         </span>
@@ -108,7 +113,7 @@ const GameHeader: FunctionalComponent<{
           type="button"
           onClick={() => onStageChange(stage + 1)}
           disabled={stage >= maxStage && status !== "won"}
-          className="px-2 py-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          className="px-2 py-1 text-slate-400 theme-primary-hover-text theme-primary-hover-bg disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
           aria-label="Next Stage"
         >
           <ChevronRight width={16} height={16} strokeWidth={3} />
@@ -120,7 +125,7 @@ const GameHeader: FunctionalComponent<{
       type="button"
       onClick={onReset}
       disabled={!onReset}
-      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+      className="p-2 text-slate-400 theme-danger-text theme-danger-hover-bg transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
       aria-label="Reset Stage"
     >
       <RotateCcw width={20} height={20} strokeWidth={2.5} />
@@ -142,7 +147,7 @@ export const UnavailableLevelShell: FunctionalComponent<{
         type="button"
         onClick={onBack}
         aria-label="Back"
-        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors rounded-full"
+        className="p-2 text-slate-400 theme-primary-hover-text theme-primary-hover-bg transition-colors rounded-full"
       >
         <ChevronLeft width={20} height={20} strokeWidth={2.5} />
       </button>
@@ -171,7 +176,7 @@ export const UnavailableLevelShell: FunctionalComponent<{
           <button
             type="button"
             onClick={onLatestAvailable}
-            className="flex-1 rounded-2xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-xl transition hover:bg-indigo-700 active:scale-95"
+            className="flex-1 rounded-2xl theme-primary-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
           >
             Latest available
           </button>
@@ -199,7 +204,7 @@ const GameLoadingShell: FunctionalComponent<{
     />
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center font-bold text-slate-500">
       {notice && (
-        <p className="max-w-xs rounded-2xl bg-amber-50 px-5 py-3 text-sm text-amber-700 border border-amber-100">
+        <p className="max-w-xs rounded-2xl theme-operator-bg-soft theme-operator-text px-5 py-3 text-sm border theme-operator-border">
           {notice}
         </p>
       )}
@@ -364,6 +369,11 @@ export const Game: FunctionalComponent<GameProps> = ({
     return groups;
   }, [gameState]);
 
+  const selectedTileType = useMemo<TileData["type"] | null>(() => {
+    if (!gameState || !selectedTileId) return null;
+    return gameState.bank.find((tile) => tile.id === selectedTileId)?.type ?? null;
+  }, [gameState, selectedTileId]);
+
   if (!gameState)
     return (
       <GameLoadingShell
@@ -446,7 +456,7 @@ export const Game: FunctionalComponent<GameProps> = ({
               <button
                 type="button"
                 onClick={confirmResetLevel}
-                className="flex-1 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white shadow-xl transition hover:bg-red-700 active:scale-95"
+                className="flex-1 rounded-2xl theme-danger-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
               >
                 Reset
               </button>
@@ -473,6 +483,7 @@ export const Game: FunctionalComponent<GameProps> = ({
                   cell={board[key]}
                   isFringe={fringe.has(key)}
                   selectedTileId={selectedTileId}
+                  selectedTileType={selectedTileType}
                   onClick={handleBoardClick}
                 />
               );
@@ -493,12 +504,12 @@ export const Game: FunctionalComponent<GameProps> = ({
           aria-describedby="completion-dialog-desc"
         >
           <div className="max-w-xs w-full p-10 text-center">
-            <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+            <div className="mx-auto w-20 h-20 theme-number-bg-soft rounded-full flex items-center justify-center mb-6">
               <Check
                 width={40}
                 height={40}
                 strokeWidth={3}
-                className="text-green-600"
+                className="theme-number-text"
                 aria-label="Success"
               />
             </div>
@@ -522,7 +533,7 @@ export const Game: FunctionalComponent<GameProps> = ({
               <button
                 type="button"
                 onClick={() => onWin(stage + 1)}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
+                className="w-full theme-primary-bg text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
               >
                 Next level
               </button>
@@ -567,14 +578,23 @@ export const Game: FunctionalComponent<GameProps> = ({
                     className={cn(
                       "tile w-12 h-12 sm:w-14 sm:h-14 text-xl sm:text-2xl flex-shrink-0 relative z-10",
                       `tile-${group.type}`,
-                      isSelected && "selected scale-110 ring-4 ring-indigo-400",
+                      isSelected && "selected",
                     )}
                   >
                     {content}
                   </button>
 
                   {count > 1 && (
-                    <div className="absolute -top-2.5 -right-2.5 bg-indigo-600 text-white text-[10px] sm:text-xs font-bold h-5 sm:h-6 min-w-[20px] sm:min-w-[24px] px-1.5 flex items-center justify-center rounded-full z-20 shadow-md border-2 border-white pointer-events-none">
+                    <div
+                      className={cn(
+                        "absolute -top-2.5 -right-2.5 text-white text-[10px] sm:text-xs font-bold h-5 sm:h-6 min-w-[20px] sm:min-w-[24px] px-1.5 flex items-center justify-center rounded-full z-20 shadow-md border-2 border-white pointer-events-none",
+                        group.type === "val"
+                          ? "theme-number-bg"
+                          : group.type === "op"
+                            ? "theme-operator-bg"
+                            : "theme-relation-bg",
+                      )}
+                    >
                       {count}
                     </div>
                   )}

@@ -1,8 +1,37 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --theme-bg: #f8fafc;
+    --theme-surface: #ffffff;
+    --theme-ink: #0f172a;
+    --theme-muted: color-mix(in srgb, var(--theme-ink) 35%, var(--theme-bg));
+    --theme-border: color-mix(in srgb, var(--theme-ink) 12%, var(--theme-bg));
+    --theme-relation: #2563eb;
+    --theme-primary: #7c3aed;
+    --theme-number: #22c55e;
+    --theme-operator: #ff6a00;
+    --theme-danger: #ef4444;
+    --theme-primary-soft: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-bg));
+    --theme-primary-softer: color-mix(in srgb, var(--theme-primary) 5%, var(--theme-bg));
+    --theme-primary-border: color-mix(in srgb, var(--theme-primary) 30%, var(--theme-bg));
+    --theme-primary-text: color-mix(in srgb, var(--theme-primary) 88%, var(--theme-ink));
+    --theme-primary-muted-text: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-bg));
+    --theme-relation-soft: color-mix(in srgb, var(--theme-relation) 8%, var(--theme-bg));
+    --theme-relation-softer: color-mix(in srgb, var(--theme-relation) 5%, var(--theme-bg));
+    --theme-relation-border: color-mix(in srgb, var(--theme-relation) 30%, var(--theme-bg));
+    --theme-relation-text: color-mix(in srgb, var(--theme-relation) 88%, var(--theme-ink));
+    --theme-relation-muted-text: color-mix(in srgb, var(--theme-relation) 55%, var(--theme-bg));
+    --theme-danger-soft: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-bg));
+    --theme-danger-border: color-mix(in srgb, var(--theme-danger) 30%, var(--theme-bg));
+    --theme-number-soft: color-mix(in srgb, var(--theme-number) 8%, var(--theme-bg));
+    --theme-operator-soft: color-mix(in srgb, var(--theme-operator) 8%, var(--theme-bg));
+  }
+}
+
+@layer base {
   body {
-    background-color: #f8fafc;
+    background-color: var(--theme-bg);
     touch-action: manipulation;
     font-family:
       -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -41,34 +70,40 @@
   }
 
   .tile.selected {
-    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.4);
-    transform: scale(1.05);
+    box-shadow: 0 0 0 3px
+      var(--tile-accent, color-mix(in srgb, var(--theme-relation) 55%, transparent));
     z-index: 10;
   }
 
   /* Types of Tiles */
   .tile-val {
-    background-color: #ffffff;
-    color: #166534;
-    border: 1px solid #22c55e;
+    background-color: color-mix(in srgb, var(--theme-number) 10%, var(--theme-surface));
+    color: color-mix(in srgb, var(--theme-number) 84%, var(--theme-ink));
+    border: 1px solid color-mix(in srgb, var(--theme-number) 88%, var(--theme-ink));
+    --tile-accent: color-mix(in srgb, var(--theme-number) 68%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-number) 22%, transparent);
   }
 
   .tile-op {
-    background-color: #fffbeb;
-    color: #b45309;
-    border: 1px solid #f59e0b;
+    background-color: color-mix(in srgb, var(--theme-operator) 10%, var(--theme-surface));
+    color: color-mix(in srgb, var(--theme-operator) 92%, var(--theme-ink));
+    border: 1px solid color-mix(in srgb, var(--theme-operator) 94%, var(--theme-ink));
+    --tile-accent: color-mix(in srgb, var(--theme-operator) 84%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-operator) 28%, transparent);
   }
 
   .tile-rel {
-    background-color: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #3b82f6;
+    background-color: color-mix(in srgb, var(--theme-relation) 10%, var(--theme-surface));
+    color: color-mix(in srgb, var(--theme-relation) 86%, var(--theme-ink));
+    border: 1px solid color-mix(in srgb, var(--theme-relation) 88%, var(--theme-ink));
+    --tile-accent: color-mix(in srgb, var(--theme-relation) 70%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-relation) 22%, transparent);
   }
 
   .tile-given {
-    background-color: #1e293b;
-    color: #ffffff;
-    border: 1px solid #0f172a;
+    background-color: color-mix(in srgb, var(--theme-ink) 88%, var(--theme-bg));
+    color: color-mix(in srgb, var(--theme-surface) 98%, var(--theme-ink));
+    border: 1px solid color-mix(in srgb, var(--theme-ink) 94%, black);
     cursor: default;
   }
 
@@ -78,19 +113,194 @@
     align-items: center;
     justify-content: center;
     border-radius: 2px;
-    background-color: rgba(255, 255, 255, 0.5);
-    border: 1px dashed #cbd5e1;
+    background-color: color-mix(in srgb, var(--theme-surface) 30%, var(--theme-bg));
+    border: 1px dashed var(--theme-border);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .fringe-slot.highlight {
-    border-color: #f97316;
-    background-color: rgba(255, 237, 213, 0.5);
+    border-color: var(--tile-accent, color-mix(in srgb, var(--theme-relation) 70%, transparent));
+    background-color: var(
+      --tile-accent-soft,
+      color-mix(in srgb, var(--theme-relation) 22%, transparent)
+    );
+  }
+
+  .fringe-slot.highlight-val {
+    --tile-accent: color-mix(in srgb, var(--theme-number) 68%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-number) 22%, transparent);
+  }
+
+  .fringe-slot.highlight-op {
+    --tile-accent: color-mix(in srgb, var(--theme-operator) 84%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-operator) 28%, transparent);
+  }
+
+  .fringe-slot.highlight-rel {
+    --tile-accent: color-mix(in srgb, var(--theme-relation) 70%, transparent);
+    --tile-accent-soft: color-mix(in srgb, var(--theme-relation) 22%, transparent);
+  }
+
+  .theme-primary-text {
+    color: var(--theme-primary-text);
+  }
+
+  .theme-primary-text:hover {
+    color: var(--theme-primary);
+  }
+
+  .theme-primary-bg {
+    background-color: var(--theme-primary);
+  }
+
+  .theme-primary-bg:hover {
+    background-color: color-mix(in srgb, var(--theme-primary) 88%, black);
+  }
+
+  .theme-primary-bg-soft {
+    background-color: var(--theme-primary-soft);
+  }
+
+  .theme-primary-bg-softer {
+    background-color: var(--theme-primary-softer);
+  }
+
+  .theme-primary-border {
+    border-color: var(--theme-primary-border);
+  }
+
+  .theme-relation-bg {
+    background-color: var(--theme-relation);
+  }
+
+  .theme-primary-hover-text:hover {
+    color: var(--theme-primary);
+  }
+
+  .theme-primary-hover-bg:hover {
+    background-color: var(--theme-primary-soft);
+  }
+
+  .theme-primary-hover-border:hover {
+    border-color: var(--theme-primary);
+  }
+
+  .menu-difficulty-card {
+    border-color: var(--theme-border);
+  }
+
+  .menu-difficulty-card:hover {
+    border-color: var(--theme-primary);
+  }
+
+  .group:hover .group-hover-theme-primary-text {
+    color: var(--theme-primary-text);
+  }
+
+  .group:hover .group-hover-theme-primary-bg {
+    background-color: var(--theme-primary);
+  }
+
+  .theme-danger-text:hover {
+    color: var(--theme-danger);
+  }
+
+  .theme-danger-bg {
+    background-color: var(--theme-danger);
+  }
+
+  .theme-danger-bg:hover {
+    background-color: color-mix(in srgb, var(--theme-danger) 88%, black);
+  }
+
+  .theme-danger-hover-bg:hover {
+    background-color: var(--theme-danger-soft);
+  }
+
+  .theme-danger-border {
+    border-color: var(--theme-danger-border);
+  }
+
+  .theme-btn-primary {
+    background-color: var(--theme-primary);
+    color: white;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-primary) 28%, transparent);
+  }
+
+  .theme-btn-primary:hover {
+    background-color: color-mix(in srgb, var(--theme-primary) 88%, black);
+  }
+
+  .theme-btn-primary-soft {
+    background-color: var(--theme-primary-soft);
+    color: var(--theme-primary-text);
+    border: 1px solid var(--theme-primary-border);
+  }
+
+  .theme-btn-primary-soft:hover {
+    background-color: var(--theme-primary-softer);
+  }
+
+  .theme-btn-secondary {
+    background-color: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-bg));
+    color: var(--theme-ink);
+    border: 1px solid var(--theme-border);
+  }
+
+  .theme-btn-secondary:hover {
+    background-color: color-mix(in srgb, var(--theme-surface) 80%, var(--theme-bg));
+  }
+
+  .theme-btn-danger {
+    background-color: var(--theme-danger);
+    color: white;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-danger) 28%, transparent);
+  }
+
+  .theme-btn-danger:hover {
+    background-color: color-mix(in srgb, var(--theme-danger) 88%, black);
+  }
+
+  .theme-number-bg-soft {
+    background-color: var(--theme-number-soft);
+  }
+
+  .theme-number-bg {
+    background-color: var(--theme-number);
+  }
+
+  .theme-number-text {
+    color: color-mix(in srgb, var(--theme-number) 78%, var(--theme-ink));
+  }
+
+  .theme-number-border {
+    border-color: color-mix(in srgb, var(--theme-number) 22%, var(--theme-bg));
+  }
+
+  .theme-operator-bg-soft {
+    background-color: var(--theme-operator-soft);
+  }
+
+  .theme-operator-bg {
+    background-color: var(--theme-operator);
+  }
+
+  .theme-operator-text {
+    color: color-mix(in srgb, var(--theme-operator) 90%, var(--theme-ink));
+  }
+
+  .theme-operator-border {
+    border-color: color-mix(in srgb, var(--theme-operator) 34%, var(--theme-bg));
+  }
+
+  .theme-spinner {
+    border-color: color-mix(in srgb, var(--theme-relation) 20%, transparent);
+    border-top-color: var(--theme-relation);
   }
 
   .route-progress {
-    color: #2563eb;
+    color: var(--theme-relation);
   }
 
   .route-progress::-webkit-progress-bar {
@@ -98,18 +308,28 @@
   }
 
   .route-progress::-webkit-progress-value {
-    background: linear-gradient(to right, #2563eb, #60a5fa, #67e8f9);
+    background: linear-gradient(
+      to right,
+      var(--theme-relation),
+      color-mix(in srgb, var(--theme-relation) 60%, white),
+      color-mix(in srgb, var(--theme-relation) 30%, white)
+    );
     box-shadow:
-      0 0 10px rgba(59, 130, 246, 0.8),
-      0 0 20px rgba(34, 211, 238, 0.4);
+      0 0 10px color-mix(in srgb, var(--theme-relation) 80%, transparent),
+      0 0 20px color-mix(in srgb, var(--theme-relation) 40%, transparent);
     transition: width 200ms ease-out;
   }
 
   .route-progress::-moz-progress-bar {
-    background: linear-gradient(to right, #2563eb, #60a5fa, #67e8f9);
+    background: linear-gradient(
+      to right,
+      var(--theme-relation),
+      color-mix(in srgb, var(--theme-relation) 60%, white),
+      color-mix(in srgb, var(--theme-relation) 30%, white)
+    );
     box-shadow:
-      0 0 10px rgba(59, 130, 246, 0.8),
-      0 0 20px rgba(34, 211, 238, 0.4);
+      0 0 10px color-mix(in srgb, var(--theme-relation) 80%, transparent),
+      0 0 20px color-mix(in srgb, var(--theme-relation) 40%, transparent);
     transition: width 200ms ease-out;
   }
 
