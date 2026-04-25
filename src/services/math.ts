@@ -1,32 +1,43 @@
 // --- PRNG & Hashing ---
 export const getHashSeed = (str: string) => {
-	let h = 2166136261 >>> 0;
-	for (let i = 0; i < str.length; i++) {
-		h = Math.imul(h ^ str.charCodeAt(i), 16777619);
-	}
-	return h >>> 0;
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 0x85ebca77);
+    h2 = Math.imul(h2 ^ ch, 0xc2b2ae3d);
+  }
+
+  h1 ^= Math.imul(h1 ^ (h2 >>> 15), 0x735a2d97);
+  h2 ^= Math.imul(h2 ^ (h1 >>> 15), 0xcaf649a9);
+  h1 ^= h2 >>> 16;
+  h2 ^= h1 >>> 16;
+
+  const hash53 = 2097152 * (h2 >>> 0) + (h1 >>> 11);
+  return (Math.trunc(hash53 / 4294967296) ^ (hash53 >>> 0)) >>> 0;
 };
 
 export function xoshiro128pp(seed: number) {
-	let s0 = seed >>> 0;
-	let s1 = Math.imul(s0, 0x6d2b79f5) >>> 0;
-	let s2 = Math.imul(s1, 0x6d2b79f5) >>> 0;
-	let s3 = Math.imul(s2, 0x6d2b79f5) >>> 0;
+  let s0 = seed >>> 0;
+  let s1 = Math.imul(s0, 0x6d2b79f5) >>> 0;
+  let s2 = Math.imul(s1, 0x6d2b79f5) >>> 0;
+  let s3 = Math.imul(s2, 0x6d2b79f5) >>> 0;
 
-	return () => {
-		const result = ((((s0 + s3) << 7) | ((s0 + s3) >>> 25)) + s0) >>> 0;
-		const t = s1 << 9;
+  return () => {
+    const result = ((((s0 + s3) << 7) | ((s0 + s3) >>> 25)) + s0) >>> 0;
+    const t = s1 << 9;
 
-		s2 ^= s0;
-		s3 ^= s1;
-		s1 ^= s2;
-		s0 ^= s3;
+    s2 ^= s0;
+    s3 ^= s1;
+    s1 ^= s2;
+    s0 ^= s3;
 
-		s2 ^= t;
-		s3 = (s3 << 11) | (s3 >>> 21);
+    s2 ^= t;
+    s3 = (s3 << 11) | (s3 >>> 21);
 
-		return result / 4294967296;
-	};
+    return result / 4294967296;
+  };
 }
 
 // --- Math Symbols ---
@@ -38,180 +49,174 @@ export const OP_DIV = "÷"; // U+00F7
 export const REL_EQ = "=";
 export const REL_LT = "<";
 export const REL_GT = ">";
+const REL_NEQ = "<>";
 
 // --- Math Logic Helpers ---
+const randInt = (prng: () => number, min: number, max: number) =>
+  min + Math.floor(prng() * (max - min + 1));
+
+const buildStatement = (left: number, op: string, right: number, rel: string, result: number) => [
+  ...String(left).split(""),
+  op,
+  ...String(right).split(""),
+  ...(rel === REL_NEQ ? [REL_LT, REL_GT] : [rel]),
+  ...String(result).split(""),
+];
+
+const applyRelation = (base: number, rel: string, prng: () => number): number =>
+  rel === REL_EQ
+    ? base
+    : rel === REL_LT
+      ? base + randInt(prng, 1, 9)
+      : rel === REL_GT
+        ? Math.max(0, base - randInt(prng, 1, Math.max(1, base - 1)))
+        : prng() > 0.5
+          ? base + randInt(prng, 1, 9)
+          : Math.max(0, base - randInt(prng, 1, Math.max(1, base)));
+
 export const generateValidStatement = (prng: () => number) => {
-	const ops = [OP_PLUS, OP_MINUS, OP_MULT, OP_DIV];
+  const opIndex = Math.floor(prng() * 4);
+  const relRoll = prng();
 
-	let attempts = 0;
-	while (attempts < 1000) {
-		attempts++;
-		const op = ops[Math.floor(prng() * ops.length)];
+  let rel = REL_EQ;
+  if (relRoll > 0.75) {
+    if (relRoll > 0.91)
+      rel = REL_NEQ; // Special case for not-equals formed by < and >
+    else if (relRoll > 0.83) rel = REL_GT;
+    else rel = REL_LT;
+  }
 
-		const relRoll = prng();
-		let rel = REL_EQ;
-		if (relRoll > 0.75) {
-			if (relRoll > 0.91)
-				rel = "<>"; // Special case for not-equals formed by < and >
-			else if (relRoll > 0.83) rel = REL_GT;
-			else rel = REL_LT;
-		}
+  if (opIndex === 0) {
+    const left = randInt(prng, 1, 9);
+    const right = randInt(prng, 1, 9);
+    return buildStatement(left, OP_PLUS, right, rel, applyRelation(left + right, rel, prng));
+  }
 
-		let A: number;
-		let B: number;
-		let val: number;
+  if (opIndex === 1) {
+    const right = randInt(prng, 1, 9);
+    const result = randInt(prng, 1, 9);
+    const left = result + right;
+    return buildStatement(left, OP_MINUS, right, rel, applyRelation(result, rel, prng));
+  }
 
-		if (op === OP_PLUS) {
-			A = 1 + Math.floor(prng() * 40);
-			B = 1 + Math.floor(prng() * 40);
-			val = A + B;
-		} else if (op === OP_MINUS) {
-			B = 1 + Math.floor(prng() * 40);
-			A = B + 1 + Math.floor(prng() * 40);
-			val = A - B;
-		} else if (op === OP_MULT) {
-			A = 2 + Math.floor(prng() * 8);
-			B = 2 + Math.floor(prng() * 9);
-			val = A * B;
-		} else if (op === OP_DIV) {
-			B = 2 + Math.floor(prng() * 8);
-			val = 2 + Math.floor(prng() * 9);
-			A = B * val;
-		} else {
-			// Fallback
-			continue;
-		}
+  if (opIndex === 2) {
+    const left = randInt(prng, 2, 9);
+    const right = randInt(prng, 2, 9);
+    const result = left * right;
+    return buildStatement(left, OP_MULT, right, rel, applyRelation(result, rel, prng));
+  }
 
-		let C = val;
-		if (rel === REL_LT) {
-			C = val + 1 + Math.floor(prng() * 15);
-		} else if (rel === REL_GT) {
-			if (val <= 0) continue;
-			C = Math.floor(prng() * val);
-		} else if (rel === "<>") {
-			C = val + (prng() > 0.5 ? 1 : -1) * (1 + Math.floor(prng() * 10));
-			if (C < 0) C = val + 1;
-		}
-
-		if (A >= 100 || B >= 100 || C >= 100) continue;
-
-		const tokens: string[] = [];
-		tokens.push(...String(A).split(""));
-		tokens.push(op);
-		tokens.push(...String(B).split(""));
-
-		if (rel === "<>") {
-			tokens.push(REL_LT);
-			tokens.push(REL_GT);
-		} else {
-			tokens.push(rel);
-		}
-
-		tokens.push(...String(C).split(""));
-
-		if (tokens.length >= 5 && tokens.length <= 10) {
-			return tokens;
-		}
-	}
-	return ["1", OP_PLUS, "2", REL_EQ, "3"];
+  const right = randInt(prng, 2, 9);
+  const result = randInt(prng, 2, 9);
+  const left = right * result;
+  return buildStatement(left, OP_DIV, right, rel, applyRelation(result, rel, prng));
 };
 
 export const evaluateExpression = (str: string) => {
-	if (str.length === 0) return null;
+  if (str.length === 0) return null;
 
-	// Map Unicode symbols to standard ASCII operators for evaluation
-	const normalized = str
-		.replace(new RegExp(OP_MINUS, "g"), "-")
-		.replace(new RegExp(OP_MULT, "g"), "*")
-		.replace(new RegExp(OP_DIV, "g"), "/");
+  // Map Unicode symbols to standard ASCII operators for evaluation
+  const normalized = str.replaceAll(OP_MINUS, "-").replaceAll(OP_MULT, "*").replaceAll(OP_DIV, "/");
 
-	if (/[+\-*/]{2,}/.test(normalized)) return null;
-	if (/^[+\-*/]/.test(normalized)) return null;
-	if (/[+\-*/]$/.test(normalized)) return null;
-	if (!/^[0-9+\-*/]+$/.test(normalized)) return null;
-	if (/(^|[+\-*/])0\d+/.test(normalized)) return null;
+  if (/[+\-*/]{2,}/.test(normalized)) return null;
+  if (/^[+\-*/]/.test(normalized)) return null;
+  if (/[+\-*/]$/.test(normalized)) return null;
+  if (!/^[0-9+\-*/]+$/.test(normalized)) return null;
+  if (/(^|[+\-*/])0\d+/.test(normalized)) return null;
 
-	const tokens = normalized.match(/\d+|[+\-*/]/g);
-	if (!tokens) return null;
+  const tokens = normalized.match(/\d+|[+\-*/]/g);
+  if (!tokens) return null;
 
-	const pass1: (number | string)[] = [];
-	for (let i = 0; i < tokens.length; i++) {
-		const t = tokens[i];
-		if (t === "*" || t === "/") {
-			const left = pass1.pop() as number;
-			const right = Number(tokens[++i]);
-			if (t === "*") {
-				pass1.push(left * right);
-			} else {
-				if (right === 0) return null;
-				if (left % right !== 0) return null;
-				pass1.push(left / right);
-			}
-		} else if (/\d+/.test(t)) {
-			pass1.push(Number(t));
-		} else {
-			pass1.push(t);
-		}
-	}
+  const values: number[] = [];
+  const ops: Array<"+" | "-"> = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (!t) return null;
+    if (t === "*" || t === "/") {
+      const left = values.pop();
+      if (left === undefined) return null;
+      const rightToken = tokens[++i];
+      if (!rightToken) return null;
+      const right = Number(rightToken);
+      if (!Number.isFinite(right)) return null;
+      if (t === "*") {
+        values.push(left * right);
+      } else {
+        if (right === 0) return null;
+        if (left % right !== 0) return null;
+        values.push(left / right);
+      }
+    } else if (t === "+" || t === "-") {
+      ops.push(t);
+    } else {
+      const value = Number(t);
+      if (!Number.isFinite(value)) return null;
+      values.push(value);
+    }
+  }
 
-	let res = pass1[0] as number;
-	for (let i = 1; i < pass1.length; i += 2) {
-		const op = pass1[i];
-		const right = pass1[i + 1] as number;
-		if (op === "+") res += right;
-		if (op === "-") res -= right;
-	}
+  const first = values[0];
+  if (first === undefined) return null;
+  let res = first;
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i];
+    const right = values[i + 1];
+    if (right === undefined) return null;
+    if (op === "+") res += right;
+    if (op === "-") res -= right;
+  }
 
-	if (typeof res !== "number" || !Number.isFinite(res)) return null;
-	return res;
+  if (!Number.isFinite(res)) return null;
+  return res;
 };
 
 export interface TileData {
-	val: string;
-	type: "val" | "op" | "rel";
-	isGiven?: boolean;
-	id: string;
+  val: string;
+  type: "val" | "op" | "rel";
+  isGiven?: boolean;
+  id: string;
 }
 
 export const isValidEquation = (wordTiles: { val: string }[]) => {
-	const tokens = wordTiles.map((t) => t.val);
+  const tokens = wordTiles.map((t) => t.val);
 
-	let relType: string | null = null;
-	let relStart = -1;
-	let relEnd = -1;
+  let relType: string | null = null;
+  let relStart = -1;
+  let relEnd = -1;
 
-	for (let i = 0; i < tokens.length; i++) {
-		const t = tokens[i];
-		if (t === REL_EQ || t === REL_LT || t === REL_GT) {
-			if (relType !== null) {
-				if (relType === REL_LT && t === REL_GT && i === relEnd + 1) {
-					relType = "<>";
-					relEnd = i;
-					continue;
-				}
-				return false;
-			}
-			relType = t;
-			relStart = i;
-			relEnd = i;
-		}
-	}
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (!t) return false;
+    if (t === REL_EQ || t === REL_LT || t === REL_GT) {
+      if (relType !== null) {
+        if (relType === REL_LT && t === REL_GT && i === relEnd + 1) {
+          relType = REL_NEQ;
+          relEnd = i;
+          continue;
+        }
+        return false;
+      }
+      relType = t;
+      relStart = i;
+      relEnd = i;
+    }
+  }
 
-	if (relType === null) return false;
-	if (relStart === 0 || relEnd === tokens.length - 1) return false;
+  if (relType === null) return false;
+  if (relStart === 0 || relEnd === tokens.length - 1) return false;
 
-	const leftSide = tokens.slice(0, relStart).join("");
-	const rightSide = tokens.slice(relEnd + 1).join("");
+  const leftSide = tokens.slice(0, relStart).join("");
+  const rightSide = tokens.slice(relEnd + 1).join("");
 
-	const leftVal = evaluateExpression(leftSide);
-	const rightVal = evaluateExpression(rightSide);
+  const leftVal = evaluateExpression(leftSide);
+  const rightVal = evaluateExpression(rightSide);
 
-	if (leftVal === null || rightVal === null) return false;
+  if (leftVal === null || rightVal === null) return false;
 
-	if (relType === REL_EQ) return Math.abs(leftVal - rightVal) < 0.0001;
-	if (relType === REL_LT) return leftVal < rightVal;
-	if (relType === REL_GT) return leftVal > rightVal;
-	if (relType === "<>") return Math.abs(leftVal - rightVal) >= 0.0001;
+  if (relType === REL_EQ) return Math.abs(leftVal - rightVal) < 0.0001;
+  if (relType === REL_LT) return leftVal < rightVal;
+  if (relType === REL_GT) return leftVal > rightVal;
+  if (relType === REL_NEQ) return Math.abs(leftVal - rightVal) >= 0.0001;
 
-	return false;
+  return false;
 };

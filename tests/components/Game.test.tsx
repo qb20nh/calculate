@@ -1,246 +1,358 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Game } from "@/components/Game";
 import * as BoardService from "@/services/board";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/preact";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/board", async () => {
-	const actual = await vi.importActual<typeof BoardService>("@/services/board");
-	return {
-		...actual,
-		generateGame: vi.fn(actual.generateGame),
-		validateBoard: vi.fn(actual.validateBoard),
-	};
+  const actual = await vi.importActual<typeof BoardService>("@/services/board");
+  return {
+    ...actual,
+    generateGame: vi.fn(actual.generateGame),
+    validateBoard: vi.fn(actual.validateBoard),
+  };
 });
 
+const requireValue = <T,>(value: T | undefined): T => {
+  if (value === undefined) {
+    throw new Error("Expected value");
+  }
+  return value;
+};
+
+const renderGame = (props: Partial<Parameters<typeof Game>[0]> = {}) =>
+  render(
+    <Game
+      difficulty="Easy"
+      stage={1}
+      maxStage={5}
+      onWin={vi.fn()}
+      onBack={vi.fn()}
+      onStageChange={vi.fn()}
+      onStateChange={vi.fn()}
+      {...props}
+    />,
+  );
+
+const waitForGameLoaded = async () => {
+  await vi.advanceTimersByTimeAsync(0);
+  await waitFor(() => {
+    expect(screen.queryByText("Generating Puzzle...")).toBeNull();
+  });
+};
+
 describe("Game", () => {
-	beforeEach(() => {
-		vi.useFakeTimers();
-	});
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
 
-	afterEach(() => {
-		vi.useRealTimers();
-	});
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-	it("should show loading state initially", () => {
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+  it("should render the board without a manual generation delay", async () => {
+    renderGame();
 
-		expect(screen.getByText("Generating Puzzle...")).toBeDefined();
-	});
+    await waitForGameLoaded();
 
-	it("should render the board after loading", async () => {
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+  });
 
-		// Fast-forward simulation timer in Game.tsx (500ms)
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+  it("should not show a progress bar while generating a level", async () => {
+    renderGame();
 
-		await waitFor(() => {
-			expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-		});
+    expect(screen.queryByLabelText("Loading")).toBeNull();
+    expect(screen.queryByLabelText("Loading screen")).toBeNull();
 
-		expect(screen.getByText("Easy — Stage 1")).toBeDefined();
-	});
+    await waitForGameLoaded();
 
-	it("should handle tile selection and placement", async () => {
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+    expect(screen.queryByLabelText("Loading")).toBeNull();
+    expect(screen.queryByLabelText("Loading screen")).toBeNull();
+  });
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+  it("should render the board after loading", async () => {
+    renderGame();
 
-		// Wait for tiles to appear in bank
-		let bankTiles: HTMLElement[] = [];
-		await waitFor(() => {
-			bankTiles = screen
-				.getAllByRole("button")
-				.filter(
-					(b) =>
-						b.className.includes("tile-val") ||
-						b.className.includes("tile-op") ||
-						b.className.includes("tile-rel"),
-				);
-			expect(bankTiles.length).toBeGreaterThan(0);
-		});
+    await waitForGameLoaded();
 
-		// Find a tile in the bank and click it
-		fireEvent.click(bankTiles[0]);
+    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+  });
 
-		// Wait for it to be selected
-		await waitFor(() => {
-			expect(bankTiles[0].className).toContain("ring-4");
-		});
+  it("should handle tile selection and placement", async () => {
+    renderGame();
 
-		// Find a fringe slot and click it
-		const fringeSlots = screen.getAllByLabelText("Place tile here");
-		fireEvent.click(fringeSlots[0]);
+    await waitForGameLoaded();
 
-		// Selection should be cleared. Re-query the tile if it still exists.
-		await waitFor(() => {
-			const updatedTiles = screen
-				.getAllByRole("button")
-				.filter(
-					(b) =>
-						b.className.includes("tile-val") ||
-						b.className.includes("tile-op") ||
-						b.className.includes("tile-rel"),
-				);
-			// If bankTiles[0] was removed, it should not be in the bank.
-			// If it was swapped, its id would be different.
-			const isStillSelected = updatedTiles.some((t) => t.className.includes("ring-4"));
-			expect(isStillSelected).toBe(false);
-		});
-	});
+    // Wait for tiles to appear in bank
+    let bankTiles: HTMLElement[] = [];
+    await waitFor(() => {
+      bankTiles = screen
+        .getAllByRole("button")
+        .filter(
+          (b) =>
+            b.className.includes("tile-val") ||
+            b.className.includes("tile-op") ||
+            b.className.includes("tile-rel"),
+        );
+      expect(bankTiles.length).toBeGreaterThan(0);
+    });
 
-	it("should handle reset", async () => {
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+    // Find a tile in the bank and click it
+    const firstBankTile = bankTiles[0];
+    expect(firstBankTile).toBeDefined();
+    fireEvent.click(requireValue(firstBankTile));
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+    // Wait for it to be selected
+    await waitFor(() => {
+      expect(requireValue(firstBankTile).className).toContain("ring-4");
+    });
 
-		await waitFor(() => {
-			expect(screen.getByText("Easy — Stage 1")).toBeDefined();
-		});
+    // Find a fringe slot and click it
+    const fringeSlots = screen.getAllByLabelText("Place tile here");
+    const firstFringeSlot = fringeSlots[0];
+    expect(firstFringeSlot).toBeDefined();
+    fireEvent.click(requireValue(firstFringeSlot));
 
-		const resetButton = screen.getByLabelText("Reset Stage");
-		fireEvent.click(resetButton);
+    // Selection should be cleared. Re-query the tile if it still exists.
+    await waitFor(() => {
+      const updatedTiles = screen
+        .getAllByRole("button")
+        .filter(
+          (b) =>
+            b.className.includes("tile-val") ||
+            b.className.includes("tile-op") ||
+            b.className.includes("tile-rel"),
+        );
+      // If bankTiles[0] was removed, it should not be in the bank.
+      // If it was swapped, its id would be different.
+      const isStillSelected = updatedTiles.some((t) => t.className.includes("ring-4"));
+      expect(isStillSelected).toBe(false);
+    });
+  });
 
-		expect(screen.getByText("Easy — Stage 1")).toBeDefined();
-	});
+  it("should swap a selected bank tile with an occupied movable board cell", async () => {
+    vi.mocked(BoardService.generateGame).mockReturnValue({
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "m1", val: "2", type: "val", isGiven: false },
+      },
+      bank: [{ id: "b1", val: "3", type: "val" }],
+      initialBankSize: 1,
+      status: "playing",
+    } as unknown as ReturnType<typeof BoardService.generateGame>);
 
-	it("should handle back button", async () => {
-		const onBack = vi.fn();
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={onBack} onStateChange={vi.fn()} />,
-		);
+    renderGame();
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+    await waitForGameLoaded();
 
-		await waitFor(() => {
-			expect(screen.getByLabelText("Back")).toBeDefined();
-		});
+    const bankTile = screen.getByText("3", { selector: ".tile-val" });
+    fireEvent.click(bankTile);
 
-		const backButton = screen.getByLabelText("Back");
-		fireEvent.click(backButton);
+    const movableBoardTile = screen.getByText("2", { selector: ".tile-val" });
+    fireEvent.click(movableBoardTile);
 
-		expect(onBack).toHaveBeenCalled();
-	});
+    await waitFor(() => {
+      expect(screen.getByText("3", { selector: ".tile-val" })).toBeDefined();
+    });
+  });
 
-	it("should not select given tiles", async () => {
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+  it("should move an unselected movable board tile back into the bank", async () => {
+    vi.mocked(BoardService.generateGame).mockReturnValue({
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "m1", val: "2", type: "val", isGiven: false },
+      },
+      bank: [
+        { id: "b1", val: "1", type: "val" },
+        { id: "b2", val: "4", type: "op" },
+        { id: "b3", val: "9", type: "val" },
+      ],
+      initialBankSize: 3,
+      status: "playing",
+    } as unknown as ReturnType<typeof BoardService.generateGame>);
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+    renderGame();
 
-		let givenTiles: HTMLElement[] = [];
-		await waitFor(() => {
-			givenTiles = screen.getAllByRole("button").filter((b) => b.className.includes("tile-given"));
-			expect(givenTiles.length).toBeGreaterThan(0);
-		});
+    await waitForGameLoaded();
 
-		fireEvent.click(givenTiles[0]);
-		expect(givenTiles[0].className).not.toContain("ring-4");
-	});
+    const movableBoardTile = screen.getByText("2", { selector: ".tile-val" });
+    fireEvent.click(movableBoardTile);
 
-	it("should show toast for invalid board", async () => {
-		const mockGame = {
-			board: {
-				"0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-				"0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
-			},
-			bank: [{ id: "b1", val: "2", type: "val" }], // 1=2 is invalid
-			initialBankSize: 1,
-			status: "playing",
-		};
-		vi.mocked(BoardService.generateGame).mockReturnValue(
-			mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
-		);
-		vi.mocked(BoardService.validateBoard).mockReturnValue({
-			valid: false,
-			reason: "Invalid equation",
-		});
+    await waitFor(() => {
+      expect(screen.getAllByText("2", { selector: ".tile-val" }).length).toBeGreaterThan(0);
+    });
+  });
 
-		render(
-			<Game difficulty="Easy" stage={1} onWin={vi.fn()} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+  it("should handle reset", async () => {
+    renderGame();
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+    await waitForGameLoaded();
 
-		await waitFor(() => {
-			expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-		});
+    await waitFor(() => {
+      expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+    });
 
-		// Place the tile
-		fireEvent.click(screen.getByText("2", { selector: ".tile-val" }));
-		fireEvent.click(screen.getAllByLabelText("Place tile here")[0]);
+    const resetButton = screen.getByLabelText("Reset Stage");
+    fireEvent.click(resetButton);
 
-		// Should show validation error toast
-		await waitFor(
-			() => {
-				expect(screen.getByText("Invalid equation")).toBeDefined();
-			},
-			{ timeout: 3000 },
-		);
-	});
+    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+  });
 
-	it("should show win screen when board is solved", async () => {
-		const mockGame = {
-			board: {
-				"0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-				"0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
-			},
-			bank: [{ id: "b1", val: "1", type: "val" }],
-			initialBankSize: 1,
-			status: "playing",
-		};
-		vi.mocked(BoardService.generateGame).mockReturnValue(
-			mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
-		);
-		vi.mocked(BoardService.validateBoard).mockReturnValue({ valid: true });
+  it("should handle back button", async () => {
+    const onBack = vi.fn();
+    renderGame({ onBack });
 
-		const onWin = vi.fn();
-		render(
-			<Game difficulty="Easy" stage={1} onWin={onWin} onBack={vi.fn()} onStateChange={vi.fn()} />,
-		);
+    await waitForGameLoaded();
 
-		await act(async () => {
-			vi.advanceTimersByTime(600);
-		});
+    await waitFor(() => {
+      expect(screen.getByLabelText("Back")).toBeDefined();
+    });
 
-		await waitFor(() => {
-			expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-		});
+    const backButton = screen.getByLabelText("Back");
+    fireEvent.click(backButton);
 
-		// Select and place
-		fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
-		fireEvent.click(screen.getAllByLabelText("Place tile here")[0]);
+    expect(onBack).toHaveBeenCalled();
+  });
 
-		// Win screen should appear
-		await waitFor(() => {
-			expect(screen.getByText("Perfect!")).toBeDefined();
-		});
+  it("should not select given tiles", async () => {
+    renderGame();
 
-		expect(onWin).toHaveBeenCalled();
+    await waitForGameLoaded();
 
-		fireEvent.click(screen.getByText("Continue"));
-		await waitFor(() => {
-			expect(screen.queryByText("Perfect!")).toBeNull();
-		});
-	});
+    let givenTiles: HTMLElement[] = [];
+    await waitFor(() => {
+      givenTiles = screen.getAllByRole("button").filter((b) => b.className.includes("tile-given"));
+      expect(givenTiles.length).toBeGreaterThan(0);
+    });
+
+    const firstGivenTile = givenTiles[0];
+    expect(firstGivenTile).toBeDefined();
+    fireEvent.click(requireValue(firstGivenTile));
+    expect(requireValue(firstGivenTile).className).not.toContain("ring-4");
+  });
+
+  it("should show toast for invalid board", async () => {
+    const mockGame = {
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+      },
+      bank: [{ id: "b1", val: "2", type: "val" }], // 1=2 is invalid
+      initialBankSize: 1,
+      status: "playing",
+    };
+    vi.mocked(BoardService.generateGame).mockReturnValue(
+      mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
+    );
+    vi.mocked(BoardService.validateBoard).mockReturnValue({
+      valid: false,
+      reason: "Invalid equation",
+    });
+
+    renderGame();
+
+    await waitForGameLoaded();
+
+    // Place the tile
+    fireEvent.click(screen.getByText("2", { selector: ".tile-val" }));
+    const firstFringeSlot = screen.getAllByLabelText("Place tile here")[0];
+    expect(firstFringeSlot).toBeDefined();
+    fireEvent.click(requireValue(firstFringeSlot));
+
+    // Should show validation error toast
+    await waitFor(
+      () => {
+        expect(screen.getByText("Invalid equation")).toBeDefined();
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it("should show win screen when board is solved", async () => {
+    const mockGame = {
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+      },
+      bank: [{ id: "b1", val: "1", type: "val" }],
+      initialBankSize: 1,
+      status: "playing",
+    };
+    vi.mocked(BoardService.generateGame).mockReturnValue(
+      mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
+    );
+    vi.mocked(BoardService.validateBoard).mockReturnValue({ valid: true });
+
+    const onWin = vi.fn();
+    renderGame({ onWin });
+
+    await waitForGameLoaded();
+
+    // Select and place
+    fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
+    const firstWinFringeSlot = screen.getAllByLabelText("Place tile here")[0];
+    expect(firstWinFringeSlot).toBeDefined();
+    fireEvent.click(requireValue(firstWinFringeSlot));
+
+    // Win screen should appear
+    await waitFor(() => {
+      expect(screen.getByText("Perfect!")).toBeDefined();
+    });
+
+    expect(onWin).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Continue"));
+    await waitFor(() => {
+      expect(screen.queryByText("Perfect!")).toBeNull();
+    });
+  });
+
+  it("should call onStageChange when stage navigation buttons are clicked", async () => {
+    const onStageChange = vi.fn();
+    renderGame({ stage: 2, maxStage: 5, onStageChange });
+
+    await waitForGameLoaded();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Previous Stage")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByLabelText("Previous Stage"));
+    expect(onStageChange).toHaveBeenCalledWith(1);
+
+    fireEvent.click(screen.getByLabelText("Next Stage"));
+    expect(onStageChange).toHaveBeenCalledWith(3);
+  });
+
+  it("should deselect bank tile when clicking it again", async () => {
+    renderGame();
+
+    await waitForGameLoaded();
+
+    let bankTiles: HTMLElement[] = [];
+    await waitFor(() => {
+      bankTiles = screen
+        .getAllByRole("button")
+        .filter(
+          (b) =>
+            b.className.includes("tile-val") ||
+            b.className.includes("tile-op") ||
+            b.className.includes("tile-rel"),
+        );
+      expect(bankTiles.length).toBeGreaterThan(0);
+    });
+
+    // Select the tile
+    const firstDeselectTile = bankTiles[0];
+    expect(firstDeselectTile).toBeDefined();
+    fireEvent.click(requireValue(firstDeselectTile));
+    await waitFor(() => {
+      expect(requireValue(firstDeselectTile).className).toContain("ring-4");
+    });
+
+    // Click the same tile again to deselect
+    fireEvent.click(requireValue(firstDeselectTile));
+    await waitFor(() => {
+      expect(requireValue(firstDeselectTile).className).not.toContain("ring-4");
+    });
+  });
 });

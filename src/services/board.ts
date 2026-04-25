@@ -1,358 +1,402 @@
 import {
-	OP_DIV,
-	OP_MINUS,
-	OP_MULT,
-	OP_PLUS,
-	REL_EQ,
-	REL_GT,
-	REL_LT,
-	type TileData,
-	generateValidStatement,
-	getHashSeed,
-	isValidEquation,
-	xoshiro128pp,
-} from "./math";
+  generateValidStatement,
+  getHashSeed,
+  isValidEquation,
+  OP_DIV,
+  OP_MINUS,
+  OP_MULT,
+  OP_PLUS,
+  REL_EQ,
+  REL_GT,
+  REL_LT,
+  type TileData,
+  xoshiro128pp,
+} from "@/services/math";
+import type { Difficulty } from "@/services/storage";
 
-interface Cell {
-	val: string;
-	type: "val" | "op" | "rel";
-}
+type Cell = {
+  val: string;
+  type: "val" | "op" | "rel";
+};
 
 interface Grid {
-	[key: string]: Cell;
+  [key: string]: Cell;
 }
 
-export const getGridBounds = (keys: string[]) => {
-	let minR = Number.POSITIVE_INFINITY;
-	let maxR = Number.NEGATIVE_INFINITY;
-	let minC = Number.POSITIVE_INFINITY;
-	let maxC = Number.NEGATIVE_INFINITY;
-	for (const k of keys) {
-		const [r, c] = k.split(",").map(Number);
-		minR = Math.min(minR, r);
-		maxR = Math.max(maxR, r);
-		minC = Math.min(minC, c);
-		maxC = Math.max(maxC, c);
-	}
-	return { minR, maxR, minC, maxC };
+type Bounds = {
+  minR: number;
+  maxR: number;
+  minC: number;
+  maxC: number;
 };
+
+type EquationUsage = {
+  horizontal: Set<string>;
+  vertical: Set<string>;
+};
+
+type Direction = {
+  dx: number;
+  dy: number;
+};
+
+const getKey = (r: number, c: number) => `${r},${c}`;
+
+const parseKey = (key: string): [number, number] => {
+  const [r = "0", c = "0"] = key.split(",");
+  return [Number(r), Number(c)];
+};
+
+export const getGridBounds = (keys: string[]): Bounds => {
+  let minR = Number.POSITIVE_INFINITY;
+  let maxR = Number.NEGATIVE_INFINITY;
+  let minC = Number.POSITIVE_INFINITY;
+  let maxC = Number.NEGATIVE_INFINITY;
+  for (const k of keys) {
+    const [r, c] = parseKey(k);
+    minR = Math.min(minR, r);
+    maxR = Math.max(maxR, r);
+    minC = Math.min(minC, c);
+    maxC = Math.max(maxC, c);
+  }
+  return { minR, maxR, minC, maxC };
+};
+
+const getCellType = (char: string): Cell["type"] => {
+  if (char === OP_PLUS || char === OP_MINUS || char === OP_MULT || char === OP_DIV) return "op";
+  if (char === REL_EQ || char === REL_LT || char === REL_GT) return "rel";
+  return "val";
+};
+
+const shuffleInPlace = <T>(items: T[], prng: () => number) => {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(prng() * (i + 1));
+    const current = items[i];
+    const swap = items[j];
+    if (current === undefined || swap === undefined) continue;
+    items[i] = swap;
+    items[j] = current;
+  }
+  return items;
+};
+
+const pickRandomKeys = (keys: string[], count: number, prng: () => number) =>
+  new Set(shuffleInPlace([...keys], prng).slice(0, count));
 
 const forEachEquation = (
-	keys: string[],
-	getTile: (k: string) => { val: string } | undefined,
-	callback: (word: { val: string; key: string }[]) => void,
+  keys: string[],
+  getTile: (k: string) => { val: string } | undefined,
+  callback: (word: { val: string; key: string }[]) => void,
 ) => {
-	const { minR, maxR, minC, maxC } = getGridBounds(keys);
+  const { minR, maxR, minC, maxC } = getGridBounds(keys);
 
-	const scan = (
-		outerStart: number,
-		outerEnd: number,
-		innerStart: number,
-		innerEnd: number,
-		isHoriz: boolean,
-	) => {
-		for (let o = outerStart; o <= outerEnd; o++) {
-			let word: { val: string; key: string }[] = [];
-			for (let i = innerStart; i <= innerEnd + 1; i++) {
-				const k = isHoriz ? `${o},${i}` : `${i},${o}`;
-				const tile = getTile(k);
-				if (tile) {
-					word.push({ ...tile, key: k });
-				} else {
-					if (word.length > 0) callback(word);
-					word = [];
-				}
-			}
-		}
-	};
+  const scan = (
+    outerStart: number,
+    outerEnd: number,
+    innerStart: number,
+    innerEnd: number,
+    isHoriz: boolean,
+  ) => {
+    for (let o = outerStart; o <= outerEnd; o++) {
+      let word: { val: string; key: string }[] = [];
+      for (let i = innerStart; i <= innerEnd + 1; i++) {
+        const k = isHoriz ? getKey(o, i) : getKey(i, o);
+        const tile = getTile(k);
+        if (tile) {
+          word.push({ ...tile, key: k });
+        } else {
+          if (word.length > 0) callback(word);
+          word = [];
+        }
+      }
+    }
+  };
 
-	scan(minR, maxR, minC, maxC, true); // Horizontal
-	scan(minC, maxC, minR, maxR, false); // Vertical
+  scan(minR, maxR, minC, maxC, true); // Horizontal
+  scan(minC, maxC, minR, maxR, false); // Vertical
 };
 
-interface Equation {
-	cells: string[];
-	dx: number;
-	dy: number;
-}
+const placeEquation = (
+  grid: Grid,
+  gridKeys: string[],
+  usage: EquationUsage,
+  bounds: Bounds,
+  prng: () => number,
+) => {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const stmt = generateValidStatement(prng);
 
-const placeEquation = (grid: Grid, equations: Equation[], prng: () => number) => {
-	for (let attempt = 0; attempt < 50; attempt++) {
-		const stmt = generateValidStatement(prng);
+    const possibleIntersections: { k: string; idx: number }[] = [];
+    for (const k of gridKeys) {
+      const cell = grid[k];
+      if (!cell) continue;
+      const cellVal = String(cell.val);
+      for (let i = 0; i < stmt.length; i++) {
+        const char = stmt[i];
+        if (char && char === cellVal) {
+          possibleIntersections.push({ k, idx: i });
+        }
+      }
+    }
 
-		const possibleIntersections: { k: string; idx: number }[] = [];
-		for (const k in grid) {
-			const cellVal = String(grid[k].val);
-			for (let i = 0; i < stmt.length; i++) {
-				if (stmt[i] === cellVal) {
-					possibleIntersections.push({ k, idx: i });
-				}
-			}
-		}
+    shuffleInPlace(possibleIntersections, prng);
 
-		possibleIntersections.sort(() => prng() - 0.5);
+    for (const match of possibleIntersections) {
+      const [r, c] = parseKey(match.k);
 
-		for (const match of possibleIntersections) {
-			const [r, c] = match.k.split(",").map(Number);
+      const dirs: Direction[] = [];
+      if (!usage.horizontal.has(match.k)) dirs.push({ dx: 1, dy: 0 });
+      if (!usage.vertical.has(match.k)) dirs.push({ dx: 0, dy: 1 });
+      shuffleInPlace(dirs, prng);
 
-			const hasHoriz = equations.some((eq) => eq.cells.includes(match.k) && eq.dx === 1);
-			const hasVert = equations.some((eq) => eq.cells.includes(match.k) && eq.dy === 1);
+      for (const dir of dirs) {
+        const startR = r - match.idx * dir.dy;
+        const startC = c - match.idx * dir.dx;
 
-			const dirs = [];
-			if (!hasHoriz) dirs.push({ dx: 1, dy: 0 });
-			if (!hasVert) dirs.push({ dx: 0, dy: 1 });
-			dirs.sort(() => prng() - 0.5);
+        const cells: string[] = [];
+        for (let i = 0; i < stmt.length; i++) {
+          const cr = startR + i * dir.dy;
+          const cc = startC + i * dir.dx;
+          cells.push(getKey(cr, cc));
+        }
 
-			for (const dir of dirs) {
-				const startR = r - match.idx * dir.dy;
-				const startC = c - match.idx * dir.dx;
+        const newEquationCells = new Set(cells);
+        let collision = false;
+        let nextMinR = bounds.minR;
+        let nextMaxR = bounds.maxR;
+        let nextMinC = bounds.minC;
+        let nextMaxC = bounds.maxC;
 
-				const cells: string[] = [];
-				let collision = false;
-				for (let i = 0; i < stmt.length; i++) {
-					const cr = startR + i * dir.dy;
-					const cc = startC + i * dir.dx;
-					const ck = `${cr},${cc}`;
-					cells.push(ck);
+        for (let i = 0; i < stmt.length; i++) {
+          const cr = startR + i * dir.dy;
+          const cc = startC + i * dir.dx;
+          const ck = cells[i];
+          if (!ck) {
+            collision = true;
+            break;
+          }
 
-					if (i === match.idx) {
-						if (ck !== match.k) collision = true;
-					} else {
-						if (grid[ck]) {
-							collision = true;
-							break;
-						}
-						const neighbors = [
-							`${cr + 1},${cc}`,
-							`${cr - 1},${cc}`,
-							`${cr},${cc + 1}`,
-							`${cr},${cc - 1}`,
-						];
-						for (const nk of neighbors) {
-							if (grid[nk] && nk !== match.k) {
-								let inNewEq = false;
-								for (let j = 0; j < stmt.length; j++) {
-									if (`${startR + j * dir.dy},${startC + j * dir.dx}` === nk) inNewEq = true;
-								}
-								if (!inNewEq) {
-									collision = true;
-									break;
-								}
-							}
-						}
-					}
-					if (collision) break;
-				}
+          nextMinR = Math.min(nextMinR, cr);
+          nextMaxR = Math.max(nextMaxR, cr);
+          nextMinC = Math.min(nextMinC, cc);
+          nextMaxC = Math.max(nextMaxC, cc);
 
-				if (!collision) {
-					let { minR, maxR, minC, maxC } = getGridBounds(Object.keys(grid));
-					for (const k of cells) {
-						const [cr, cc] = k.split(",").map(Number);
-						minR = Math.min(minR, cr);
-						maxR = Math.max(maxR, cr);
-						minC = Math.min(minC, cc);
-						maxC = Math.max(maxC, cc);
-					}
-					if (maxR - minR + 1 > 10 || maxC - minC + 1 > 10) {
-						collision = true;
-					}
-				}
+          if (i === match.idx) continue;
 
-				if (!collision) {
-					for (let i = 0; i < stmt.length; i++) {
-						const char = stmt[i];
-						let type: "val" | "op" | "rel" = "val";
-						if ([OP_PLUS, OP_MINUS, OP_MULT, OP_DIV].includes(char)) type = "op";
-						if ([REL_EQ, REL_LT, REL_GT].includes(char)) type = "rel";
-						grid[cells[i]] = { type, val: char };
-					}
-					equations.push({ cells, dx: dir.dx, dy: dir.dy });
-					return true;
-				}
-			}
-		}
-	}
-	return false;
+          if (grid[ck]) {
+            collision = true;
+            break;
+          }
+
+          const neighbors = [
+            getKey(cr + 1, cc),
+            getKey(cr - 1, cc),
+            getKey(cr, cc + 1),
+            getKey(cr, cc - 1),
+          ];
+          for (const nk of neighbors) {
+            if (grid[nk] && !newEquationCells.has(nk)) {
+              collision = true;
+              break;
+            }
+          }
+          if (collision) break;
+        }
+
+        if (!collision) {
+          if (nextMaxR - nextMinR + 1 > 10 || nextMaxC - nextMinC + 1 > 10) {
+            collision = true;
+          }
+        }
+
+        if (!collision) {
+          for (let i = 0; i < stmt.length; i++) {
+            const char = stmt[i];
+            if (!char) continue;
+            const cellKey = cells[i];
+            if (!cellKey) continue;
+            grid[cellKey] = { type: getCellType(char), val: char };
+            if (i !== match.idx) gridKeys.push(cellKey);
+          }
+
+          const usageSet = dir.dx === 1 ? usage.horizontal : usage.vertical;
+          for (const cell of cells) usageSet.add(cell);
+
+          bounds.minR = nextMinR;
+          bounds.maxR = nextMaxR;
+          bounds.minC = nextMinC;
+          bounds.maxC = nextMaxC;
+
+          return stmt.length - 1;
+        }
+      }
+    }
+  }
+  return 0;
 };
 
-export const generateGame = (stage: number, difficulty: string) => {
-	const seedStr = `${difficulty}_${stage}`;
-	const prng = xoshiro128pp(getHashSeed(seedStr));
+export const generateGame = (stage: number, difficulty: Difficulty) => {
+  const seedStr = `${difficulty}_${stage}`;
+  const prng = xoshiro128pp(getHashSeed(seedStr));
 
-	let diffPercent: number;
-	let minInv: number;
-	let maxInv: number;
-	if (difficulty === "Easy") {
-		diffPercent = 0.6;
-		minInv = 5;
-		maxInv = 7;
-	} else if (difficulty === "Medium") {
-		diffPercent = 0.4;
-		minInv = 10;
-		maxInv = 14;
-	} else {
-		diffPercent = 0.2;
-		minInv = 15;
-		maxInv = 21;
-	}
+  let diffPercent: number;
+  let minInv: number;
+  let maxInv: number;
+  if (difficulty === "Easy") {
+    diffPercent = 0.6;
+    minInv = 5;
+    maxInv = 7;
+  } else if (difficulty === "Medium") {
+    diffPercent = 0.4;
+    minInv = 10;
+    maxInv = 14;
+  } else {
+    diffPercent = 0.2;
+    minInv = 15;
+    maxInv = 21;
+  }
 
-	const targetInv = minInv + Math.floor(prng() * (maxInv - minInv + 1));
-	const targetTotalTiles = Math.ceil(targetInv / (1 - diffPercent));
+  const targetInv = minInv + Math.floor(prng() * (maxInv - minInv + 1));
+  const targetTotalTiles = Math.ceil(targetInv / (1 - diffPercent));
 
-	let bestGrid: Grid | null = null;
+  let bestGrid: Grid = {};
+  let bestGridKeys: string[] = [];
 
-	for (let attempt = 0; attempt < 30; attempt++) {
-		const grid: Grid = {};
-		const equations: Equation[] = [];
-		const stmt = generateValidStatement(prng);
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const grid: Grid = {};
+    const gridKeys: string[] = [];
+    const usage: EquationUsage = { horizontal: new Set(), vertical: new Set() };
+    const stmt = generateValidStatement(prng);
+    const bounds: Bounds = { minR: 0, maxR: 0, minC: 0, maxC: stmt.length - 1 };
 
-		for (let i = 0; i < stmt.length; i++) {
-			const char = stmt[i];
-			let type: "val" | "op" | "rel" = "val";
-			if ([OP_PLUS, OP_MINUS, OP_MULT, OP_DIV].includes(char)) type = "op";
-			if ([REL_EQ, REL_LT, REL_GT].includes(char)) type = "rel";
-			grid[`0,${i}`] = { type, val: char };
-		}
-		equations.push({ dx: 1, dy: 0, cells: stmt.map((_, i) => `0,${i}`) });
+    for (let i = 0; i < stmt.length; i++) {
+      const char = stmt[i];
+      if (!char) continue;
+      const key = getKey(0, i);
+      grid[key] = { type: getCellType(char), val: char };
+      gridKeys.push(key);
+      usage.horizontal.add(key);
+    }
 
-		let fails = 0;
-		while (Object.keys(grid).length < targetTotalTiles && fails < 40) {
-			if (!placeEquation(grid, equations, prng)) fails++;
-		}
+    let fails = 0;
+    while (gridKeys.length < targetTotalTiles && fails < 40) {
+      fails += Number(placeEquation(grid, gridKeys, usage, bounds, prng) === 0);
+    }
 
-		if (!bestGrid || Object.keys(grid).length > Object.keys(bestGrid).length) {
-			bestGrid = grid;
-		}
+    if (gridKeys.length > bestGridKeys.length) {
+      bestGrid = grid;
+      bestGridKeys = gridKeys;
+    }
 
-		if (Object.keys(grid).length >= targetTotalTiles) {
-			break;
-		}
-	}
+    if (gridKeys.length >= targetTotalTiles) {
+      break;
+    }
+  }
 
-	if (!bestGrid) {
-		bestGrid = {
-			"0,0": { type: "val", val: "2" },
-			"0,1": { type: "op", val: OP_PLUS },
-			"0,2": { type: "val", val: "3" },
-			"0,3": { type: "rel", val: REL_EQ },
-			"0,4": { type: "val", val: "5" },
-		};
-	}
+  const board: { [key: string]: TileData } = {};
+  const bank: TileData[] = [];
 
-	const board: { [key: string]: TileData } = {};
-	const bank: TileData[] = [];
+  const totalTiles = bestGridKeys.length;
+  let numGivens = Math.round(totalTiles * diffPercent);
+  let numInventory = totalTiles - numGivens;
 
-	const totalTiles = Object.keys(bestGrid).length;
-	let numGivens = Math.round(totalTiles * diffPercent);
-	let numInventory = totalTiles - numGivens;
+  const maxInventory = Math.min(maxInv, totalTiles > 0 ? totalTiles - 1 : 0);
+  numInventory = Math.min(Math.max(numInventory, minInv), maxInventory);
+  numGivens = totalTiles - numInventory;
 
-	if (numInventory < minInv) {
-		numInventory = Math.min(totalTiles - 1, minInv);
-		numGivens = totalTiles - numInventory;
-	} else if (numInventory > maxInv) {
-		numInventory = maxInv;
-		numGivens = totalTiles - numInventory;
-	}
-	if (numGivens < 0) numGivens = 0;
+  const allKeys = bestGridKeys;
+  let givenKeys = new Set<string>();
+  let safeGivens = false;
+  let givenAttempts = 0;
 
-	const { minR, maxR, minC, maxC } = getGridBounds(Object.keys(bestGrid));
+  while (!safeGivens && givenAttempts < 200) {
+    givenAttempts++;
+    givenKeys = pickRandomKeys(allKeys, numGivens, prng);
 
-	const allKeys = Object.keys(bestGrid);
-	let givenKeys = new Set<string>();
-	let safeGivens = false;
-	let givenAttempts = 0;
+    let foundTrueStatement = false;
+    forEachEquation(
+      Array.from(givenKeys),
+      (k) => (givenKeys.has(k) ? bestGrid[k] : undefined),
+      (word) => {
+        if (word.length >= 3 && isValidEquation(word)) foundTrueStatement = true;
+      },
+    );
 
-	while (!safeGivens && givenAttempts < 200) {
-		givenAttempts++;
-		allKeys.sort(() => prng() - 0.5);
-		givenKeys = new Set(allKeys.slice(0, numGivens));
+    if (!foundTrueStatement) {
+      safeGivens = true;
+    }
+  }
 
-		const tempBoard: Grid = {};
-		for (const k of givenKeys) tempBoard[k] = bestGrid[k];
+  for (const k of allKeys) {
+    const cell = bestGrid[k];
+    if (!cell) continue;
+    if (givenKeys.has(k)) {
+      board[k] = { id: `g_${k}`, ...cell, isGiven: true };
+    } else {
+      bank.push({ id: `b_${k}`, val: cell.val, type: cell.type });
+    }
+  }
 
-		let foundTrueStatement = false;
-		forEachEquation(
-			Object.keys(tempBoard),
-			(k) => tempBoard[k],
-			(word) => {
-				if (word.length >= 3 && isValidEquation(word)) foundTrueStatement = true;
-			},
-		);
+  bank.sort((a, b) => {
+    const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
+    if (w(a) !== w(b)) return w(a) - w(b);
+    return String(a.val).localeCompare(String(b.val));
+  });
 
-		if (!foundTrueStatement) {
-			safeGivens = true;
-		}
-	}
-
-	for (const k in bestGrid) {
-		const cell = bestGrid[k];
-		if (givenKeys.has(k)) {
-			board[k] = { id: `g_${k}`, ...cell, isGiven: true };
-		} else {
-			bank.push({ id: `b_${k}`, val: cell.val, type: cell.type });
-		}
-	}
-
-	bank.sort((a, b) => {
-		const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
-		if (w(a) !== w(b)) return w(a) - w(b);
-		return String(a.val).localeCompare(String(b.val));
-	});
-
-	return { board, bank, initialBankSize: bank.length, status: "playing" };
+  return { board, bank, initialBankSize: bank.length, status: "playing" as const };
 };
 
-export const validateBoard = (board: { [key: string]: TileData }) => {
-	const placedKeys = Object.keys(board);
-	if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
+type ValidationResult = { valid: true } | { valid: false; reason: string };
 
-	const visited = new Set<string>();
-	const queue = [placedKeys[0]];
-	visited.add(placedKeys[0]);
+export const validateBoard = (board: { [key: string]: TileData }): ValidationResult => {
+  const placedKeys = Object.keys(board);
+  if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
 
-	while (queue.length > 0) {
-		const item = queue.shift();
-		if (!item) continue;
-		const [r, c] = item.split(",").map(Number);
-		const neighbors = [`${r + 1},${c}`, `${r - 1},${c}`, `${r},${c + 1}`, `${r},${c - 1}`];
+  const visited = new Set<string>();
+  const firstKey = placedKeys[0] as string;
+  const queue = [firstKey];
+  visited.add(firstKey);
 
-		for (const nk of neighbors) {
-			if (board[nk] && !visited.has(nk)) {
-				visited.add(nk);
-				queue.push(nk);
-			}
-		}
-	}
+  for (let i = 0; i < queue.length; i++) {
+    const item = queue[i] as string;
+    const [r, c] = parseKey(item);
+    const neighbors = [getKey(r + 1, c), getKey(r - 1, c), getKey(r, c + 1), getKey(r, c - 1)];
 
-	if (visited.size !== placedKeys.length)
-		return { valid: false, reason: "All tiles must be connected together." };
+    for (const nk of neighbors) {
+      if (board[nk] && !visited.has(nk)) {
+        visited.add(nk);
+        queue.push(nk);
+      }
+    }
+  }
 
-	const { minR, maxR, minC, maxC } = getGridBounds(placedKeys);
+  if (visited.size !== placedKeys.length)
+    return { valid: false, reason: "All tiles must be connected together." };
 
-	const validTiles = new Set<string>();
-	let equationsCount = 0;
+  const validTiles = new Set<string>();
+  let equationsCount = 0;
 
-	forEachEquation(
-		placedKeys,
-		(k) => board[k],
-		(word) => {
-			if (word.length >= 3 && isValidEquation(word)) {
-				equationsCount++;
-				for (const t of word) {
-					validTiles.add(t.key);
-				}
-			}
-		},
-	);
+  forEachEquation(
+    placedKeys,
+    (k) => board[k],
+    (word) => {
+      if (word.length >= 3 && isValidEquation(word)) {
+        equationsCount++;
+        for (const t of word) {
+          validTiles.add(t.key);
+        }
+      }
+    },
+  );
 
-	if (equationsCount === 0)
-		return { valid: false, reason: "No valid mathematical equations found." };
+  if (equationsCount === 0)
+    return { valid: false, reason: "No valid mathematical equations found." };
 
-	for (const k of placedKeys) {
-		if (!validTiles.has(k)) {
-			return { valid: false, reason: "Some tiles don't form a correct equation." };
-		}
-	}
+  for (const k of placedKeys) {
+    if (!validTiles.has(k)) {
+      return { valid: false, reason: "Some tiles don't form a correct equation." };
+    }
+  }
 
-	return { valid: true };
+  return { valid: true };
 };
