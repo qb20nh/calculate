@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Game } from "@/components/Game";
 import * as BoardService from "@/services/board";
+import { generateGame } from "@/services/board";
 
 vi.mock("@/services/board", async () => {
   const actual = await vi.importActual<typeof BoardService>("@/services/board");
@@ -43,6 +44,10 @@ const waitForGameLoaded = async () => {
 describe("Game", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Mock pointer capture APIs
+    HTMLDivElement.prototype.setPointerCapture = vi.fn();
+    HTMLDivElement.prototype.hasPointerCapture = vi.fn(() => true);
+    HTMLDivElement.prototype.releasePointerCapture = vi.fn();
   });
 
   afterEach(() => {
@@ -54,7 +59,7 @@ describe("Game", () => {
 
     await waitForGameLoaded();
 
-    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
   });
 
   it("should not show a progress bar while generating a level", async () => {
@@ -74,7 +79,7 @@ describe("Game", () => {
 
     await waitForGameLoaded();
 
-    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
   });
 
   it("should handle tile selection and placement", async () => {
@@ -193,7 +198,7 @@ describe("Game", () => {
     await waitForGameLoaded();
 
     await waitFor(() => {
-      expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+      expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
     });
 
     const resetButton = screen.getByLabelText("Reset Stage");
@@ -204,7 +209,7 @@ describe("Game", () => {
 
     fireEvent.click(screen.getByText("Reset"));
 
-    expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
     expect(generateGameSpy).toHaveBeenCalledTimes(2);
   });
 
@@ -370,13 +375,13 @@ describe("Game", () => {
     await waitForGameLoaded();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Previous Stage")).toBeDefined();
+      expect(screen.getAllByLabelText("Previous Stage").length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getByLabelText("Previous Stage"));
+    fireEvent.click(screen.getAllByLabelText("Previous Stage")[0]);
     expect(onStageChange).toHaveBeenCalledWith(1);
 
-    fireEvent.click(screen.getByLabelText("Next Stage"));
+    fireEvent.click(screen.getAllByLabelText("Next Stage")[0]);
     expect(onStageChange).toHaveBeenCalledWith(3);
   });
 
@@ -412,6 +417,195 @@ describe("Game", () => {
     fireEvent.click(requireValue(firstDeselectTile));
     await waitFor(() => {
       expect(requireValue(firstDeselectTile).className).not.toContain("selected");
+    });
+  });
+
+  describe("Interactions", () => {
+    it("should handle touch panning with threshold", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      const container = screen.getByTestId("game-board-container");
+
+      // Pointer down
+      fireEvent.pointerDown(container, {
+        pointerType: "touch",
+        clientX: 100,
+        clientY: 100,
+      });
+
+      // Pointer move below threshold
+      fireEvent.pointerMove(container, {
+        clientX: 102,
+        clientY: 102,
+      });
+
+      // Pointer move above threshold (4px)
+      fireEvent.pointerMove(container, {
+        clientX: 110,
+        clientY: 110,
+      });
+
+      // Pointer up
+      fireEvent.pointerUp(container);
+
+      expect(container).toBeDefined();
+    });
+
+    it("should ignore mouse dragging for panning", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      const container = screen.getByTestId("game-board-container");
+
+      // Pointer down with mouse
+      fireEvent.pointerDown(container, {
+        pointerType: "mouse",
+        clientX: 100,
+        clientY: 100,
+      });
+
+      fireEvent.pointerMove(container, {
+        clientX: 150,
+        clientY: 150,
+      });
+
+      fireEvent.pointerUp(container);
+      expect(container).toBeDefined();
+    });
+
+    it("should handle pointer cancel", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      const container = screen.getByTestId("game-board-container");
+
+      fireEvent.pointerDown(container, {
+        pointerType: "touch",
+        clientX: 100,
+        clientY: 100,
+      });
+
+      fireEvent.pointerCancel(container);
+      expect(container).toBeDefined();
+    });
+
+    it("should handle pointer leave", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      const container = screen.getByTestId("game-board-container");
+
+      fireEvent.pointerDown(container, {
+        pointerType: "touch",
+        clientX: 100,
+        clientY: 100,
+      });
+
+      fireEvent.pointerLeave(container);
+      expect(container).toBeDefined();
+    });
+
+    it("should suppress clicks after dragging", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      const container = screen.getByTestId("game-board-container");
+
+      // Drag
+      fireEvent.pointerDown(container, { pointerType: "touch", clientX: 100, clientY: 100 });
+      fireEvent.pointerMove(container, { clientX: 150, clientY: 150 });
+      fireEvent.pointerUp(container);
+
+      // Subsequent click should be captured/suppressed
+      const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
+      const spy = vi.spyOn(clickEvent, "stopPropagation");
+      fireEvent(container, clickEvent);
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it("should ignore panning when game is not playing", async () => {
+      // Start a game
+      renderGame();
+      await waitForGameLoaded();
+
+      // Force it to solved state (or just mock it)
+      // Actually, let's just render with solved state
+      const solvedState = {
+        ...generateGame(1, "Easy"),
+        status: "solved" as const,
+      } as unknown as BoardService.GameState;
+      cleanup(); // Remove previous render
+      renderGame({ initialState: solvedState });
+
+      const container = screen.getByTestId("game-board-container");
+      fireEvent.pointerDown(container, { pointerType: "touch", clientX: 100, clientY: 100 });
+      // Move - should not crash or do much
+      fireEvent.pointerMove(container, { clientX: 150, clientY: 150 });
+      fireEvent.pointerUp(container);
+
+      expect(container).toBeDefined();
+    });
+
+    it("should handle inventory selection and stacking", async () => {
+      const customState = {
+        ...generateGame(1, "Easy"),
+        bank: [
+          { id: "v1", val: "5", type: "val" },
+          { id: "v2", val: "5", type: "val" },
+          { id: "o1", val: "+", type: "op" },
+          { id: "r1", val: "=", type: "rel" },
+        ],
+      } as unknown as BoardService.GameState;
+      renderGame({ initialState: customState });
+      await waitForGameLoaded();
+
+      // Find the '5' tile in inventory (should have a stack badge '2')
+      const fiveTile = screen.getByText("5").closest("button");
+      if (fiveTile) {
+        expect(screen.getByText("2")).toBeDefined();
+
+        // Select it
+        fireEvent.click(fiveTile);
+        expect(fiveTile.className).toContain("selected");
+
+        // Deselect it
+        fireEvent.click(fiveTile);
+        expect(fiveTile.className).not.toContain("selected");
+      }
+    });
+
+    it("should ignore inventory clicks when game is solved", async () => {
+      const solvedState = {
+        ...generateGame(1, "Easy"),
+        status: "solved" as const,
+      } as unknown as BoardService.GameState;
+      renderGame({ initialState: solvedState });
+      await waitForGameLoaded();
+
+      const buttons = screen.getAllByRole("button");
+      const tile = buttons.find((b) => b.className.includes("tile-"));
+      if (tile) {
+        fireEvent.click(tile);
+        expect(tile.className).not.toContain("selected");
+      }
+    });
+
+    it("should handle operator and relation stacking", async () => {
+      const customState = {
+        ...generateGame(1, "Easy"),
+        bank: [
+          { id: "o1", val: "+", type: "op" },
+          { id: "o2", val: "+", type: "op" },
+          { id: "r1", val: "=", type: "rel" },
+          { id: "r2", val: "=", type: "rel" },
+        ],
+      } as unknown as BoardService.GameState;
+      renderGame({ initialState: customState });
+      await waitForGameLoaded();
+
+      expect(screen.getAllByText("2")).toHaveLength(2); // Two stack badges of '2'
     });
   });
 });

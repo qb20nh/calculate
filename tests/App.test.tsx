@@ -12,7 +12,7 @@ const waitForGameLoaded = async (stageLabel: string) => {
   await vi.advanceTimersByTimeAsync(0);
   await waitFor(() => {
     expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-    expect(screen.getByText(stageLabel)).toBeDefined();
+    expect(screen.getAllByText(stageLabel).length).toBeGreaterThan(0);
   });
 };
 
@@ -76,7 +76,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-      expect(screen.getByText("Easy — Stage 1")).toBeDefined();
+      expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
     });
   });
 
@@ -141,7 +141,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe("/game/easy/3");
     });
-    expect(screen.getByText("Easy — Stage 3")).toBeDefined();
+    expect(screen.getAllByText("Easy — Stage 3").length).toBeGreaterThan(0);
   });
 
   it("should redirect a difficulty route without progress to stage one", async () => {
@@ -153,7 +153,7 @@ describe("App", () => {
       expect(window.location.pathname).toBe("/game/medium/1");
     });
     await waitFor(() => {
-      expect(screen.getByText("Medium — Stage 1")).toBeDefined();
+      expect(screen.getAllByText("Medium — Stage 1").length).toBeGreaterThan(0);
     });
   });
 

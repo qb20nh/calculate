@@ -105,6 +105,9 @@ describe("math service", () => {
   it("should respect operator precedence", () => {
     expect(evaluateExpression(`2${OP_PLUS}3${OP_MULT}4`)).toBe(14);
     expect(evaluateExpression(`10${OP_MINUS}4${OP_DIV}2`)).toBe(8);
+    expect(evaluateExpression(`10${OP_MINUS}4${OP_MINUS}2`)).toBe(4);
+    expect(evaluateExpression(`2${OP_MULT}3${OP_MULT}4`)).toBe(24);
+    expect(evaluateExpression(`12${OP_DIV}3${OP_DIV}2`)).toBe(2);
   });
 
   it("should return null for invalid expressions", () => {
@@ -229,6 +232,28 @@ describe("math service", () => {
         ]),
       ).toBe(false); // Multiple relations
       expect(isValidEquation([{ val: "5" }, { val: "INVALID" }, { val: "5" }])).toBe(false); // Invalid relation
+    });
+
+    it("should cover all relRoll branches in generateValidStatement", () => {
+      // 0.75 < relRoll <= 0.83 -> REL_LT
+      expect(generateValidStatement(() => 0.8)).toContain(REL_LT);
+      // 0.83 < relRoll <= 0.91 -> REL_GT
+      expect(generateValidStatement(() => 0.85)).toContain(REL_GT);
+      // relRoll > 0.91 -> REL_NEQ
+      const neqTokens = generateValidStatement(() => 0.95);
+      expect(neqTokens).toContain(REL_LT);
+      expect(neqTokens).toContain(REL_GT);
+    });
+
+    it("should cover applyRelation branches", () => {
+      // Since generateValidStatement uses the PRNG, this is tricky to hit exactly,
+      // but let's test isValidEquation with forced REL_NEQ
+      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "6" }])).toBe(
+        true,
+      );
+      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "5" }])).toBe(
+        false,
+      );
     });
   });
 });

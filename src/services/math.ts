@@ -212,11 +212,9 @@ export const isValidEquation = (wordTiles: { val: string }[]) => {
   const rightVal = evaluateExpression(rightSide);
 
   if (leftVal === null || rightVal === null) return false;
-
   if (relType === REL_EQ) return Math.abs(leftVal - rightVal) < 0.0001;
   if (relType === REL_LT) return leftVal < rightVal;
   if (relType === REL_GT) return leftVal > rightVal;
-  if (relType === REL_NEQ) return Math.abs(leftVal - rightVal) >= 0.0001;
 
-  return false;
+  return Math.abs(leftVal - rightVal) >= 0.0001;
 };

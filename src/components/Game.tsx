@@ -123,9 +123,7 @@ const GameHeader: FunctionalComponent<{
 
         <div className="hidden sm:block h-8 w-[1px] bg-slate-100 mx-1" />
 
-        <div className="hidden sm:block">
-          {levelBar}
-        </div>
+        <div className="hidden sm:block">{levelBar}</div>
       </div>
 
       <div className="sm:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -276,7 +274,15 @@ export const Game: FunctionalComponent<GameProps> = ({
   const panContainerRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef({ minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 });
   const hasDragged = useRef(false);
-  const prevGridMetrics = useRef({ minC: 0, minR: 0, cols: 0, rows: 0, viewportWidth: 0, viewportHeight: 0, initialized: false });
+  const prevGridMetrics = useRef({
+    minC: 0,
+    minR: 0,
+    cols: 0,
+    rows: 0,
+    viewportWidth: 0,
+    viewportHeight: 0,
+    initialized: false,
+  });
 
   const clampPan = (x: number, y: number) => {
     const { minX, maxX, minY, maxY } = boundsRef.current;
@@ -299,14 +305,14 @@ export const Game: FunctionalComponent<GameProps> = ({
     hasDragged.current = false;
     lastPointer.current = { x: e.clientX, y: e.clientY };
     initialPointer.current = { x: e.clientX, y: e.clientY };
-    if (boardContainerRef.current) {
+    if (boardContainerRef.current?.setPointerCapture) {
       boardContainerRef.current.setPointerCapture(e.pointerId);
     }
   };
 
   const handlePointerMove = (e: PointerEvent) => {
     if (!isPanning.current) return;
-    
+
     if (!hasDragged.current) {
       const totalDx = e.clientX - initialPointer.current.x;
       const totalDy = e.clientY - initialPointer.current.y;
@@ -315,19 +321,19 @@ export const Game: FunctionalComponent<GameProps> = ({
         hasDragged.current = true;
       }
     }
-    
+
     if (hasDragged.current) {
       const dx = e.clientX - lastPointer.current.x;
       const dy = e.clientY - lastPointer.current.y;
       updatePan(panOffset.current.x + dx, panOffset.current.y + dy);
     }
-    
+
     lastPointer.current = { x: e.clientX, y: e.clientY };
   };
 
   const handlePointerUp = (e: PointerEvent) => {
     isPanning.current = false;
-    if (boardContainerRef.current?.hasPointerCapture(e.pointerId)) {
+    if (boardContainerRef.current?.hasPointerCapture?.(e.pointerId)) {
       boardContainerRef.current.releasePointerCapture(e.pointerId);
     }
   };
@@ -344,7 +350,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   useEffect(() => {
     const calc = () => {
       if (!boardContainerRef.current || gameState?.status !== "playing") return;
-      
+
       const placedAndGivenKeys = Object.keys(gameState.board);
       if (placedAndGivenKeys.length === 0) return;
 
@@ -353,22 +359,21 @@ export const Game: FunctionalComponent<GameProps> = ({
         const [rStr, cStr] = k.split(",");
         const r = Number(rStr);
         const c = Number(cStr);
-        const neighbors = [
-          `${r + 1},${c}`,
-          `${r - 1},${c}`,
-          `${r},${c + 1}`,
-          `${r},${c - 1}`,
-        ];
+        const neighbors = [`${r + 1},${c}`, `${r - 1},${c}`, `${r},${c + 1}`, `${r},${c - 1}`];
         for (const nk of neighbors) {
           if (!gameState.board[nk]) fringe.add(nk);
         }
       }
 
       const allRelevantKeys = [...placedAndGivenKeys, ...Array.from(fringe)];
-      let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+      let minR = Infinity,
+        maxR = -Infinity,
+        minC = Infinity,
+        maxC = -Infinity;
       for (const k of allRelevantKeys) {
         const [rStr, cStr] = k.split(",");
-        const r = Number(rStr), c = Number(cStr);
+        const r = Number(rStr),
+          c = Number(cStr);
         minR = Math.min(minR, r);
         maxR = Math.max(maxR, r);
         minC = Math.min(minC, c);
@@ -383,10 +388,14 @@ export const Game: FunctionalComponent<GameProps> = ({
       const cols = maxC - minC + 1;
       const rows = maxR - minR + 1;
 
-      let pMinR = Infinity, pMaxR = -Infinity, pMinC = Infinity, pMaxC = -Infinity;
+      let pMinR = Infinity,
+        pMaxR = -Infinity,
+        pMinC = Infinity,
+        pMaxC = -Infinity;
       for (const k of placedAndGivenKeys) {
         const [rStr, cStr] = k.split(",");
-        const r = Number(rStr), c = Number(cStr);
+        const r = Number(rStr),
+          c = Number(cStr);
         pMinR = Math.min(pMinR, r);
         pMaxR = Math.max(pMaxR, r);
         pMinC = Math.min(pMinC, c);
@@ -403,7 +412,7 @@ export const Game: FunctionalComponent<GameProps> = ({
       if (prevGridMetrics.current.initialized) {
         curPanX += (minC - prevGridMetrics.current.minC) * TILE_SIZE;
         curPanY += (minR - prevGridMetrics.current.minR) * TILE_SIZE;
-        
+
         const dw = viewportWidth - prevGridMetrics.current.viewportWidth;
         const dh = viewportHeight - prevGridMetrics.current.viewportHeight;
         curPanX += dw / 2;
@@ -412,8 +421,16 @@ export const Game: FunctionalComponent<GameProps> = ({
         curPanX = viewportWidth / 2 - (cols * TILE_SIZE) / 2;
         curPanY = viewportHeight / 2 - (rows * TILE_SIZE) / 2;
       }
-      
-      prevGridMetrics.current = { minC, minR, cols, rows, viewportWidth, viewportHeight, initialized: true };
+
+      prevGridMetrics.current = {
+        minC,
+        minR,
+        cols,
+        rows,
+        viewportWidth,
+        viewportHeight,
+        initialized: true,
+      };
 
       const pMinX = (pMinC - minC) * TILE_SIZE;
       const pMaxX = (pMaxC - minC + 1) * TILE_SIZE;
@@ -611,9 +628,10 @@ export const Game: FunctionalComponent<GameProps> = ({
         onReset={resetLevel}
       />
 
-      <div 
-        className="flex-1 relative overflow-hidden touch-none select-none" 
+      <div
+        className="flex-1 relative overflow-hidden touch-none select-none"
         ref={boardContainerRef}
+        data-testid="game-board-container"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -621,21 +639,17 @@ export const Game: FunctionalComponent<GameProps> = ({
         onPointerCancel={handlePointerUp}
         onClickCapture={handleCaptureClick}
       >
-
-
-        <div 
-          className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in"
-        >
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in">
           <div
             ref={panContainerRef}
             className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
             style={{
-              display: 'grid',
+              display: "grid",
               gap: 0,
               gridTemplateColumns: `repeat(${cols}, 2.75rem)`,
               gridTemplateRows: `repeat(${rows}, 2.75rem)`,
               transform: `translate(${panOffset.current.x}px, ${panOffset.current.y}px)`,
-              willChange: 'transform'
+              willChange: "transform",
             }}
           >
             {Array.from({ length: rows * cols }).map((_, i) => {
@@ -662,8 +676,6 @@ export const Game: FunctionalComponent<GameProps> = ({
             {toast}
           </div>
         )}
-
-
       </div>
 
       <div className="bg-white border-t border-slate-200 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
@@ -674,11 +686,11 @@ export const Game: FunctionalComponent<GameProps> = ({
           {canScrollRight && (
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-30" />
           )}
-          <div 
+          <div
             ref={inventoryRef}
             onScroll={checkScroll}
             className="pt-4 px-8 pb-6 md:pt-6 md:pb-8 overflow-x-auto board-container flex flex-nowrap md:flex-wrap md:justify-center gap-3 md:gap-4"
-            style={{ justifyContent: 'safe center' }}
+            style={{ justifyContent: "safe center" }}
           >
             {groupedBank.map((group) => {
               const content = group.val;
