@@ -1,5 +1,5 @@
-import type { FunctionalComponent } from 'preact';
-import { ChevronRight } from 'lucide-preact';
+import { ChevronRight } from "lucide-preact";
+import type { FunctionalComponent } from "preact";
 
 interface MainMenuProps {
 	onStart: (difficulty: string) => void;
@@ -9,7 +9,7 @@ interface MainMenuProps {
 }
 
 export const MainMenu: FunctionalComponent<MainMenuProps> = ({ onStart, progress }) => {
-	const difficulties = ['Easy', 'Medium', 'Hard'];
+	const difficulties = ["Easy", "Medium", "Hard"];
 
 	return (
 		<div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6 animate-fade-in">
@@ -28,6 +28,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({ onStart, progress
 					{difficulties.map((diff) => (
 						<button
 							key={diff}
+							type="button"
 							onClick={() => onStart(diff)}
 							className="group w-full flex items-center justify-between p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all active:scale-95 text-left"
 						>
@@ -40,7 +41,10 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({ onStart, progress
 								</p>
 							</div>
 							<div className="bg-slate-100 group-hover:bg-indigo-600 p-2 rounded-full transition-colors">
-								<ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-white" strokeWidth={3} />
+								<ChevronRight
+									className="w-5 h-5 text-slate-400 group-hover:text-white"
+									strokeWidth={3}
+								/>
 							</div>
 						</button>
 					))}

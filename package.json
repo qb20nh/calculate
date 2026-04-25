@@ -10,9 +10,8 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
-		"lint": "biome lint .",
-		"format": "biome format . --write",
-		"check": "biome check . --apply",
+		"lint": "biome check .",
+		"format": "biome check . --write",
 		"jscpd": "jscpd src",
 		"test": "vitest run --coverage",
 		"knip": "knip",
@@ -43,11 +42,6 @@
 		"vite": "^7.0.4",
 		"vitest": "^3.0.7"
 	},
-	"browserslist": [
-		"> 0.5%",
-		"last 2 years",
-		"Firefox ESR",
-		"not dead"
-	],
+	"browserslist": ["> 0.5%", "last 2 years", "Firefox ESR", "not dead"],
 	"packageManager": "pnpm@10.30.3"
 }

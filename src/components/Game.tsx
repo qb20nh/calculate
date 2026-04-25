@@ -1,10 +1,11 @@
-import type { FunctionalComponent } from 'preact';
-import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
-import { generateGame, validateBoard } from '../services/board';
-import type { TileData } from '../services/math';
-import { cn } from '../lib/utils';
-import { ProgressBar } from './ProgressBar';
-import type { GameState } from '../services/storage';
+import { Check, ChevronLeft, RotateCcw } from "lucide-preact";
+import type { FunctionalComponent } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { cn } from "../lib/utils";
+import { generateGame, getGridBounds, validateBoard } from "../services/board";
+import { OP_DIV, OP_MINUS, OP_MULT, OP_PLUS, type TileData } from "../services/math";
+import type { GameState } from "../services/storage";
+import { ProgressBar } from "./ProgressBar";
 
 interface GameProps {
 	difficulty: string;
@@ -14,6 +15,55 @@ interface GameProps {
 	onBack: () => void;
 	onStateChange: (state: GameState) => void;
 }
+
+const BoardCell: FunctionalComponent<{
+	cellKey: string;
+	cell?: TileData & { isGiven?: boolean };
+	isFringe: boolean;
+	selectedTileId: string | null;
+	onClick: (key: string) => void;
+}> = ({ cellKey, cell, isFringe, selectedTileId, onClick }) => {
+	if (!cell && !isFringe) {
+		return <div className="w-full h-full pointer-events-none" />;
+	}
+
+	const handleAction = () => onClick(cellKey);
+	const handleKeyDown = (e: KeyboardEvent) => e.key === "Enter" && handleAction();
+
+	if (!cell && isFringe) {
+		return (
+			<button
+				type="button"
+				onClick={handleAction}
+				onKeyDown={handleKeyDown}
+				tabIndex={0}
+				className={cn("fringe-slot m-[1px]", selectedTileId && "highlight")}
+				aria-label="Place tile here"
+			/>
+		);
+	}
+
+	if (!cell) return null;
+
+	const content = cell.val;
+	const typeClass = cell.isGiven ? "tile-given" : `tile-${cell.type}`;
+
+	return (
+		<button
+			type="button"
+			onClick={handleAction}
+			onKeyDown={handleKeyDown}
+			tabIndex={cell.isGiven ? -1 : 0}
+			className={cn(
+				"tile m-[1px] text-lg md:text-xl animate-fade-in select-none",
+				typeClass,
+				selectedTileId === cell.id && "ring-4 ring-indigo-400 ring-offset-2",
+			)}
+		>
+			{content}
+		</button>
+	);
+};
 
 export const Game: FunctionalComponent<GameProps> = ({
 	difficulty,
@@ -47,7 +97,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 	// Auto-scroll to center
 	useEffect(() => {
 		if (
-			gameState?.status === 'playing' &&
+			gameState?.status === "playing" &&
 			gameState.bank.length === gameState.initialBankSize &&
 			boardContainerRef.current
 		) {
@@ -66,13 +116,13 @@ export const Game: FunctionalComponent<GameProps> = ({
 
 	// Validation logic
 	useEffect(() => {
-		if (!gameState || gameState.status !== 'playing') return;
+		if (!gameState || gameState.status !== "playing") return;
 
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		if (gameState.bank.length === 0 && !gameState.solvedAcknowledged) {
 			const validation = validateBoard(gameState.board);
 			if (validation.valid) {
-				setGameState((prev) => (prev ? { ...prev, status: 'won' } : null));
+				setGameState((prev) => (prev ? { ...prev, status: "won" } : null));
 				setSelectedTileId(null);
 				setToast(null);
 				onWin(stage + 1);
@@ -87,10 +137,10 @@ export const Game: FunctionalComponent<GameProps> = ({
 		return () => {
 			if (timer) clearTimeout(timer);
 		};
-	}, [gameState?.board, gameState?.bank, gameState?.solvedAcknowledged, stage, onWin]);
+	}, [gameState, stage, onWin]);
 
 	const handleBoardClick = (key: string) => {
-		if (!gameState || gameState.status !== 'playing') return;
+		if (!gameState || gameState.status !== "playing") return;
 
 		const cell = gameState.board[key];
 		if (cell?.isGiven) return;
@@ -122,7 +172,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 				delete next.board[key];
 
 				next.bank.sort((a, b) => {
-					const w = (t: TileData) => (t.type === 'val' ? 1 : t.type === 'op' ? 2 : 3);
+					const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
 					if (w(a) !== w(b)) return w(a) - w(b);
 					return String(a.val).localeCompare(String(b.val));
 				});
@@ -150,7 +200,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 			groupMap[tile.val].tiles.push(tile);
 		}
 		return groups;
-	}, [gameState?.bank]);
+	}, [gameState]);
 
 	if (!gameState)
 		return (
@@ -163,19 +213,9 @@ export const Game: FunctionalComponent<GameProps> = ({
 	const { board, status } = gameState;
 
 	// Calculate bounds
-	let minR = Infinity,
-		maxR = -Infinity,
-		minC = Infinity,
-		maxC = -Infinity;
 	const fringe = new Set<string>();
-
 	for (const k of Object.keys(board)) {
-		const [r, c] = k.split(',').map(Number);
-		minR = Math.min(minR, r);
-		maxR = Math.max(maxR, r);
-		minC = Math.min(minC, c);
-		maxC = Math.max(maxC, c);
-
+		const [r, c] = k.split(",").map(Number);
 		const neighbors = [
 			[r + 1, c],
 			[r - 1, c],
@@ -188,18 +228,13 @@ export const Game: FunctionalComponent<GameProps> = ({
 		}
 	}
 
-	for (const k of fringe) {
-		const [r, c] = k.split(',').map(Number);
-		minR = Math.min(minR, r);
-		maxR = Math.max(maxR, r);
-		minC = Math.min(minC, c);
-		maxC = Math.max(maxC, c);
-	}
+	const allRelevantKeys = [...Object.keys(board), ...Array.from(fringe)];
+	const bounds = getGridBounds(allRelevantKeys);
 
-	minR -= 1;
-	maxR += 1;
-	minC -= 1;
-	maxC += 1;
+	const minR = bounds.minR - 1;
+	const maxR = bounds.maxR + 1;
+	const minC = bounds.minC - 1;
+	const maxC = bounds.maxC + 1;
 
 	const cols = maxC - minC + 1;
 	const rows = maxR - minR + 1;
@@ -213,24 +248,10 @@ export const Game: FunctionalComponent<GameProps> = ({
 					<button
 						type="button"
 						onClick={onBack}
+						aria-label="Back"
 						className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors rounded-full"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							role="img"
-							aria-label="Back"
-						>
-							<title>Back</title>
-							<path d="m15 18-6-6 6-6" />
-						</svg>
+						<ChevronLeft width={20} height={20} strokeWidth={2.5} />
 					</button>
 
 					<div className="h-8 w-[1px] bg-slate-100 mx-1" />
@@ -248,23 +269,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 					className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-full"
 					aria-label="Reset Stage"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2.5"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						role="img"
-						aria-label="Reset"
-					>
-						<title>Reset</title>
-						<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-						<path d="M3 3v5h5" />
-					</svg>
+					<RotateCcw width={20} height={20} strokeWidth={2.5} />
 				</button>
 			</div>
 
@@ -281,45 +286,15 @@ export const Game: FunctionalComponent<GameProps> = ({
 							const r = Math.floor(i / cols) + minR;
 							const c = (i % cols) + minC;
 							const key = `${r},${c}`;
-							const cell = board[key];
-							const isFringe = fringe.has(key);
-
-							if (!cell && !isFringe) {
-								return <div key={key} className="w-full h-full pointer-events-none" />;
-							}
-
-							if (!cell && isFringe) {
-								return (
-									<div
-										key={key}
-										onClick={() => handleBoardClick(key)}
-										onKeyDown={(e) => e.key === 'Enter' && handleBoardClick(key)}
-										role="button"
-										tabIndex={0}
-										className={cn('fringe-slot m-[1px]', selectedTileId && 'highlight')}
-										aria-label="Place tile here"
-									/>
-								);
-							}
-
-							const content = cell.val === '*' ? '×' : cell.val === '/' ? '÷' : cell.val;
-							const typeClass = cell.isGiven ? 'tile-given' : `tile-${cell.type}`;
-
 							return (
-								<div
+								<BoardCell
 									key={key}
-									onClick={() => handleBoardClick(key)}
-									onKeyDown={(e) => e.key === 'Enter' && handleBoardClick(key)}
-									role="button"
-									tabIndex={cell.isGiven ? -1 : 0}
-									className={cn(
-										'tile m-[1px] text-lg md:text-xl animate-fade-in select-none',
-										typeClass,
-										selectedTileId === cell.id && 'ring-4 ring-indigo-400 ring-offset-2',
-									)}
-								>
-									{content}
-								</div>
+									cellKey={key}
+									cell={board[key]}
+									isFringe={fringe.has(key)}
+									selectedTileId={selectedTileId}
+									onClick={handleBoardClick}
+								/>
 							);
 						})}
 					</div>
@@ -331,27 +306,17 @@ export const Game: FunctionalComponent<GameProps> = ({
 					</div>
 				)}
 
-				{status === 'won' && (
+				{status === "won" && (
 					<div className="absolute inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center animate-fade-in p-4">
 						<div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100 flex flex-col items-center text-center max-w-xs w-full">
 							<div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="40"
-									height="40"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="3"
-									strokeLinecap="round"
-									strokeLinejoin="round"
+								<Check
+									width={40}
+									height={40}
+									strokeWidth={3}
 									className="text-green-600"
-									role="img"
 									aria-label="Success"
-								>
-									<title>Success</title>
-									<path d="M20 6 9 17l-5-5" />
-								</svg>
+								/>
 							</div>
 							<h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Perfect!</h2>
 							<p className="text-slate-500 mb-8 font-medium">You cleared the board.</p>
@@ -362,9 +327,9 @@ export const Game: FunctionalComponent<GameProps> = ({
 										prev
 											? {
 													...prev,
-													status: 'playing',
+													status: "playing",
 													solvedAcknowledged: true,
-											  }
+												}
 											: null,
 									)
 								}
@@ -381,7 +346,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 				<div className="max-w-4xl mx-auto p-4 md:p-6 overflow-x-auto board-container">
 					<div className="flex flex-wrap justify-center gap-3 md:gap-4 min-w-min pb-2">
 						{groupedBank.map((group) => {
-							const content = group.val === '*' ? '×' : group.val === '/' ? '÷' : group.val;
+							const content = group.val;
 							const isSelected =
 								selectedTileId && group.tiles.some((t: TileData) => t.id === selectedTileId);
 							const count = group.tiles.length;
@@ -391,7 +356,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 									{count > 1 && (
 										<div
 											className={cn(
-												'absolute top-1 left-1 w-full h-full rounded-[2px] pointer-events-none opacity-50',
+												"absolute top-1 left-1 w-full h-full rounded-[2px] pointer-events-none opacity-50",
 												`tile-${group.type}`,
 											)}
 										/>
@@ -400,7 +365,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 									<button
 										type="button"
 										onClick={() => {
-											if (!gameState || gameState.status !== 'playing') return;
+											if (!gameState || gameState.status !== "playing") return;
 											if (isSelected) {
 												setSelectedTileId(null);
 											} else {
@@ -408,9 +373,9 @@ export const Game: FunctionalComponent<GameProps> = ({
 											}
 										}}
 										className={cn(
-											'tile w-12 h-12 sm:w-14 sm:h-14 text-xl sm:text-2xl flex-shrink-0 relative z-10',
+											"tile w-12 h-12 sm:w-14 sm:h-14 text-xl sm:text-2xl flex-shrink-0 relative z-10",
 											`tile-${group.type}`,
-											isSelected && 'selected scale-110 ring-4 ring-indigo-400',
+											isSelected && "selected scale-110 ring-4 ring-indigo-400",
 										)}
 									>
 										{content}

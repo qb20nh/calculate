@@ -1,10 +1,10 @@
-import type { TileData } from './math';
+import type { TileData } from "./math";
 
 export interface GameState {
 	board: { [key: string]: TileData };
 	bank: TileData[];
 	initialBankSize: number;
-	status: 'playing' | 'won';
+	status: "playing" | "won";
 	difficulty: string;
 	stage: number;
 	solvedAcknowledged?: boolean;
@@ -17,8 +17,8 @@ export interface Progress {
 	};
 }
 
-const STORAGE_KEY_PROGRESS = 'math_scrabble_progress';
-const STORAGE_KEY_STATE = 'math_scrabble_state';
+const STORAGE_KEY_PROGRESS = "math_scrabble_progress";
+const STORAGE_KEY_STATE = "math_scrabble_state";
 
 export const saveProgress = (progress: Progress) => {
 	localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
