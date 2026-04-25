@@ -9,6 +9,30 @@
 	</head>
 	<body>
 		<div id="app"></div>
+		<template id="game-skeleton">
+			<!-- Injected at build time by calculate:inject-skeleton -->
+		</template>
+		<script>
+			// biome-ignore lint/complexity/useArrowFunction: This inline fallback runs before legacy bundles.
+			(function () {
+				var match = window.location.pathname.match(
+					/(?:^|\/)game\/(easy|medium|hard)\/([1-9]\d*)\/?$/
+				);
+				if (!match) return;
+
+				var app = document.getElementById("app");
+				var template = document.getElementById("game-skeleton");
+				if (!app || !template) return;
+
+				var difficulty = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+				var stage = match[2];
+				
+				var clone = template.content.cloneNode(true);
+				clone.getElementById("skeleton-title").textContent = `${difficulty} — Stage ${stage}`;
+				
+				app.appendChild(clone);
+			})();
+		</script>
 		<script type="module" src="/src/index.tsx"></script>
 	</body>
 </html>

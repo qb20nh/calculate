@@ -98,7 +98,10 @@ const GameHeader: FunctionalComponent<{
         >
           <ChevronLeft width={16} height={16} strokeWidth={3} />
         </button>
-        <span className="px-2 py-1 text-indigo-800 text-sm font-bold whitespace-nowrap text-center min-w-[120px]">
+        <span
+          id="skeleton-title"
+          className="px-2 py-1 text-indigo-800 text-sm font-bold whitespace-nowrap text-center min-w-[120px]"
+        >
           {difficulty} — Stage {stage}
         </span>
         <button

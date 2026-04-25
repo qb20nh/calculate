@@ -19,7 +19,7 @@ interface GameRouteProps {
 export default function GameRoute({
   difficulty: difficultySlug,
   stage: stageParam,
-}: GameRouteProps) {
+}: Readonly<GameRouteProps>) {
   const location = useLocation();
   const difficulty = parseDifficultySlug(difficultySlug);
   const parsedStage = parseStageParam(stageParam);

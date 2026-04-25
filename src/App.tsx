@@ -6,7 +6,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
 
-function BasePathProvider({ children }: { children: ComponentChildren }) {
+function BasePathProvider({ children }: Readonly<{ children: ComponentChildren }>) {
   const location = useLocation();
   const value = useMemo(
     () => ({

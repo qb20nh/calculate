@@ -357,8 +357,7 @@ export const validateBoard = (board: { [key: string]: TileData }): ValidationRes
   const queue = [firstKey];
   visited.add(firstKey);
 
-  for (let i = 0; i < queue.length; i++) {
-    const item = queue[i] as string;
+  for (const item of queue) {
     const [r, c] = parseKey(item);
     const neighbors = [getKey(r + 1, c), getKey(r - 1, c), getKey(r, c + 1), getKey(r, c - 1)];
 

@@ -9,7 +9,7 @@ interface MenuRouteProps {
   onGameRoutePreload?: () => Promise<unknown>;
 }
 
-export default function MenuRoute({ onGameRoutePreload }: MenuRouteProps) {
+export default function MenuRoute({ onGameRoutePreload }: Readonly<MenuRouteProps>) {
   const location = useLocation();
   const [progress] = useState(loadProgress);
 

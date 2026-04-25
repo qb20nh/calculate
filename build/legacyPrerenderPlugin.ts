@@ -129,6 +129,8 @@ async function runLegacyBuild(config: ResolvedConfig, outDir: string) {
 
 export function legacyPrerenderPlugin(): Plugin {
   let config: ResolvedConfig;
+  let legacyDir: string | null = null;
+  let legacyBuildPromise: Promise<void> | null = null;
 
   return {
     name: "calculate:legacy-prerender",
@@ -137,14 +139,24 @@ export function legacyPrerenderPlugin(): Plugin {
     configResolved(resolvedConfig) {
       config = resolvedConfig;
     },
+    async buildStart() {
+      if (process.env[LEGACY_BUILD_ENV] === "1") return;
+
+      legacyDir = await mkdtemp(join(tmpdir(), "calculate-legacy-"));
+      legacyBuildPromise = runLegacyBuild(config, legacyDir);
+      void legacyBuildPromise.catch(() => {});
+    },
     async closeBundle() {
       if (process.env[LEGACY_BUILD_ENV] === "1") return;
 
+      if (!legacyDir || !legacyBuildPromise) {
+        throw new Error("Legacy build was not started.");
+      }
+
       const distDir = resolve(config.root, config.build.outDir);
-      const legacyDir = await mkdtemp(join(tmpdir(), "calculate-legacy-"));
 
       try {
-        await runLegacyBuild(config, legacyDir);
+        await legacyBuildPromise;
 
         const legacyHtml = await readFile(join(legacyDir, "index.html"), "utf8");
         const legacyScripts = extractLegacyScripts(legacyHtml);

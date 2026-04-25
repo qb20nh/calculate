@@ -13,7 +13,7 @@ const FALLBACK_ORIGIN = "https://calculate.local";
 const isDifficultySlug = (slug: string): slug is DifficultySlug => slug in DIFFICULTY_BY_SLUG;
 
 export const normalizeBasePath = (basePath: string) => {
-  const pathname = new URL(basePath || "/", FALLBACK_ORIGIN).pathname.replace(/\/+$/g, "");
+  const pathname = new URL(basePath || "/", FALLBACK_ORIGIN).pathname.replaceAll(/\/+$/g, "");
   return pathname || "/";
 };
 
