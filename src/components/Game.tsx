@@ -236,21 +236,159 @@ export const Game: FunctionalComponent<GameProps> = ({
     if (!initialState) {
       const newGame = generateGame(stage, difficulty);
       setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
+      prevGridMetrics.current.initialized = false;
     }
   }, [stage, difficulty, initialState]);
 
-  // Auto-scroll to center
-  useEffect(() => {
-    if (
-      gameState?.status === "playing" &&
-      gameState.bank.length === gameState.initialBankSize &&
-      boardContainerRef.current
-    ) {
-      const el = boardContainerRef.current;
-      el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
-      el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+  const panOffset = useRef({ x: 0, y: 0 });
+  const isPanning = useRef(false);
+  const lastPointer = useRef({ x: 0, y: 0 });
+  const panContainerRef = useRef<HTMLDivElement>(null);
+  const boundsRef = useRef({ minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 });
+  const hasDragged = useRef(false);
+  const prevGridMetrics = useRef({ minC: 0, minR: 0, cols: 0, rows: 0, initialized: false });
+
+  const clampPan = (x: number, y: number) => {
+    const { minX, maxX, minY, maxY } = boundsRef.current;
+    const cx = minX <= maxX ? Math.max(minX, Math.min(maxX, x)) : 0;
+    const cy = minY <= maxY ? Math.max(minY, Math.min(maxY, y)) : 0;
+    return { x: cx, y: cy };
+  };
+
+  const updatePan = (x: number, y: number) => {
+    const clamped = clampPan(x, y);
+    panOffset.current = clamped;
+    if (panContainerRef.current) {
+      panContainerRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
     }
-  }, [gameState]);
+  };
+
+  const handlePointerDown = (e: PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    isPanning.current = true;
+    hasDragged.current = false;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+    if (boardContainerRef.current) {
+      boardContainerRef.current.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    if (!isPanning.current) return;
+    const dx = e.clientX - lastPointer.current.x;
+    const dy = e.clientY - lastPointer.current.y;
+    
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      hasDragged.current = true;
+    }
+    
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+    updatePan(panOffset.current.x + dx, panOffset.current.y + dy);
+  };
+
+  const handlePointerUp = (e: PointerEvent) => {
+    isPanning.current = false;
+    if (boardContainerRef.current?.hasPointerCapture(e.pointerId)) {
+      boardContainerRef.current.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handleCaptureClick = (e: MouseEvent) => {
+    if (hasDragged.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      hasDragged.current = false;
+    }
+  };
+
+  // Update pan bounds when board changes or window resizes
+  useEffect(() => {
+    const calc = () => {
+      if (!boardContainerRef.current || gameState?.status !== "playing") return;
+      
+      const placedAndGivenKeys = Object.keys(gameState.board);
+      if (placedAndGivenKeys.length === 0) return;
+
+      const fringe = new Set<string>();
+      for (const k of placedAndGivenKeys) {
+        const [rStr, cStr] = k.split(",");
+        const r = Number(rStr);
+        const c = Number(cStr);
+        const neighbors = [
+          `${r + 1},${c}`,
+          `${r - 1},${c}`,
+          `${r},${c + 1}`,
+          `${r},${c - 1}`,
+        ];
+        for (const nk of neighbors) {
+          if (!gameState.board[nk]) fringe.add(nk);
+        }
+      }
+
+      const allRelevantKeys = [...placedAndGivenKeys, ...Array.from(fringe)];
+      let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+      for (const k of allRelevantKeys) {
+        const [rStr, cStr] = k.split(",");
+        const r = Number(rStr), c = Number(cStr);
+        minR = Math.min(minR, r);
+        maxR = Math.max(maxR, r);
+        minC = Math.min(minC, c);
+        maxC = Math.max(maxC, c);
+      }
+
+      minR -= 1;
+      maxR += 1;
+      minC -= 1;
+      maxC += 1;
+
+      const cols = maxC - minC + 1;
+      const rows = maxR - minR + 1;
+
+      let pMinR = Infinity, pMaxR = -Infinity, pMinC = Infinity, pMaxC = -Infinity;
+      for (const k of placedAndGivenKeys) {
+        const [rStr, cStr] = k.split(",");
+        const r = Number(rStr), c = Number(cStr);
+        pMinR = Math.min(pMinR, r);
+        pMaxR = Math.max(pMaxR, r);
+        pMinC = Math.min(pMinC, c);
+        pMaxC = Math.max(pMaxC, c);
+      }
+
+      const TILE_SIZE = 44;
+      const viewportWidth = boardContainerRef.current.clientWidth || 300;
+      const viewportHeight = boardContainerRef.current.clientHeight || 300;
+
+      let curPanX = panOffset.current.x;
+      let curPanY = panOffset.current.y;
+
+      if (prevGridMetrics.current.initialized) {
+        curPanX += (minC - prevGridMetrics.current.minC) * TILE_SIZE;
+        curPanY += (minR - prevGridMetrics.current.minR) * TILE_SIZE;
+      } else {
+        curPanX = viewportWidth / 2 - (cols * TILE_SIZE) / 2;
+        curPanY = viewportHeight / 2 - (rows * TILE_SIZE) / 2;
+      }
+      
+      prevGridMetrics.current = { minC, minR, cols, rows, initialized: true };
+
+      const pMinX = (pMinC - minC) * TILE_SIZE;
+      const pMaxX = (pMaxC - minC + 1) * TILE_SIZE;
+      const pMinY = (pMinR - minR) * TILE_SIZE;
+      const pMaxY = (pMaxR - minR + 1) * TILE_SIZE;
+
+      const minX = TILE_SIZE - pMaxX;
+      const maxX = viewportWidth - TILE_SIZE - pMinX;
+      const minY = TILE_SIZE - pMaxY;
+      const maxY = viewportHeight - TILE_SIZE - pMinY;
+
+      boundsRef.current = { minX, maxX, minY, maxY };
+      updatePan(curPanX, curPanY);
+    };
+
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [gameState?.board]);
 
   // Persist state
   useEffect(() => {
@@ -337,6 +475,7 @@ export const Game: FunctionalComponent<GameProps> = ({
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);
     setIsResetDialogOpen(false);
+    prevGridMetrics.current.initialized = false;
   };
 
   const dismissCompletionDialog = () => {
@@ -428,7 +567,16 @@ export const Game: FunctionalComponent<GameProps> = ({
         onReset={resetLevel}
       />
 
-      <div className="flex-1 relative board-container" ref={boardContainerRef}>
+      <div 
+        className="flex-1 relative overflow-hidden touch-none select-none" 
+        ref={boardContainerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClickCapture={handleCaptureClick}
+      >
         <dialog
           open={isResetDialogOpen}
           className="rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl backdrop:bg-slate-900/50"
@@ -464,12 +612,19 @@ export const Game: FunctionalComponent<GameProps> = ({
           </div>
         </dialog>
 
-        <div className="m-auto p-12 flex items-center justify-center animate-fade-in min-h-full min-w-full w-fit">
+        <div 
+          className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in"
+        >
           <div
-            className="grid gap-0 bg-slate-100/30 rounded-lg p-1"
+            ref={panContainerRef}
+            className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
             style={{
+              display: 'grid',
+              gap: 0,
               gridTemplateColumns: `repeat(${cols}, 2.75rem)`,
               gridTemplateRows: `repeat(${rows}, 2.75rem)`,
+              transform: `translate(${panOffset.current.x}px, ${panOffset.current.y}px)`,
+              willChange: 'transform'
             }}
           >
             {Array.from({ length: rows * cols }).map((_, i) => {
