@@ -267,6 +267,8 @@ export const GameLoadingShell: FunctionalComponent<{
   </div>
 );
 
+const TILE_SIZE = 44;
+
 export const Game: FunctionalComponent<GameProps> = ({
   difficulty,
   stage,
@@ -425,7 +427,10 @@ export const Game: FunctionalComponent<GameProps> = ({
     const clamped = clampPan(x, y);
     panOffset.current = clamped;
     if (panContainerRef.current) {
-      panContainerRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
+      // Round to nearest pixel to prevent blurriness
+      const rx = Math.round(clamped.x);
+      const ry = Math.round(clamped.y);
+      panContainerRef.current.style.transform = `translate(${rx}px, ${ry}px)`;
     }
   };
 
@@ -531,8 +536,6 @@ export const Game: FunctionalComponent<GameProps> = ({
         pMinC = Math.min(pMinC, c);
         pMaxC = Math.max(pMaxC, c);
       }
-
-      const TILE_SIZE = 44;
       const viewportWidth = boardContainerRef.current.clientWidth || 300;
       const viewportHeight = boardContainerRef.current.clientHeight || 300;
 
@@ -777,9 +780,9 @@ export const Game: FunctionalComponent<GameProps> = ({
               style={{
                 display: "grid",
                 gap: 0,
-                gridTemplateColumns: `repeat(${cols}, 2.75rem)`,
-                gridTemplateRows: `repeat(${rows}, 2.75rem)`,
-                transform: `translate(${panOffset.current.x}px, ${panOffset.current.y}px)`,
+                gridTemplateColumns: `repeat(${cols}, ${TILE_SIZE}px)`,
+                gridTemplateRows: `repeat(${rows}, ${TILE_SIZE}px)`,
+                transform: `translate(${Math.round(panOffset.current.x)}px, ${Math.round(panOffset.current.y)}px)`,
                 willChange: "transform",
               }}
             >
@@ -892,7 +895,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           <dialog
             ref={resetDialogRef}
             open={!supportsModalDialog && isResetDialogOpen}
-            className="rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in"
+            className="m-auto rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in block"
             aria-labelledby="reset-dialog-title"
             aria-describedby="reset-dialog-desc"
           >
@@ -933,7 +936,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           <dialog
             ref={completionDialogRef}
             open={!supportsModalDialog && isCompletionDialogOpen}
-            className="rounded-[2rem] border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in"
+            className="m-auto rounded-[2rem] border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in block"
             aria-labelledby="completion-dialog-title"
             aria-describedby="completion-dialog-desc"
           >

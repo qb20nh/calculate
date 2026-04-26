@@ -1,4 +1,4 @@
-import { hydrate } from "preact";
+import hydrate from "preact-iso/hydrate";
 import { App } from "@/App";
 import { preloadGameRoute } from "@/routes/lazyRoutes";
 import { removeBasePath } from "@/routes/routeUtils";

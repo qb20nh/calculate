@@ -17,40 +17,52 @@
 			(function () {
 				var url = new URL(window.location.href);
 				var match = url.pathname.match(/(?:^|\/)game\/(easy|medium|hard)\/?$/);
-				if (!match) return;
-
 				var stage = url.searchParams.get("stage");
-				if (!stage) return;
-
 				var app = document.getElementById("app");
 				var template = document.getElementById("game-skeleton");
-				if (!app || !template) return;
+				var difficulty;
+				var clone;
+				var titleElem;
+				var progressBar;
+				var currentProgress = 0;
+				var interval;
 
-				var difficulty = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-				
-				var clone = template.content.cloneNode(true);
-				var titleElem = clone.getElementById("skeleton-title");
+				if (!match || !stage || !app || !template) return;
+
+				difficulty = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+				clone = template.content.cloneNode(true);
+				titleElem = clone.getElementById("skeleton-title");
+
 				if (titleElem) {
 					titleElem.textContent = `${difficulty} — Stage ${stage}`;
 				}
 
-				// Find and animate skeleton progress
-				var progressBar = clone.getElementById("skeleton-progress")?.querySelector(".route-progress-bar");
-				var currentProgress = 0;
-				var interval;
-				if (progressBar) {
-					/* __PROGRESS_LOGIC_PLACEHOLDER__ */
-					interval = setInterval(() => {
-						if (currentProgress < 88) {
-							currentProgress = getNextTrickleProgress(currentProgress);
-							progressBar.style.width = `${currentProgress}%`;
-							window.__INITIAL_PROGRESS__ = currentProgress;
-						}
-					}, 100);
-					window.__PROGRESS_INTERVAL__ = interval;
+				// If app already has content (like the main menu from a SPA fallback), clear it
+				// unless it looks like it's already a skeleton or prerendered game UI.
+				if (app.children.length > 0 && !app.querySelector(".route-progress-bar")) {
+					app.innerHTML = "";
 				}
-				
-				app.appendChild(clone);
+
+				// Only append if app is now empty
+				if (app.children.length === 0) {
+					progressBar = clone
+						.getElementById("skeleton-progress")
+						?.querySelector(".route-progress-bar");
+
+					if (progressBar) {
+						/* __PROGRESS_LOGIC_PLACEHOLDER__ */
+						interval = setInterval(() => {
+							if (currentProgress < 88) {
+								currentProgress = getNextTrickleProgress(currentProgress);
+								progressBar.style.width = `${currentProgress}%`;
+								window.__INITIAL_PROGRESS__ = currentProgress;
+							}
+						}, 100);
+						window.__PROGRESS_INTERVAL__ = interval;
+					}
+
+					app.appendChild(clone);
+				}
 			})();
 		</script>
 		<script type="module" src="/src/index.tsx"></script>

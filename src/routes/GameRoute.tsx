@@ -98,6 +98,22 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
     });
   };
 
+  const updateMaxProgress = (newMax: number) => {
+    setProgress((prev) => {
+      const currentProgress = prev[difficulty];
+      if (newMax <= currentProgress.max) return prev;
+      const nextProgress = {
+        ...prev,
+        [difficulty]: {
+          ...currentProgress,
+          max: newMax,
+        },
+      };
+      saveProgress(nextProgress);
+      return nextProgress;
+    });
+  };
+
   const handleWin = (nextStage: number) => {
     updateProgress(nextStage, true);
     location.route(toGamePath(difficulty, nextStage));
@@ -115,6 +131,9 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
 
   const handleStateChange = (state: GameState) => {
     saveGameState(state);
+    if (state.status === "won") {
+      updateMaxProgress(state.stage + 1);
+    }
   };
 
   if (!isClient) {
