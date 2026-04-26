@@ -16,7 +16,7 @@ export type Progress = Record<Difficulty, { current: number; max: number }>;
 
 const STORAGE_KEY_PROGRESS = "math_scrabble_progress";
 const STORAGE_KEY_STATE = "math_scrabble_state";
-const DEFAULT_PROGRESS: Progress = {
+export const DEFAULT_PROGRESS: Progress = {
   Easy: { current: 1, max: 1 },
   Medium: { current: 1, max: 1 },
   Hard: { current: 1, max: 1 },

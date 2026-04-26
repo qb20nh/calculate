@@ -33,6 +33,8 @@ export function App() {
             onLoadEnd={() => setIsRouteLoading(false)}
           >
             <Route path="/" component={MenuRoute} onGameRoutePreload={preloadGameRoute} />
+            <Route path="/game" component={NotFoundRoute} />
+            <Route path="/game/" component={NotFoundRoute} />
             <Route path="/game/:difficulty" component={GameRoute} />
             <Route path="/game/:difficulty/" component={GameRoute} />
             <Route path="/404" component={NotFoundRoute} />

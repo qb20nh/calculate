@@ -131,6 +131,8 @@ describe("Game", () => {
     await waitForGameLoaded();
 
     expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    const boardContainer = screen.getByTestId("game-board-container");
+    expect(boardContainer.querySelector(".animate-fade-in")).toBeNull();
   });
 
   it("should handle tile selection and placement", async () => {

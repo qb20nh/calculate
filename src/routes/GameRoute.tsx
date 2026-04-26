@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
-import { Game, UnavailableLevelShell } from "@/components/Game";
+import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { parseDifficultySlug, parseStageParam, toGamePath } from "@/routes/routeUtils";
 import {
+  DEFAULT_PROGRESS,
   type GameState,
   loadGameState,
   loadProgress,
@@ -20,12 +21,19 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
   const difficulty = parseDifficultySlug(difficultySlug);
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const parsedStage = parseStageParam(stageParam);
-  const [progress, setProgress] = useState(loadProgress);
+  
+  const [isClient, setIsClient] = useState(false);
+  const [progress, setProgress] = useState(DEFAULT_PROGRESS);
+
+  useEffect(() => {
+    setIsClient(true);
+    setProgress(loadProgress());
+  }, []);
 
   const savedState = useMemo<GameState | null>(() => {
-    if (!difficulty) return null;
+    if (!difficulty || !isClient) return null;
     return loadGameState();
-  }, [difficulty]);
+  }, [difficulty, isClient]);
 
   const difficultyProgress = difficulty ? progress[difficulty] : null;
   const requestedStage =
@@ -42,10 +50,10 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
     requestedStage > difficultyProgress.max;
   const stage = requestedStage;
   const targetPath = difficulty && stage ? toGamePath(difficulty, stage) : null;
-  const shouldRedirect = targetPath !== null && location.url !== targetPath && !isStageLocked;
+  const shouldRedirect = isClient && targetPath !== null && location.url !== targetPath && !isStageLocked;
   const lockedNotice =
     difficulty && requestedStage && latestAvailableStage
-      ? `Stage ${requestedStage} is locked. Latest available is ${difficulty} — Stage ${latestAvailableStage}.`
+      ? "This level is not unlocked yet. Use the buttons below to leave or continue."
       : undefined;
 
   useEffect(() => {
@@ -95,6 +103,18 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
     saveGameState(state);
   };
 
+  if (!isClient) {
+    return (
+      <GameLoadingShell
+        difficulty={difficulty}
+        stage={stage}
+        maxStage={progress[difficulty].max}
+        onBack={handleBack}
+        onStageChange={handleStageChange}
+      />
+    );
+  }
+
   if (isStageLocked && latestAvailableStage) {
     return (
       <UnavailableLevelShell
@@ -103,6 +123,8 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
         availableStage={latestAvailableStage}
         notice={lockedNotice || ""}
         onBack={handleBack}
+        onStageChange={handleStageChange}
+        onReset={() => location.route(toGamePath(difficulty, latestAvailableStage))}
         onLatestAvailable={() => location.route(toGamePath(difficulty, latestAvailableStage))}
       />
     );

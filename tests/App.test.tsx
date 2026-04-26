@@ -186,12 +186,15 @@ describe("App", () => {
 
     expect(await screen.findByText("Stage 7 locked")).toBeDefined();
     expect(
-      screen.getByText("Stage 7 is locked. Latest available is Easy — Stage 2."),
+      screen.getByText(
+        "This level is not unlocked yet. Use the buttons below to leave or continue.",
+      ),
     ).toBeDefined();
+    expect(screen.getByText("Go to stage 2")).toBeDefined();
     expect(window.location.pathname).toBe("/game/easy");
     expect(window.location.search).toBe("?stage=7");
 
-    fireEvent.click(screen.getByText("Latest available"));
+    fireEvent.click(screen.getByText("Go to stage 2"));
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/game/easy");
@@ -219,6 +222,26 @@ describe("App", () => {
 
   it("should render 404 for invalid game route params", async () => {
     window.history.replaceState(null, "", "/game/unknown?stage=1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page not found")).toBeDefined();
+    });
+  });
+
+  it("should render 404 for a game route without difficulty", async () => {
+    window.history.replaceState(null, "", "/game");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page not found")).toBeDefined();
+    });
+  });
+
+  it("should render 404 for a game route without difficulty and trailing slash", async () => {
+    window.history.replaceState(null, "", "/game/");
 
     render(<App />);
 

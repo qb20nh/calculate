@@ -29,6 +29,11 @@ const mockLoadProgress = vi.fn(() => ({
 const mockLoadGameState = vi.fn(() => null);
 
 vi.mock("@/services/storage", () => ({
+  DEFAULT_PROGRESS: {
+    Easy: { current: 1, max: 1 },
+    Medium: { current: 1, max: 1 },
+    Hard: { current: 1, max: 1 },
+  },
   loadProgress: () => mockLoadProgress(),
   loadGameState: () => mockLoadGameState(),
   saveGameState: vi.fn(),
@@ -50,8 +55,14 @@ describe("GameRoute", () => {
     render(<GameRoute difficulty="easy" />);
 
     expect(screen.getByText("Stage 10 locked")).toBeDefined();
+    expect(
+      screen.getByText(
+        "This level is not unlocked yet. Use the buttons below to leave or continue.",
+      ),
+    ).toBeDefined();
+    expect(screen.getByText("Go to stage 1")).toBeDefined();
 
-    fireEvent.click(screen.getByText("Latest available"));
+    fireEvent.click(screen.getByText("Go to stage 1"));
     expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1");
   });
 

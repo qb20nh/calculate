@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { build, type Plugin, type ResolvedConfig } from "vite";
@@ -23,7 +23,8 @@ function extractLegacyScripts(html: string) {
         lower.includes("nomodule") ||
         lower.includes("vite-legacy") ||
         lower.includes("system.import") ||
-        lower.includes("__vite_legacy_guard")
+        lower.includes("__vite_legacy_guard") ||
+        lower.includes("__vite_is_modern_browser")
       )
     ) {
       continue;
@@ -85,6 +86,15 @@ async function patchHtmlFiles(distDir: string, headScripts: string[], bodyScript
   );
 }
 
+async function copyRoot404Fallback(distDir: string) {
+  const root404 = join(distDir, "404.html");
+  try {
+    await access(root404);
+  } catch {
+    await copyFile(join(distDir, "404", "index.html"), root404);
+  }
+}
+
 async function assertLegacyOutput(distDir: string) {
   const assets = await readdir(join(distDir, "assets"));
   if (!assets.some((file) => file.startsWith("polyfills-legacy-"))) {
@@ -144,7 +154,7 @@ export function legacyPrerenderPlugin(): Plugin {
 
       legacyDir = await mkdtemp(join(tmpdir(), "calculate-legacy-"));
       legacyBuildPromise = runLegacyBuild(config, legacyDir);
-      void legacyBuildPromise.catch(() => {});
+      await legacyBuildPromise;
     },
     async closeBundle() {
       if (process.env[LEGACY_BUILD_ENV] === "1") return;
@@ -165,7 +175,7 @@ export function legacyPrerenderPlugin(): Plugin {
         }
 
         await copyLegacyAssets(legacyDir, distDir);
-        await copyFile(join(distDir, "404", "index.html"), join(distDir, "404.html"));
+        await copyRoot404Fallback(distDir);
         await patchHtmlFiles(distDir, legacyScripts.head, legacyScripts.body);
         await assertLegacyOutput(distDir);
       } finally {

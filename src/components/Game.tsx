@@ -1,6 +1,6 @@
 import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-preact";
-import type { FunctionalComponent } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { ComponentChildren, FunctionalComponent } from "preact";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { cn } from "@/lib/utils";
 import { generateGame, getGridBounds, validateBoard } from "@/services/board";
 import type { TileData } from "@/services/math";
@@ -16,6 +16,33 @@ interface GameProps {
   onStageChange: (newStage: number) => void;
   onStateChange: (state: GameState) => void;
 }
+
+const headerButtonClass =
+  "p-2 text-slate-400 transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400";
+
+const headerPillClass =
+  "flex items-center theme-primary-bg-soft rounded-full shadow-inner theme-primary-border overflow-hidden";
+
+const HeaderShell: FunctionalComponent<{
+  left: ComponentChildren;
+  centerDesktop: ComponentChildren;
+  centerMobile: ComponentChildren;
+  right: ComponentChildren;
+}> = ({ left, centerDesktop, centerMobile, right }) => (
+  <div className="flex justify-between items-center p-3 sm:p-4 bg-white shadow-sm z-20 shrink-0 border-b border-slate-100 relative">
+    <div className="flex items-center gap-2 sm:gap-3">
+      {left}
+      <div className="hidden sm:block h-8 w-[1px] bg-slate-100 mx-1" />
+      <div className="hidden sm:block">{centerDesktop}</div>
+    </div>
+
+    <div className="sm:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      {centerMobile}
+    </div>
+
+    {right}
+  </div>
+);
 
 const BoardCell: FunctionalComponent<{
   cellKey: string;
@@ -61,7 +88,7 @@ const BoardCell: FunctionalComponent<{
       onKeyDown={handleKeyDown}
       tabIndex={cell.isGiven ? -1 : 0}
       className={cn(
-        "tile m-[1px] text-xl md:text-2xl animate-fade-in select-none",
+        "tile m-[1px] text-xl md:text-2xl select-none",
         typeClass,
         selectedTileId === cell.id && `selected selected-${cell.type}`,
       )}
@@ -71,7 +98,7 @@ const BoardCell: FunctionalComponent<{
   );
 };
 
-const GameHeader: FunctionalComponent<{
+const StageHeader: FunctionalComponent<{
   difficulty: Difficulty;
   stage: number;
   maxStage: number;
@@ -80,13 +107,17 @@ const GameHeader: FunctionalComponent<{
   onStageChange: (newStage: number) => void;
   onReset?: () => void;
 }> = ({ difficulty, stage, maxStage, status, onBack, onStageChange, onReset }) => {
-  const levelBar = (
-    <div className="flex items-center theme-primary-bg-soft rounded-full shadow-inner theme-primary-border overflow-hidden">
+  const stageBar = (
+    <div className={headerPillClass}>
       <button
         type="button"
         onClick={() => onStageChange(stage - 1)}
         disabled={stage <= 1}
-        className="px-2 py-1 text-slate-400 theme-primary-hover-text theme-primary-hover-bg disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        className={cn(
+          headerButtonClass,
+          "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
+          "transition-colors",
+        )}
         aria-label="Previous Stage"
       >
         <ChevronLeft width={16} height={16} strokeWidth={3} />
@@ -101,7 +132,11 @@ const GameHeader: FunctionalComponent<{
         type="button"
         onClick={() => onStageChange(stage + 1)}
         disabled={stage >= maxStage && status !== "won"}
-        className="px-2 py-1 text-slate-400 theme-primary-hover-text theme-primary-hover-bg disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        className={cn(
+          headerButtonClass,
+          "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
+          "transition-colors",
+        )}
         aria-label="Next Stage"
       >
         <ChevronRight width={16} height={16} strokeWidth={3} />
@@ -110,36 +145,31 @@ const GameHeader: FunctionalComponent<{
   );
 
   return (
-    <div className="flex justify-between items-center p-3 sm:p-4 bg-white shadow-sm z-20 shrink-0 border-b border-slate-100 relative">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <HeaderShell
+      left={
         <button
           type="button"
           onClick={onBack}
           aria-label="Back"
-          className="p-2 text-slate-400 theme-primary-hover-text theme-primary-hover-bg transition-colors rounded-full"
+          className={cn(headerButtonClass, "theme-primary-hover-text theme-primary-hover-bg")}
         >
           <ChevronLeft width={20} height={20} strokeWidth={2.5} />
         </button>
-
-        <div className="hidden sm:block h-8 w-[1px] bg-slate-100 mx-1" />
-
-        <div className="hidden sm:block">{levelBar}</div>
-      </div>
-
-      <div className="sm:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        {levelBar}
-      </div>
-
-      <button
-        type="button"
-        onClick={onReset}
-        disabled={!onReset}
-        className="p-2 text-slate-400 theme-danger-text theme-danger-hover-bg transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-        aria-label="Reset Stage"
-      >
-        <RotateCcw width={20} height={20} strokeWidth={2.5} />
-      </button>
-    </div>
+      }
+      centerDesktop={stageBar}
+      centerMobile={stageBar}
+      right={
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!onReset}
+          className={cn(headerButtonClass, "theme-danger-text theme-danger-hover-bg")}
+          aria-label="Reset Stage"
+        >
+          <RotateCcw width={20} height={20} strokeWidth={2.5} />
+        </button>
+      }
+    />
   );
 };
 
@@ -149,31 +179,36 @@ export const UnavailableLevelShell: FunctionalComponent<{
   availableStage: number;
   notice: string;
   onBack: () => void;
+  onStageChange: (newStage: number) => void;
+  onReset: () => void;
   onLatestAvailable: () => void;
-}> = ({ difficulty, requestedStage, availableStage, notice, onBack, onLatestAvailable }) => (
-  <div className="h-screen w-full flex flex-col overflow-hidden bg-slate-50">
-    <div className="flex justify-between items-center p-3 sm:p-4 bg-white shadow-sm z-20 shrink-0 border-b border-slate-100">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label="Back"
-        className="p-2 text-slate-400 theme-primary-hover-text theme-primary-hover-bg transition-colors rounded-full"
-      >
-        <ChevronLeft width={20} height={20} strokeWidth={2.5} />
-      </button>
-      <div className="text-slate-400 text-sm font-semibold uppercase tracking-[0.2em]">
-        {difficulty}
-      </div>
-      <div className="w-10" />
-    </div>
+}> = ({
+  difficulty,
+  requestedStage,
+  availableStage,
+  notice,
+  onBack,
+  onStageChange,
+  onReset,
+  onLatestAvailable,
+}) => (
+  <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
+    <StageHeader
+      difficulty={difficulty}
+      stage={requestedStage}
+      maxStage={Math.max(requestedStage, availableStage)}
+      status="won"
+      onBack={onBack}
+      onStageChange={onStageChange}
+      onReset={onReset}
+    />
 
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-xl">
         <h1 className="text-3xl font-black tracking-tight text-slate-800">
           Stage {requestedStage} locked
         </h1>
-        <p className="mt-3 text-slate-500 font-medium">{notice}</p>
-        <p className="mt-2 text-sm text-slate-400">Latest available: Stage {availableStage}</p>
+        <p className="mt-3 text-slate-600 font-normal">{notice}</p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <button
@@ -181,14 +216,14 @@ export const UnavailableLevelShell: FunctionalComponent<{
             onClick={onBack}
             className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
           >
-            Main menu
+            Back to menu
           </button>
           <button
             type="button"
             onClick={onLatestAvailable}
             className="flex-1 rounded-2xl theme-primary-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
           >
-            Latest available
+            Go to stage {availableStage}
           </button>
         </div>
       </div>
@@ -196,7 +231,7 @@ export const UnavailableLevelShell: FunctionalComponent<{
   </div>
 );
 
-const GameLoadingShell: FunctionalComponent<{
+export const GameLoadingShell: FunctionalComponent<{
   difficulty: Difficulty;
   stage: number;
   maxStage: number;
@@ -204,8 +239,8 @@ const GameLoadingShell: FunctionalComponent<{
   onBack: () => void;
   onStageChange: (newStage: number) => void;
 }> = ({ difficulty, stage, maxStage, notice, onBack, onStageChange }) => (
-  <div className="h-screen w-full flex flex-col overflow-hidden bg-slate-50">
-    <GameHeader
+  <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
+    <StageHeader
       difficulty={difficulty}
       stage={stage}
       maxStage={maxStage}
@@ -433,7 +468,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   };
 
   // Update pan bounds when board changes or window resizes
-  useEffect(() => {
+  useLayoutEffect(() => {
     const calc = () => {
       if (!boardContainerRef.current || gameState?.status !== "playing") return;
 
@@ -705,7 +740,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   return (
     <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
       <div ref={gameContentRef} className="flex min-h-0 flex-1 flex-col">
-        <GameHeader
+        <StageHeader
           difficulty={difficulty}
           stage={stage}
           maxStage={maxStage}
@@ -726,7 +761,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           onPointerCancel={handlePointerUp}
           onClickCapture={handleCaptureClick}
         >
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in">
+          <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
             <div
               ref={panContainerRef}
               className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
