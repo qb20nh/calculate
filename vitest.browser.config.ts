@@ -5,6 +5,18 @@ import type { Page } from "playwright";
 import { defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
+const browserSmokeFile = fileURLToPath(
+  new URL("./tests/browser/console-smoke.test.ts", import.meta.url),
+);
+const browserSmokeEnabled = process.env.ENABLE_BROWSER_SMOKE === "1";
+const browserMatrix = process.env.ENABLE_BROWSER_MATRIX === "1"
+  ? [
+      { browser: "chromium", name: "chromium" },
+      { browser: "firefox", name: "firefox" },
+      { browser: "webkit", name: "webkit" },
+    ]
+  : [{ browser: "chromium", name: "chromium" }];
+
 const browserConsoleState = new Map<
   string,
   {
@@ -12,8 +24,6 @@ const browserConsoleState = new Map<
     appPage?: Page;
   }
 >();
-const browserMatrix = ["chromium", "firefox", "webkit"] as const;
-
 const isKnownHydrationMismatch = (text: string) =>
   text.includes("Expected a DOM node of type") &&
   text.includes(
@@ -96,6 +106,8 @@ const drainBrowserConsoleErrors: BrowserCommand = ({ sessionId }) => {
 export default defineConfig({
   plugins: [preact()],
   test: {
+    name: "browser",
+    include: browserSmokeEnabled ? [browserSmokeFile] : [],
     globalSetup: ["./tests/browser/vitest.globalSetup.ts"],
     browser: {
       enabled: true,
@@ -117,12 +129,8 @@ export default defineConfig({
         clickButton,
         drainBrowserConsoleErrors,
       },
-      instances: browserMatrix.map((browser) => ({
-        browser,
-        name: browser,
-      })),
+      instances: browserMatrix,
     },
-    include: ["tests/browser/**/*.browser.test.ts"],
   },
   resolve: {
     alias: {

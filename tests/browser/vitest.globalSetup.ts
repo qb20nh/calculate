@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { access } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -27,8 +28,30 @@ const run = (command: string, args: string[], options: { stdio?: "inherit" | "pi
     });
   });
 
+const getBasePath = () =>
+  process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/` : "/";
+
+const previewPort = 4173;
+const previewBaseUrl = `http://127.0.0.1:${previewPort}${getBasePath()}`;
+const hasBuiltDist = async () => {
+  try {
+    await access("dist/index.html");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const startPreview = () => {
-  const child = spawn(process.execPath, [viteBin, "preview", "--host", "0.0.0.0"]);
+  const child = spawn(process.execPath, [
+    viteBin,
+    "preview",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    String(previewPort),
+    "--strictPort",
+  ]);
 
   child.stdout?.on("data", (chunk) => process.stdout.write(chunk));
   child.stderr?.on("data", (chunk) => process.stderr.write(chunk));
@@ -36,12 +59,8 @@ const startPreview = () => {
   return child;
 };
 
-const waitForPreview = async (
-  previewProcess: ReturnType<typeof startPreview>,
-  getBaseUrl: () => string | undefined,
-) => {
+const waitForPreview = async (previewProcess: ReturnType<typeof startPreview>) => {
   const deadline = Date.now() + 30_000;
-  let resolvedBaseUrl: string | undefined;
 
   while (Date.now() < deadline) {
     if (previewProcess.exitCode !== null) {
@@ -49,14 +68,7 @@ const waitForPreview = async (
     }
 
     try {
-      const baseUrl = getBaseUrl();
-      if (!baseUrl) {
-        await delay(100);
-        continue;
-      }
-
-      resolvedBaseUrl = baseUrl;
-      const response = await fetch(baseUrl);
+      const response = await fetch(previewBaseUrl);
       if (response.ok || response.status === 404) return;
     } catch {
       // retry until ready
@@ -65,25 +77,17 @@ const waitForPreview = async (
     await delay(250);
   }
 
-  throw new Error(`Preview server did not become ready at ${resolvedBaseUrl ?? "unknown URL"}`);
+  throw new Error(`Preview server did not become ready at ${previewBaseUrl}`);
 };
 
 export default async function globalSetup() {
   setupPromise ??= (async () => {
-    await run("pnpm", ["build"]);
-    let baseUrl: string | undefined;
+    if (!(await hasBuiltDist())) {
+      await run("pnpm", ["build"]);
+    }
     const preview = startPreview();
-
-    preview.stdout?.on("data", (chunk) => {
-      const output = chunk.toString();
-      const match = output.match(/http:\/\/(?:127\.0\.0\.1|localhost):(\d+)\//);
-      if (match) {
-        baseUrl = `http://127.0.0.1:${match[1]}`;
-        process.env.VITEST_PREVIEW_URL = baseUrl;
-      }
-    });
-
-    await waitForPreview(preview, () => baseUrl);
+    process.env.VITEST_PREVIEW_URL = previewBaseUrl;
+    await waitForPreview(preview);
 
     return async () => {
       if (!preview.killed) {

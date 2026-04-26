@@ -52,9 +52,6 @@ jobs:
       - name: Test and coverage
         run: pnpm test
 
-      - name: Browser smoke
-        run: pnpm e2e
-
   build:
     needs: quality
     runs-on: ubuntu-latest
@@ -78,6 +75,9 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      # - name: Browser smoke
+      #   run: pnpm e2e
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

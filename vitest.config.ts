@@ -5,10 +5,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [preact()],
   test: {
+    name: "unit",
     environment: "jsdom",
     globals: true,
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["tests/browser/**"],
     coverage: {
       provider: "v8",
       include: ["src/**"],
