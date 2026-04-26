@@ -86,7 +86,7 @@ const pickRandomKeys = (keys: string[], count: number, prng: () => number) =>
 const forEachEquation = (
   keys: string[],
   getTile: (k: string) => { val: string } | undefined,
-  callback: (word: { val: string; key: string }[]) => void,
+  callback: (word: { val: string; key: string }[]) => boolean | void,
 ) => {
   const { minR, maxR, minC, maxC } = getGridBounds(keys);
 
@@ -105,14 +105,17 @@ const forEachEquation = (
         if (tile) {
           word.push({ ...tile, key: k });
         } else {
-          if (word.length > 0) callback(word);
+          if (word.length > 0) {
+            if (callback(word) === false) return false;
+          }
           word = [];
         }
       }
     }
+    return true;
   };
 
-  scan(minR, maxR, minC, maxC, true); // Horizontal
+  if (scan(minR, maxR, minC, maxC, true) === false) return; // Horizontal
   scan(minC, maxC, minR, maxR, false); // Vertical
 };
 
@@ -372,30 +375,57 @@ export const validateBoard = (board: { [key: string]: TileData }): ValidationRes
   if (visited.size !== placedKeys.length)
     return { valid: false, reason: "All tiles must be connected together." };
 
-  const validTiles = new Set<string>();
+  let invalidFormula: string | null = null;
+  let missingOperator: string | null = null;
+  let nonCrossingSequence: string | null = null;
   let equationsCount = 0;
 
   forEachEquation(
     placedKeys,
     (k) => board[k],
     (word) => {
-      if (word.length >= 3 && isValidEquation(word)) {
-        equationsCount++;
-        for (const t of word) {
-          validTiles.add(t.key);
+      if (word.length >= 2) {
+        if (isValidEquation(word)) {
+          equationsCount++;
+        } else {
+          const sequence = word.map((w) => w.val).join("");
+          const hasRel = word.some((t) => t.val === "=" || t.val === "<" || t.val === ">");
+          const hasOp = word.some(
+            (t) => t.val === OP_PLUS || t.val === OP_MINUS || t.val === OP_MULT || t.val === OP_DIV,
+          );
+
+          if (word.length >= 3 && hasRel && !hasOp) {
+            missingOperator = sequence;
+          } else if (word.length >= 3 && hasRel) {
+            invalidFormula = sequence;
+          } else {
+            nonCrossingSequence = sequence;
+          }
+          return false; // Break immediately
         }
       }
     },
   );
 
-  if (equationsCount === 0)
-    return { valid: false, reason: "No valid mathematical equations found." };
-
-  for (const k of placedKeys) {
-    if (!validTiles.has(k)) {
-      return { valid: false, reason: "Some tiles don't form a correct equation." };
-    }
+  if (missingOperator) {
+    return {
+      valid: false,
+      reason: `Formulas must include at least one operator. "${missingOperator}"`,
+    };
   }
+
+  if (invalidFormula) {
+    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
+  }
+
+  if (nonCrossingSequence) {
+    return {
+      valid: false,
+      reason: `All formulas must cross at least once.`,
+    };
+  }
+
+  if (equationsCount === 0) return { valid: false, reason: "No valid mathematical formula found." };
 
   return { valid: true };
 };

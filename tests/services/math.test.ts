@@ -208,13 +208,35 @@ describe("math service", () => {
           { val: "10" },
         ]),
       ).toBe(true);
-      expect(isValidEquation([{ val: "10" }, { val: REL_GT }, { val: "5" }])).toBe(true);
-      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "10" }])).toBe(
-        true,
-      ); // <>
-      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "5" }])).toBe(
-        false,
-      ); // <>
+      expect(
+        isValidEquation([
+          { val: "10" },
+          { val: OP_MINUS },
+          { val: "5" },
+          { val: REL_GT },
+          { val: "4" },
+        ]),
+      ).toBe(true);
+      expect(
+        isValidEquation([
+          { val: "5" },
+          { val: OP_PLUS },
+          { val: "5" },
+          { val: REL_LT },
+          { val: REL_GT },
+          { val: "11" },
+        ]),
+      ).toBe(true); // <>
+      expect(
+        isValidEquation([
+          { val: "5" },
+          { val: OP_PLUS },
+          { val: "5" },
+          { val: REL_LT },
+          { val: REL_GT },
+          { val: "10" },
+        ]),
+      ).toBe(false); // <>
     });
 
     it("should return false for invalid structure", () => {
@@ -248,12 +270,26 @@ describe("math service", () => {
     it("should cover applyRelation branches", () => {
       // Since generateValidStatement uses the PRNG, this is tricky to hit exactly,
       // but let's test isValidEquation with forced REL_NEQ
-      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "6" }])).toBe(
-        true,
-      );
-      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_GT }, { val: "5" }])).toBe(
-        false,
-      );
+      expect(
+        isValidEquation([
+          { val: "5" },
+          { val: OP_PLUS },
+          { val: "1" },
+          { val: REL_LT },
+          { val: REL_GT },
+          { val: "7" },
+        ]),
+      ).toBe(true);
+      expect(
+        isValidEquation([
+          { val: "5" },
+          { val: OP_PLUS },
+          { val: "1" },
+          { val: REL_LT },
+          { val: REL_GT },
+          { val: "6" },
+        ]),
+      ).toBe(false);
     });
   });
 });

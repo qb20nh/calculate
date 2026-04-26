@@ -88,7 +88,7 @@ describe("board service", () => {
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toContain("equation");
+      expect(result.reason.toLowerCase()).toContain("formula");
     }
   });
 
@@ -104,7 +104,7 @@ describe("board service", () => {
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toContain("connected");
+      expect(result.reason).toContain("connected together");
     }
   });
 
@@ -121,21 +121,34 @@ describe("board service", () => {
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toContain("No valid mathematical equations");
+      expect(result.reason.toLowerCase()).toMatch(/cross|operator|formula/);
     }
   });
 
   it("should invalidate a board where some tiles are not part of any equation", () => {
     const board = {
       "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
-      "0,1": { id: "2", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,1": { id: "2", val: OP_PLUS, type: "op" as const, isGiven: true },
       "0,2": { id: "3", val: "2", type: "val" as const, isGiven: true },
-      "1,0": { id: "4", val: "9", type: "val" as const, isGiven: true }, // Extra tile
+      "0,3": { id: "4", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,4": { id: "5", val: "4", type: "val" as const, isGiven: true },
+      "1,0": { id: "6", val: "9", type: "val" as const, isGiven: true }, // Extra tile
     };
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toContain("form a correct equation");
+      expect(result.reason.toLowerCase()).toMatch(/cross|operator|formula/);
+    }
+  });
+
+  it("should invalidate a single tile board", () => {
+    const board = {
+      "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
+    };
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason).toContain("formula");
     }
   });
 });

@@ -205,6 +205,11 @@ export const isValidEquation = (wordTiles: { val: string }[]) => {
   if (relType === null) return false;
   if (relStart === 0 || relEnd === tokens.length - 1) return false;
 
+  const hasOp = tokens.some(
+    (t) => t === OP_PLUS || t === OP_MINUS || t === OP_MULT || t === OP_DIV,
+  );
+  if (!hasOp) return false;
+
   const leftSide = tokens.slice(0, relStart).join("");
   const rightSide = tokens.slice(relEnd + 1).join("");
 
