@@ -1,4 +1,13 @@
-import { access, copyFile, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { build, type Plugin, type ResolvedConfig } from "vite";
@@ -45,10 +54,12 @@ function extractLegacyScripts(html: string) {
 async function copyLegacyAssets(legacyDir: string, distDir: string) {
   const assetsDir = join(legacyDir, "assets");
   const files = await readdir(assetsDir, { withFileTypes: true });
+  const distAssetsDir = join(distDir, "assets");
+  await mkdir(distAssetsDir, { recursive: true });
   await Promise.all(
     files
       .filter((entry) => entry.isFile() && entry.name.includes("legacy"))
-      .map((entry) => copyFile(join(assetsDir, entry.name), join(distDir, "assets", entry.name))),
+      .map((entry) => copyFile(join(assetsDir, entry.name), join(distAssetsDir, entry.name))),
   );
 }
 
@@ -91,7 +102,13 @@ async function copyRoot404Fallback(distDir: string) {
   try {
     await access(root404);
   } catch {
-    await copyFile(join(distDir, "404", "index.html"), root404);
+    const source404 = join(distDir, "404", "index.html");
+    try {
+      await access(source404);
+      await copyFile(source404, root404);
+    } catch {
+      // If 404/index.html is also missing, just skip it.
+    }
   }
 }
 

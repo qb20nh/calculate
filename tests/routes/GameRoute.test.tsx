@@ -12,7 +12,7 @@ const requireValue = <T,>(value: T | undefined): T => {
 // Mock preact-iso's useLocation
 const mockRoute = vi.fn();
 let mockLocationUrl = "/game/easy?stage=1";
-vi.mock("preact-iso", () => ({
+vi.mock("preact-iso/router", () => ({
   useLocation: () => ({
     route: mockRoute,
     path: "/game/easy",
@@ -80,10 +80,25 @@ describe("GameRoute", () => {
     render(<GameRoute difficulty="easy" />);
 
     // Game calls onStageChange when header buttons are clicked
-    // But since Game is mocked or we can't easily reach its internals,
-    // we should have tested GameRoute's handleStageChange directly if possible.
-    // Actually, I can just find the stage navigation button in Game's header.
     fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
     expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=2");
+  });
+
+  it("should render NotFoundRoute for invalid difficulty", () => {
+    render(<GameRoute difficulty="invalid" />);
+    expect(screen.getByText("Page not found")).toBeDefined();
+  });
+
+  it("should handle redirect when stage is not specified", () => {
+    mockLocationUrl = "/game/easy";
+    render(<GameRoute difficulty="easy" />);
+    expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1", true);
+  });
+
+  it("should handle invalid stage param", () => {
+    mockLocationUrl = "/game/easy?stage=abc";
+    render(<GameRoute difficulty="easy" />);
+    // Should default to stage 1 or current progress
+    expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1", true);
   });
 });

@@ -240,6 +240,15 @@ export const GameLoadingShell: FunctionalComponent<{
   onStageChange: (newStage: number) => void;
 }> = ({ difficulty, stage, maxStage, notice, onBack, onStageChange }) => (
   <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
+    <div id="skeleton-progress" className="route-progress">
+      <div className="route-progress-bar" style={{ width: "0%" }} />
+    </div>
+    <div
+      id="skeleton-spinner"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-50/50"
+    >
+      <div className="size-16 animate-spin rounded-full border-4 theme-spinner" />
+    </div>
     <StageHeader
       difficulty={difficulty}
       stage={stage}

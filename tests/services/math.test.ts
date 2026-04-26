@@ -118,8 +118,13 @@ describe("math service", () => {
     expect(evaluateExpression(`2${OP_DIV}0`)).toBeNull();
     expect(evaluateExpression(`7${OP_DIV}3`)).toBeNull(); // Only integer division
     expect(evaluateExpression(`01${OP_PLUS}2`)).toBeNull(); // No leading zeros
-    expect(evaluateExpression("2+3=5")).toBeNull(); // No relations in evaluateExpression
+    expect(evaluateExpression(`2${OP_PLUS}3=5`)).toBeNull(); // No relations in evaluateExpression
     expect(evaluateExpression("2a+3")).toBeNull(); // No letters
+    expect(evaluateExpression(`2${OP_MULT}`)).toBeNull(); // Missing right token
+    expect(evaluateExpression(`${OP_MULT}2`)).toBeNull(); // Missing left token
+    expect(evaluateExpression(`7${OP_DIV}2`)).toBeNull(); // Non-integer division
+    expect(evaluateExpression("1e1000")).toBeNull(); // Infinity/Non-finite
+    expect(evaluateExpression(`2${OP_PLUS}01`)).toBeNull(); // Leading zero on right
   });
 
   it("should match reference evaluator for generated expressions", () => {
@@ -253,7 +258,17 @@ describe("math service", () => {
           { val: "5" },
         ]),
       ).toBe(false); // Multiple relations
+      expect(isValidEquation([{ val: "5" }, { val: REL_LT }, { val: REL_LT }, { val: "5" }])).toBe(
+        false,
+      ); // Invalid relation sequence (not <>)
       expect(isValidEquation([{ val: "5" }, { val: "INVALID" }, { val: "5" }])).toBe(false); // Invalid relation
+      expect(isValidEquation([{ val: "5" }, { val: REL_EQ }, { val: "5" }])).toBe(false); // No operators
+      expect(isValidEquation([{ val: REL_EQ }, { val: "1" }, { val: OP_PLUS }, { val: "1" }])).toBe(
+        false,
+      ); // Empty left
+      expect(isValidEquation([{ val: "1" }, { val: OP_PLUS }, { val: "1" }, { val: REL_EQ }])).toBe(
+        false,
+      ); // Empty right
     });
 
     it("should cover all relRoll branches in generateValidStatement", () => {
@@ -290,6 +305,11 @@ describe("math service", () => {
           { val: "6" },
         ]),
       ).toBe(false);
+
+      // Coverage for applyRelation branch with small base
+      const _prng = () => 0.1; // Force subtraction
+      // REL_GT branch
+      expect(generateValidStatement(() => 0.85)).toBeDefined();
     });
   });
 });

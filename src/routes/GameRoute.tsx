@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { useLocation } from "preact-iso";
+import { useLocation } from "preact-iso/router";
 import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { parseDifficultySlug, parseStageParam, toGamePath } from "@/routes/routeUtils";
+import { loadingService } from "@/services/loading";
 import {
   DEFAULT_PROGRESS,
   type GameState,
@@ -21,14 +22,26 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
   const difficulty = parseDifficultySlug(difficultySlug);
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const parsedStage = parseStageParam(stageParam);
-  
+
   const [isClient, setIsClient] = useState(false);
   const [progress, setProgress] = useState(DEFAULT_PROGRESS);
+
+  useState(() => {
+    if (typeof window !== "undefined") {
+      loadingService.start("game-route");
+    }
+  });
 
   useEffect(() => {
     setIsClient(true);
     setProgress(loadProgress());
   }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      loadingService.stop("game-route");
+    }
+  }, [isClient]);
 
   const savedState = useMemo<GameState | null>(() => {
     if (!difficulty || !isClient) return null;
@@ -50,7 +63,8 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
     requestedStage > difficultyProgress.max;
   const stage = requestedStage;
   const targetPath = difficulty && stage ? toGamePath(difficulty, stage) : null;
-  const shouldRedirect = isClient && targetPath !== null && location.url !== targetPath && !isStageLocked;
+  const shouldRedirect =
+    isClient && targetPath !== null && location.url !== targetPath && !isStageLocked;
   const lockedNotice =
     difficulty && requestedStage && latestAvailableStage
       ? "This level is not unlocked yet. Use the buttons below to leave or continue."

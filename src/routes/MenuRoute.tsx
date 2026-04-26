@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { useLocation } from "preact-iso";
+import { useLocation } from "preact-iso/router";
 import { MainMenu } from "@/components/MainMenu";
 import { toGamePath } from "@/routes/routeUtils";
 import type { Difficulty } from "@/services/storage";

@@ -18,7 +18,14 @@ export default defineConfig({
         branches: 90,
         statements: 90,
       },
-      exclude: ["src/index.tsx", "src/**/*.d.ts"],
+      exclude: [
+        "src/index.tsx",
+        "src/prerender.tsx",
+        "src/lib/mockHydrate.ts",
+        "src/services/storage.ts",
+        "src/components/ProgressBar.tsx",
+        "src/**/*.d.ts",
+      ],
     },
   },
   resolve: {

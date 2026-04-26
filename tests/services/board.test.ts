@@ -168,4 +168,14 @@ describe("board service", () => {
       expect(result.reason).toContain("formula");
     }
   });
+
+  it("should invalidate a board with invalid tokens", () => {
+    const board = {
+      "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: "INVALID", type: "op" as const, isGiven: true },
+      "0,2": { id: "3", val: "2", type: "val" as const, isGiven: true },
+    };
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+  });
 });

@@ -1,4 +1,4 @@
-import { lazy } from "preact-iso";
+import lazy from "preact-iso/lazy";
 
 export const MenuRoute = lazy(() => import("@/routes/MenuRoute"));
 export const GameRoute = lazy(() => import("@/routes/GameRoute"));

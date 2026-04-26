@@ -1,8 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useMemo, useState } from "preact/hooks";
-import { ErrorBoundary, LocationProvider, Route, Router, useLocation } from "preact-iso";
+import { ErrorBoundary } from "preact-iso/lazy";
+import { LocationProvider, Route, Router, useLocation } from "preact-iso/router";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProgressBar } from "@/components/ProgressBar";
+import { useLoading } from "@/hooks/useLoading";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
 
@@ -23,6 +25,8 @@ function BasePathProvider({ children }: Readonly<{ children: ComponentChildren }
 
 export function App() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const isGlobalLoading = useLoading();
+  const isLoading = isRouteLoading || isGlobalLoading;
 
   return (
     <LocationProvider>
@@ -40,8 +44,8 @@ export function App() {
             <Route path="/404" component={NotFoundRoute} />
             <Route default component={NotFoundRoute} />
           </Router>
-          <ProgressBar isLoading={isRouteLoading} />
-          <LoadingSpinner isVisible={isRouteLoading} />
+          <ProgressBar isLoading={isLoading} />
+          <LoadingSpinner isVisible={isLoading} />
         </ErrorBoundary>
       </BasePathProvider>
     </LocationProvider>

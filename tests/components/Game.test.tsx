@@ -764,5 +764,17 @@ describe("Game", () => {
         dialogSupport.restore();
       }
     });
+
+    it("should handle acknowledged solve", async () => {
+      const solvedState: GameState = {
+        ...makeGameState(),
+        status: "won",
+        solvedAcknowledged: true,
+      };
+      renderGame({ initialState: solvedState });
+      await waitForGameLoaded();
+
+      expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+    });
   });
 });

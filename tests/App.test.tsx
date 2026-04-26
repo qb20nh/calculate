@@ -104,7 +104,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Easy"));
 
-    expect(screen.getByLabelText("Loading").tagName).toBe("PROGRESS");
+    expect(screen.getByLabelText("Loading").tagName).toBe("DIV");
     expect(screen.getByLabelText("Loading screen")).toBeDefined();
 
     await vi.advanceTimersByTimeAsync(1000);

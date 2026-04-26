@@ -15,20 +15,40 @@
 		<script>
 			// biome-ignore lint/complexity/useArrowFunction: This inline fallback runs before legacy bundles.
 			(function () {
-				var match = window.location.pathname.match(
-					/(?:^|\/)game\/(easy|medium|hard)\/([1-9]\d*)\/?$/
-				);
+				var url = new URL(window.location.href);
+				var match = url.pathname.match(/(?:^|\/)game\/(easy|medium|hard)\/?$/);
 				if (!match) return;
+
+				var stage = url.searchParams.get("stage");
+				if (!stage) return;
 
 				var app = document.getElementById("app");
 				var template = document.getElementById("game-skeleton");
 				if (!app || !template) return;
 
 				var difficulty = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-				var stage = match[2];
 				
 				var clone = template.content.cloneNode(true);
-				clone.getElementById("skeleton-title").textContent = `${difficulty} — Stage ${stage}`;
+				var titleElem = clone.getElementById("skeleton-title");
+				if (titleElem) {
+					titleElem.textContent = `${difficulty} — Stage ${stage}`;
+				}
+
+				// Find and animate skeleton progress
+				var progressBar = clone.getElementById("skeleton-progress")?.querySelector(".route-progress-bar");
+				var currentProgress = 0;
+				var interval;
+				if (progressBar) {
+					/* __PROGRESS_LOGIC_PLACEHOLDER__ */
+					interval = setInterval(() => {
+						if (currentProgress < 88) {
+							currentProgress = getNextTrickleProgress(currentProgress);
+							progressBar.style.width = `${currentProgress}%`;
+							window.__INITIAL_PROGRESS__ = currentProgress;
+						}
+					}, 100);
+					window.__PROGRESS_INTERVAL__ = interval;
+				}
 				
 				app.appendChild(clone);
 			})();

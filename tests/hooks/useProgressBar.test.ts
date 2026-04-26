@@ -142,4 +142,20 @@ describe("useProgressBar", () => {
     expect(result.current.progress).toBe(100);
     expect(result.current.isFading).toBe(true);
   });
+
+  it("should initialize with __INITIAL_PROGRESS__", () => {
+    window.__INITIAL_PROGRESS__ = 50;
+    const { result } = renderHook(() => useProgressBar({ isLoading: true }));
+    expect(result.current.progress).toBe(50);
+    delete window.__INITIAL_PROGRESS__;
+  });
+
+  it("should clear __PROGRESS_INTERVAL__ on mount", () => {
+    const clearIntervalSpy = vi.spyOn(global, "clearInterval");
+    window.__PROGRESS_INTERVAL__ = 123;
+    renderHook(() => useProgressBar({ isLoading: true }));
+    expect(clearIntervalSpy).toHaveBeenCalledWith(123);
+    delete window.__PROGRESS_INTERVAL__;
+    clearIntervalSpy.mockRestore();
+  });
 });

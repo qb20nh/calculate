@@ -308,50 +308,29 @@
   }
 
   .theme-spinner {
-    border-color: color-mix(in srgb, var(--theme-relation) 20%, transparent);
-    border-top-color: var(--theme-relation);
+    border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
+    border-top-color: var(--theme-primary);
   }
 
   .route-progress {
-    color: var(--theme-relation);
-  }
-
-  .route-progress::-webkit-progress-bar {
+    position: fixed;
+    top: 0;
+    z-index: 100;
+    height: 3px;
+    width: 100%;
+    overflow: hidden;
     background-color: transparent;
+    pointer-events: none;
   }
 
-  .route-progress::-webkit-progress-value {
-    background: linear-gradient(
-      to right,
-      var(--theme-relation),
-      color-mix(in srgb, var(--theme-relation) 60%, white),
-      color-mix(in srgb, var(--theme-relation) 30%, white)
-    );
+  .route-progress-bar {
+    height: 100%;
+    background: var(--theme-primary);
     box-shadow:
-      0 0 10px color-mix(in srgb, var(--theme-relation) 80%, transparent),
-      0 0 20px color-mix(in srgb, var(--theme-relation) 40%, transparent);
+      0 0 10px color-mix(in srgb, var(--theme-primary) 80%, transparent),
+      0 0 20px color-mix(in srgb, var(--theme-primary) 40%, transparent);
     transition: width 200ms ease-out;
-  }
-
-  .route-progress::-moz-progress-bar {
-    background: linear-gradient(
-      to right,
-      var(--theme-relation),
-      color-mix(in srgb, var(--theme-relation) 60%, white),
-      color-mix(in srgb, var(--theme-relation) 30%, white)
-    );
-    box-shadow:
-      0 0 10px color-mix(in srgb, var(--theme-relation) 80%, transparent),
-      0 0 20px color-mix(in srgb, var(--theme-relation) 40%, transparent);
-    transition: width 200ms ease-out;
-  }
-
-  .route-progress-resetting::-webkit-progress-value {
-    transition: none;
-  }
-
-  .route-progress-resetting::-moz-progress-bar {
-    transition: none;
+    width: 0%;
   }
 }
 
