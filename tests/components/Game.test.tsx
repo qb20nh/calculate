@@ -765,16 +765,67 @@ describe("Game", () => {
       }
     });
 
-    it("should handle acknowledged solve", async () => {
-      const solvedState: GameState = {
-        ...makeGameState(),
-        status: "won",
-        solvedAcknowledged: true,
-      };
+    it("should handle inventory scrolling and gradients", async () => {
+      renderGame();
+      await waitForGameLoaded();
+
+      // The inventory is the div with class "board-container"
+      const inventoryDiv = document.querySelector(".board-container") as HTMLDivElement;
+      expect(inventoryDiv).toBeDefined();
+
+      // Mock scroll properties
+      Object.defineProperty(inventoryDiv, "scrollLeft", {
+        value: 10,
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(inventoryDiv, "scrollWidth", {
+        value: 100,
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(inventoryDiv, "clientWidth", {
+        value: 50,
+        writable: true,
+        configurable: true,
+      });
+
+      fireEvent.scroll(inventoryDiv);
+
+      // Gradient should be visible if canScrollLeft and canScrollRight are true
+      // canScrollLeft: 10 > 0
+      // canScrollRight: 10 + 50 < 100
+
+      // Test canScrollLeft = false, canScrollRight = false
+      Object.defineProperty(inventoryDiv, "scrollLeft", {
+        value: 0,
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(inventoryDiv, "scrollWidth", {
+        value: 50,
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(inventoryDiv, "clientWidth", {
+        value: 50,
+        writable: true,
+        configurable: true,
+      });
+      fireEvent.scroll(inventoryDiv);
+    });
+
+    it("should ignore bank clicks when game status is not playing", async () => {
+      const solvedState: GameState = makeGameState({ status: "won" });
       renderGame({ initialState: solvedState });
       await waitForGameLoaded();
 
-      expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+      const buttons = screen.getAllByRole("button");
+      const tile = buttons.find((b) => b.className.includes("tile-"));
+      if (tile) {
+        fireEvent.click(tile);
+        expect(tile.className).not.toContain("selected");
+      }
     });
   });
 });

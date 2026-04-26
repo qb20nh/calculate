@@ -169,13 +169,16 @@ describe("board service", () => {
     }
   });
 
-  it("should invalidate a board with invalid tokens", () => {
+  it("should invalidate a board with a relation but no operators", () => {
     const board = {
-      "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
-      "0,1": { id: "2", val: "INVALID", type: "op" as const, isGiven: true },
-      "0,2": { id: "3", val: "2", type: "val" as const, isGiven: true },
+      "0,0": { id: "1", val: "5", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,2": { id: "3", val: "5", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("operator");
+    }
   });
 });

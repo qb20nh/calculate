@@ -123,8 +123,18 @@ describe("math service", () => {
     expect(evaluateExpression(`2${OP_MULT}`)).toBeNull(); // Missing right token
     expect(evaluateExpression(`${OP_MULT}2`)).toBeNull(); // Missing left token
     expect(evaluateExpression(`7${OP_DIV}2`)).toBeNull(); // Non-integer division
-    expect(evaluateExpression("1e1000")).toBeNull(); // Infinity/Non-finite
     expect(evaluateExpression(`2${OP_PLUS}01`)).toBeNull(); // Leading zero on right
+    expect(evaluateExpression("1e1000")).toBeNull(); // Infinity/Non-finite value
+    expect(evaluateExpression("0.1+0.2")).toBeNull(); // Only integers
+  });
+
+  it("should handle non-finite results in evaluateExpression", () => {
+    // Force a very large number that might become non-finite if we had exponentiation,
+    // but here we can just test if the check works.
+    // Since we only have +, -, *, / with integers, it's hard to get Infinity unless dividing by zero.
+    // Dividing by zero is already tested.
+    // But we can test the value check.
+    expect(evaluateExpression("999999999999999999999999999999999")).not.toBeNull();
   });
 
   it("should match reference evaluator for generated expressions", () => {
@@ -269,6 +279,7 @@ describe("math service", () => {
       expect(isValidEquation([{ val: "1" }, { val: OP_PLUS }, { val: "1" }, { val: REL_EQ }])).toBe(
         false,
       ); // Empty right
+      expect(isValidEquation([{ val: "1" }, { val: "" }, { val: "1" }])).toBe(false); // Empty token
     });
 
     it("should cover all relRoll branches in generateValidStatement", () => {
