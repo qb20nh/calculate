@@ -11,8 +11,12 @@ const isLegacyBuild = process.env.CALCULATE_LEGACY_BUILD === "1";
 export default defineConfig(({ command }) => {
   const isBuild = command === "build";
   const prerender = isBuild && !isLegacyBuild;
+  const base = process.env.GITHUB_REPOSITORY
+    ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/`
+    : "/";
 
   return {
+    base,
     plugins: [
       preact({
         prerender: {
