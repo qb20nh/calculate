@@ -128,6 +128,12 @@ describe("math service", () => {
     expect(evaluateExpression("0.1+0.2")).toBeNull(); // Only integers
   });
 
+  it("should reject non-finite numeric tokens and overflow results", () => {
+    expect(evaluateExpression("9".repeat(400))).toBeNull();
+    expect(evaluateExpression(`1${OP_MULT}${"9".repeat(400)}`)).toBeNull();
+    expect(evaluateExpression(`${"9".repeat(308)}${OP_MULT}10`)).toBeNull();
+  });
+
   it("should handle non-finite results in evaluateExpression", () => {
     // Force a very large number that might become non-finite if we had exponentiation,
     // but here we can just test if the check works.

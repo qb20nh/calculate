@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import GameRoute from "@/routes/GameRoute";
 import type { GameState } from "@/services/storage";
@@ -150,6 +150,30 @@ describe("GameRoute", () => {
     render(<GameRoute difficulty="easy" />);
     // Should default to stage 1 or current progress
     expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1", true);
+  });
+
+  it("should use a matching saved stage when no stage is specified", async () => {
+    mockLocationUrl = "/game/easy";
+    mockRoute.mockClear();
+    mockLoadProgress.mockReturnValue({
+      Easy: { current: 1, max: 3 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    mockLoadGameState.mockReturnValueOnce({
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Easy",
+      stage: 3,
+    } as never);
+
+    render(<GameRoute difficulty="easy" />);
+
+    await waitFor(() => {
+      expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=3", true);
+    });
   });
 
   it("should handle handleWin from Game component", () => {

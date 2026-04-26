@@ -55,4 +55,18 @@ describe("MainMenu", () => {
     expect(onStartIntent).toHaveBeenNthCalledWith(1, "Easy");
     expect(onStartIntent).toHaveBeenNthCalledWith(2, "Easy");
   });
+
+  it("should not require an intent handler", () => {
+    const onStart = vi.fn();
+    render(<MainMenu onStart={onStart} progress={mockProgress} />);
+
+    const customButton = screen.getByText("Custom").closest("button");
+    expect(customButton).toBeDefined();
+
+    fireEvent.pointerEnter(customButton as HTMLElement);
+    fireEvent.pointerDown(customButton as HTMLElement);
+    fireEvent.click(customButton as HTMLElement);
+
+    expect(onStart).toHaveBeenCalledWith("Custom");
+  });
 });

@@ -305,6 +305,84 @@ describe("CustomGameRoute", () => {
     );
   });
 
+  it("should show a worker failure reason", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "6" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "10" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    const worker = mockWorkers[0];
+    expect(worker).toBeDefined();
+    worker?.onmessage?.({
+      data: {
+        type: "failure",
+        reason: "No board found.",
+      },
+    } as unknown as MessageEvent<WorkerMessage>);
+
+    await screen.findByText("No board found.");
+    expect(screen.getByText("Custom Game")).toBeDefined();
+  });
+
+  it("should show a generic error when the worker errors", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "6" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "10" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    const worker = mockWorkers[0];
+    expect(worker).toBeDefined();
+    worker?.onerror?.(new ErrorEvent("error"));
+
+    await screen.findByText(
+      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    );
+  });
+
+  it("should handle a worker factory crash", async () => {
+    mockCreateCustomGameWorker.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "6" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "10" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    await screen.findByText(
+      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    );
+  });
+
   it("should cancel generation and terminate the worker", async () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 

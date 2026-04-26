@@ -562,6 +562,29 @@ describe("Game", () => {
     });
   });
 
+  it("should ignore bank clicks when the game is not playing", async () => {
+    vi.mocked(BoardService.generateGame).mockImplementationOnce(
+      () =>
+        ({
+          board: {
+            "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+          },
+          bank: [{ id: "b1", val: "2", type: "val" }],
+          initialBankSize: 1,
+          status: "won",
+        }) as unknown as ReturnType<typeof BoardService.generateGame>,
+    );
+
+    renderGame();
+
+    await waitForGameLoaded();
+
+    const bankTile = screen.getByText("2", { selector: ".tile-val" });
+    fireEvent.click(bankTile);
+
+    expect(bankTile.className).not.toContain("selected");
+  });
+
   describe("Interactions", () => {
     it("should handle touch panning with threshold", async () => {
       renderGame();

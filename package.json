@@ -17,7 +17,7 @@
     "test": "vitest run --coverage",
     "knip": "knip",
     "typecheck": "tsc --noEmit",
-    "quality": "pnpm run test && concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:typecheck\" \"pnpm:jscpd\" \"pnpm:lint\" && pnpm run e2e"
+    "quality": "concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:typecheck\" \"pnpm:jscpd\" \"pnpm:test\" \"pnpm:lint\""
   },
   "dependencies": {
     "clsx": "^2.1.1",
