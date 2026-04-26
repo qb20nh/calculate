@@ -17,6 +17,7 @@ describe("MainMenu", () => {
     expect(screen.getByText("Easy")).toBeDefined();
     expect(screen.getByText("Medium")).toBeDefined();
     expect(screen.getByText("Hard")).toBeDefined();
+    expect(screen.getByText("Custom")).toBeDefined();
   });
 
   it("should show max stage progress", () => {
@@ -35,6 +36,9 @@ describe("MainMenu", () => {
 
     fireEvent.click(screen.getByText("Hard"));
     expect(onStart).toHaveBeenCalledWith("Hard");
+
+    fireEvent.click(screen.getByText("Custom"));
+    expect(onStart).toHaveBeenCalledWith("Custom");
   });
 
   it("should call onStartIntent on hover and pointer down", () => {

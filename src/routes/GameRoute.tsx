@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
+import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
-import { parseDifficultySlug, parseStageParam, toGamePath } from "@/routes/routeUtils";
+import {
+  parseDifficultySlug,
+  parseGameModeSlug,
+  parseStageParam,
+  toGamePath,
+} from "@/routes/routeUtils";
 import { loadingService } from "@/services/loading";
 import {
   DEFAULT_PROGRESS,
@@ -17,7 +23,20 @@ interface GameRouteProps {
   difficulty?: string;
 }
 
+interface NormalGameRouteProps {
+  difficultySlug: string | undefined;
+}
+
 export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameRouteProps>) {
+  const gameMode = parseGameModeSlug(difficultySlug);
+  if (gameMode === "Custom") {
+    return <CustomGameRoute />;
+  }
+
+  return <NormalGameRoute difficultySlug={difficultySlug} />;
+}
+
+function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const location = useLocation();
   const difficulty = parseDifficultySlug(difficultySlug);
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
@@ -170,6 +189,7 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
       stage={stage}
       maxStage={progress[difficulty].max}
       initialState={initialGameState}
+      showNextLevelButton
       onWin={handleWin}
       onBack={handleBack}
       onStageChange={handleStageChange}

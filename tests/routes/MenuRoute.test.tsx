@@ -2,10 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import MenuRoute from "@/routes/MenuRoute";
 
+const mockRoute = vi.fn();
+
 // Mock preact-iso's useLocation
-vi.mock("preact-iso", () => ({
+vi.mock("preact-iso/router", () => ({
   useLocation: () => ({
-    route: vi.fn(),
+    route: mockRoute,
   }),
 }));
 
@@ -31,5 +33,12 @@ describe("MenuRoute", () => {
     }
 
     expect(onPreload).toHaveBeenCalled();
+  });
+
+  it("should route custom mode to setup screen", () => {
+    render(<MenuRoute onGameRoutePreload={vi.fn()} />);
+
+    fireEvent.click(screen.getByText("Custom"));
+    expect(mockRoute).toHaveBeenCalledWith("/game/custom");
   });
 });

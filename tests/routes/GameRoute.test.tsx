@@ -29,6 +29,10 @@ const mockLoadProgress = vi.fn(() => ({
 }));
 const mockLoadGameState = vi.fn(() => null);
 
+vi.mock("@/routes/CustomGameRoute", () => ({
+  default: () => <div>Custom Setup</div>,
+}));
+
 vi.mock("@/services/storage", () => ({
   DEFAULT_PROGRESS: {
     Easy: { current: 1, max: 1 },
@@ -39,9 +43,6 @@ vi.mock("@/services/storage", () => ({
   loadGameState: () => mockLoadGameState(),
   saveGameState: vi.fn(),
   saveProgress: vi.fn(),
-  parseDifficultySlug: (s: string) => (s === "easy" ? "Easy" : null),
-  parseStageParam: (s: string) => Number(s) || null,
-  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}?stage=${stage}`,
 }));
 
 vi.mock("@/components/Game", () => ({
@@ -182,5 +183,13 @@ describe("GameRoute", () => {
     const resetButton = screen.getByLabelText("Reset Stage");
     fireEvent.click(resetButton);
     expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1");
+  });
+
+  it("should render custom setup screen", () => {
+    mockLocationUrl = "/game/custom";
+
+    render(<GameRoute difficulty="custom" />);
+
+    expect(screen.getByText("Custom Setup")).toBeDefined();
   });
 });

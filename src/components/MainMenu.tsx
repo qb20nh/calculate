@@ -1,10 +1,10 @@
 import { ChevronRight } from "lucide-preact";
 import type { FunctionalComponent } from "preact";
-import type { Difficulty, Progress } from "@/services/storage";
+import type { Difficulty, GameMode, Progress } from "@/services/storage";
 
 interface MainMenuProps {
-  onStart: (difficulty: Difficulty) => void;
-  onStartIntent?: (difficulty: Difficulty) => void;
+  onStart: (mode: GameMode) => void;
+  onStartIntent?: (mode: GameMode) => void;
   progress: Progress;
 }
 
@@ -47,6 +47,21 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
               </div>
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => onStart("Custom")}
+            onPointerEnter={() => onStartIntent?.("Custom")}
+            onPointerDown={() => onStartIntent?.("Custom")}
+            className="menu-difficulty-card group w-full flex items-center justify-between p-4 rounded-2xl border-2 border-dashed border-slate-200 hover:bg-slate-50 transition-all active:scale-95 text-left"
+          >
+            <div>
+              <h3 className="text-lg font-bold text-slate-700">Custom</h3>
+              <p className="text-sm text-slate-400">Pick counts, size, seed</p>
+            </div>
+            <div className="theme-btn-primary group-hover-theme-primary-bg p-2 rounded-full transition-colors">
+              <ChevronRight className="w-5 h-5 text-white" strokeWidth={3} />
+            </div>
+          </button>
         </div>
       </div>
     </div>

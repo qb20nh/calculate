@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { addBasePath, normalizeBasePath, removeBasePath } from "@/routes/routeUtils";
+import {
+  addBasePath,
+  normalizeBasePath,
+  parseCustomGameConfig,
+  parseDifficultySlug,
+  parseGameModeSlug,
+  removeBasePath,
+  toCustomGamePath,
+} from "@/routes/routeUtils";
 
 describe("route utils", () => {
   it("should normalize vite base paths", () => {
@@ -28,5 +36,62 @@ describe("route utils", () => {
       "/game/easy?stage=1",
     );
     expect(removeBasePath("/other/game/easy", "/calculate/")).toBe("/other/game/easy");
+  });
+
+  it("should parse custom game mode and custom config", () => {
+    expect(parseDifficultySlug(undefined)).toBe(null);
+    expect(parseGameModeSlug(undefined)).toBe(null);
+    expect(parseGameModeSlug("custom")).toBe("Custom");
+    expect(parseGameModeSlug("easy")).toBe("Easy");
+
+    const parsed = parseCustomGameConfig(
+      new URLSearchParams("given=6&inventory=10&size=10&seed=123"),
+    );
+    expect(parsed).toEqual({
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
+    });
+
+    expect(
+      toCustomGamePath({
+        givenCount: 6,
+        inventoryCount: 10,
+        sizeLimit: 10,
+        seed: "123",
+        limitSolutionSize: false,
+      }),
+    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123");
+    expect(
+      toCustomGamePath({
+        givenCount: 6,
+        inventoryCount: 10,
+        sizeLimit: 10,
+        seed: "123",
+        limitSolutionSize: true,
+      }),
+    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123&limitSolutionSize=1");
+
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams("given=6&inventory=10&size=10&seed=123&limitSolutionSize=1"),
+      ),
+    ).toEqual({
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: true,
+    });
+  });
+
+  it("should reject invalid custom flags", () => {
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams("given=6&inventory=10&size=10&seed=123&limitSolutionSize=2"),
+      ),
+    ).toBe(null);
   });
 });

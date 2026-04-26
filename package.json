@@ -13,10 +13,11 @@
     "lint": "biome check .",
     "format": "biome check . --write",
     "jscpd": "jscpd src",
+    "e2e": "pnpm exec vitest run --config vitest.browser.config.ts",
     "test": "vitest run --coverage",
     "knip": "knip",
     "typecheck": "tsc --noEmit",
-    "quality": "concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:typecheck\" \"pnpm:test\" \"pnpm:jscpd\" \"pnpm:lint\""
+    "quality": "pnpm run test && concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:typecheck\" \"pnpm:jscpd\" \"pnpm:lint\" && pnpm run e2e"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -33,12 +34,14 @@
     "@testing-library/preact": "^3.2.4",
     "@vitejs/plugin-legacy": "^8.0.1",
     "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/browser-playwright": "^4.1.5",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.2",
     "fast-check": "^4.7.0",
     "jscpd": "^4.0.9",
     "jsdom": "^29.0.2",
     "knip": "^6.6.3",
+    "playwright": "^1.59.1",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^6.0.3",

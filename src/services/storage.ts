@@ -1,14 +1,24 @@
 import type { TileData } from "@/services/math";
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
+export type GameMode = Difficulty | "Custom";
+
+export interface CustomGameConfig {
+  givenCount: number;
+  inventoryCount: number;
+  sizeLimit: number;
+  seed: string;
+  limitSolutionSize: boolean;
+}
 
 export interface GameState {
   board: { [key: string]: TileData };
   bank: TileData[];
   initialBankSize: number;
   status: "playing" | "won";
-  difficulty: Difficulty;
+  difficulty: GameMode;
   stage: number;
+  customConfig?: CustomGameConfig;
   solvedAcknowledged?: boolean;
 }
 
@@ -28,6 +38,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isDifficulty = (value: unknown): value is Difficulty =>
   value === "Easy" || value === "Medium" || value === "Hard";
 
+const isGameMode = (value: unknown): value is GameMode => isDifficulty(value) || value === "Custom";
+
+const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
+  isRecord(value) &&
+  typeof value.givenCount === "number" &&
+  Number.isSafeInteger(value.givenCount) &&
+  value.givenCount >= 0 &&
+  typeof value.inventoryCount === "number" &&
+  Number.isSafeInteger(value.inventoryCount) &&
+  value.inventoryCount >= 0 &&
+  typeof value.sizeLimit === "number" &&
+  Number.isSafeInteger(value.sizeLimit) &&
+  value.sizeLimit >= 1 &&
+  typeof value.seed === "string" &&
+  (typeof value.limitSolutionSize === "boolean" || value.limitSolutionSize === undefined);
+
 const isProgressEntry = (value: unknown): value is { current: number; max: number } =>
   isRecord(value) &&
   typeof value.current === "number" &&
@@ -35,11 +61,20 @@ const isProgressEntry = (value: unknown): value is { current: number; max: numbe
   typeof value.max === "number" &&
   Number.isFinite(value.max);
 
-const isProgress = (value: unknown): value is Progress =>
-  isRecord(value) &&
-  isProgressEntry(value.Easy) &&
-  isProgressEntry(value.Medium) &&
-  isProgressEntry(value.Hard);
+const normalizeProgress = (value: unknown): Progress | null => {
+  if (!isRecord(value)) return null;
+
+  const readEntry = (key: Difficulty) => {
+    const entry = value[key];
+    return isProgressEntry(entry) ? entry : DEFAULT_PROGRESS[key];
+  };
+
+  return {
+    Easy: readEntry("Easy"),
+    Medium: readEntry("Medium"),
+    Hard: readEntry("Hard"),
+  };
+};
 
 const isGameState = (value: unknown): value is GameState =>
   isRecord(value) &&
@@ -48,10 +83,11 @@ const isGameState = (value: unknown): value is GameState =>
   typeof value.initialBankSize === "number" &&
   Number.isFinite(value.initialBankSize) &&
   (value.status === "playing" || value.status === "won") &&
-  isDifficulty(value.difficulty) &&
+  isGameMode(value.difficulty) &&
   typeof value.stage === "number" &&
   Number.isSafeInteger(value.stage) &&
-  value.stage >= 1;
+  value.stage >= 1 &&
+  (value.difficulty !== "Custom" || isCustomGameConfig(value.customConfig));
 
 const parseJson = <T>(raw: string | null): T | null => {
   if (!raw) return null;
@@ -87,7 +123,7 @@ export const loadProgress = (): Progress => {
   }
 
   const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_PROGRESS));
-  return isProgress(saved) ? saved : DEFAULT_PROGRESS;
+  return normalizeProgress(saved) ?? DEFAULT_PROGRESS;
 };
 
 export const saveGameState = (state: GameState | null) => {

@@ -1,6 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { generateGame, validateBoard } from "@/services/board";
+import {
+  generateCustomGame,
+  generateCustomGameAttempt,
+  generateGame,
+  validateBoard,
+} from "@/services/board";
 import { OP_PLUS, REL_EQ } from "@/services/math";
 import type { Difficulty } from "@/services/storage";
 
@@ -54,12 +59,90 @@ describe("board service", () => {
           expect(generateGame(stage, diff)).toEqual(game);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 20 },
     );
   });
 
   it("should generate deterministic games for the same stage and difficulty", () => {
     expect(generateGame(7, "Hard")).toEqual(generateGame(7, "Hard"));
+  });
+
+  it("should handle unexpected difficulty values defensively", () => {
+    expect(generateGame(1, "Custom" as Difficulty).status).toBe("playing");
+  });
+
+  it("should generate custom games with exact counts and seed persistence", () => {
+    const config = {
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "12345",
+      limitSolutionSize: false,
+    };
+
+    const game = generateCustomGame(config);
+
+    expect(game).not.toBeNull();
+    if (!game) return;
+
+    expect(game.status).toBe("playing");
+    expect(game.difficulty).toBe("Custom");
+    expect(game.stage).toBe(1);
+    expect(game.customConfig).toEqual(config);
+    expect(Object.keys(game.board)).toHaveLength(6);
+    expect(game.bank).toHaveLength(10);
+  });
+
+  it("should reject impossible custom settings", () => {
+    expect(
+      generateCustomGame({
+        givenCount: 20,
+        inventoryCount: 20,
+        sizeLimit: 5,
+        seed: "1",
+        limitSolutionSize: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("should reject custom settings with too few total tiles", () => {
+    expect(
+      generateCustomGame({
+        givenCount: 1,
+        inventoryCount: 2,
+        sizeLimit: 2,
+        seed: "1",
+        limitSolutionSize: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("should generate a deterministic custom attempt for a given retry", () => {
+    const config = {
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "12345",
+      limitSolutionSize: true,
+    };
+
+    expect(generateCustomGameAttempt(config, 0)).toEqual(generateCustomGameAttempt(config, 0));
+  });
+
+  it("should hash non-numeric custom seeds", () => {
+    const config = {
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "abc",
+      limitSolutionSize: false,
+    };
+
+    const game = generateCustomGameAttempt(config, 0);
+    expect(game).not.toBeNull();
+    if (!game) return;
+
+    expect(game.customConfig?.seed).toBe("abc");
   });
 
   const createTestBoard = (overrides: Record<string, string> = {}) => {

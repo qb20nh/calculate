@@ -230,6 +230,14 @@ describe("App", () => {
     });
   });
 
+  it("should render custom game setup", async () => {
+    window.history.replaceState(null, "", "/game/custom");
+
+    render(<App />);
+
+    expect(await screen.findByText("Custom Game")).toBeDefined();
+  });
+
   it("should render 404 for a game route without difficulty", async () => {
     window.history.replaceState(null, "", "/game");
 

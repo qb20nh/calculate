@@ -424,6 +424,51 @@ describe("Game", () => {
     expect(onWin).toHaveBeenCalledWith(2);
   });
 
+  it("should block custom wins that exceed the submitted solution size limit", async () => {
+    const customGame = {
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: "+", type: "op", isGiven: true },
+        "0,2": { id: "g3", val: "1", type: "val", isGiven: true },
+        "0,3": { id: "g4", val: "=", type: "rel", isGiven: true },
+        "0,4": { id: "g5", val: "2", type: "val", isGiven: true },
+      },
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Custom",
+      stage: 1,
+      customConfig: {
+        givenCount: 5,
+        inventoryCount: 0,
+        sizeLimit: 4,
+        seed: "1",
+        limitSolutionSize: true,
+      },
+    } as GameState;
+    vi.mocked(BoardService.validateBoard).mockReturnValueOnce({ valid: true });
+
+    render(
+      <Game
+        difficulty="Custom"
+        stage={1}
+        maxStage={1}
+        initialState={customGame}
+        onWin={vi.fn()}
+        onBack={vi.fn()}
+        onStageChange={vi.fn()}
+        onStateChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Submitted solution exceeds the configured size limit."),
+      ).toBeDefined();
+    });
+    expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+  });
+
   it("should dismiss win dialog without advancing", async () => {
     const mockGame = {
       board: {

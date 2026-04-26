@@ -4,13 +4,15 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import { cn } from "@/lib/utils";
 import { generateGame, getGridBounds, validateBoard } from "@/services/board";
 import type { TileData } from "@/services/math";
-import type { Difficulty, GameState } from "@/services/storage";
+import type { Difficulty, GameMode, GameState } from "@/services/storage";
 
 interface GameProps {
-  difficulty: Difficulty;
+  difficulty: GameMode;
   stage: number;
   maxStage: number;
   initialState?: GameState | null;
+  createNewGame?: () => GameState;
+  showNextLevelButton?: boolean;
   onWin: (newStage: number) => void;
   onBack: () => void;
   onStageChange: (newStage: number) => void;
@@ -99,7 +101,7 @@ const BoardCell: FunctionalComponent<{
 };
 
 const StageHeader: FunctionalComponent<{
-  difficulty: Difficulty;
+  difficulty: GameMode;
   stage: number;
   maxStage: number;
   status?: GameState["status"];
@@ -232,7 +234,7 @@ export const UnavailableLevelShell: FunctionalComponent<{
 );
 
 export const GameLoadingShell: FunctionalComponent<{
-  difficulty: Difficulty;
+  difficulty: GameMode;
   stage: number;
   maxStage: number;
   notice?: string | undefined;
@@ -274,6 +276,8 @@ export const Game: FunctionalComponent<GameProps> = ({
   stage,
   maxStage,
   initialState,
+  createNewGame,
+  showNextLevelButton = true,
   onWin,
   onBack,
   onStageChange,
@@ -393,6 +397,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   // Initialize game
   useEffect(() => {
     if (!initialState) {
+      if (difficulty === "Custom") return;
       const newGame = generateGame(stage, difficulty);
       setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
       prevGridMetrics.current.initialized = false;
@@ -599,6 +604,20 @@ export const Game: FunctionalComponent<GameProps> = ({
     if (gameState.bank.length === 0 && !gameState.solvedAcknowledged) {
       const validation = validateBoard(gameState.board);
       if (validation.valid) {
+        const customConfig = gameState.customConfig;
+        if (difficulty === "Custom" && customConfig?.limitSolutionSize) {
+          const bounds = getGridBounds(Object.keys(gameState.board));
+          const width = bounds.maxC - bounds.minC + 1;
+          const height = bounds.maxR - bounds.minR + 1;
+          if (width > customConfig.sizeLimit || height > customConfig.sizeLimit) {
+            setToast("Submitted solution exceeds the configured size limit.");
+            timer = setTimeout(() => setToast(null), 3500);
+            return () => {
+              if (timer) clearTimeout(timer);
+            };
+          }
+        }
+
         setGameState((prev) => (prev ? { ...prev, status: "won" } : null));
         setSelectedTileId(null);
         setToast(null);
@@ -664,7 +683,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   };
 
   const confirmResetLevel = () => {
-    const newGame = generateGame(stage, difficulty);
+    const newGame = createNewGame ? createNewGame() : generateGame(stage, difficulty as Difficulty);
     setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);
@@ -968,13 +987,15 @@ export const Game: FunctionalComponent<GameProps> = ({
                 >
                   Dismiss
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onWin(stage + 1)}
-                  className="w-full theme-primary-bg text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
-                >
-                  Next level
-                </button>
+                {showNextLevelButton && (
+                  <button
+                    type="button"
+                    onClick={() => onWin(stage + 1)}
+                    className="w-full theme-primary-bg text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
+                  >
+                    Next level
+                  </button>
+                )}
               </div>
             </div>
           </dialog>

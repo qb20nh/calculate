@@ -1,3 +1,4 @@
+import { CUSTOM_GAME_RETRY_LIMIT } from "@/services/customGameGeneration";
 import {
   generateValidStatement,
   getHashSeed,
@@ -12,7 +13,7 @@ import {
   type TileData,
   xoshiro128pp,
 } from "@/services/math";
-import type { Difficulty } from "@/services/storage";
+import type { CustomGameConfig, Difficulty, GameState } from "@/services/storage";
 
 type Cell = {
   val: string;
@@ -125,6 +126,8 @@ const placeEquation = (
   usage: EquationUsage,
   bounds: Bounds,
   prng: () => number,
+  maxSideLength: number,
+  remainingTiles?: number,
 ) => {
   for (let attempt = 0; attempt < 50; attempt++) {
     const stmt = generateValidStatement(prng);
@@ -153,6 +156,11 @@ const placeEquation = (
       shuffleInPlace(dirs, prng);
 
       for (const dir of dirs) {
+        const addedTiles = stmt.length - 1;
+        if (remainingTiles !== undefined && addedTiles > remainingTiles) {
+          continue;
+        }
+
         const startR = r - match.idx * dir.dy;
         const startC = c - match.idx * dir.dx;
 
@@ -207,7 +215,7 @@ const placeEquation = (
         }
 
         if (!collision) {
-          if (nextMaxR - nextMinR + 1 > 10 || nextMaxC - nextMinC + 1 > 10) {
+          if (nextMaxR - nextMinR + 1 > maxSideLength || nextMaxC - nextMinC + 1 > maxSideLength) {
             collision = true;
           }
         }
@@ -230,12 +238,187 @@ const placeEquation = (
           bounds.minC = nextMinC;
           bounds.maxC = nextMaxC;
 
-          return stmt.length - 1;
+          return addedTiles;
         }
       }
     }
   }
   return 0;
+};
+
+const getSeedNumber = (seed: string) => {
+  const trimmed = seed.trim();
+  if (/^-?\d+$/.test(trimmed)) {
+    return Number(trimmed) >>> 0;
+  }
+  return getHashSeed(trimmed);
+};
+
+const finalizeGame = (
+  grid: Grid,
+  gridKeys: string[],
+  prng: () => number,
+  config: {
+    givenCount: number;
+    inventoryCount: number;
+  },
+): Pick<GameState, "board" | "bank" | "initialBankSize" | "status"> | null => {
+  const totalTiles = gridKeys.length;
+  if (config.givenCount < 0 || config.inventoryCount < 0) return null;
+  if (config.givenCount + config.inventoryCount !== totalTiles) return null;
+
+  const board: { [key: string]: TileData } = {};
+  const bank: TileData[] = [];
+
+  const allKeys = gridKeys;
+  let givenKeys = new Set<string>();
+  let safeGivens = false;
+  let givenAttempts = 0;
+
+  while (!safeGivens && givenAttempts < 200) {
+    givenAttempts++;
+    givenKeys = pickRandomKeys(allKeys, config.givenCount, prng);
+
+    let foundTrueStatement = false;
+    forEachEquation(
+      Array.from(givenKeys),
+      (k) => (givenKeys.has(k) ? grid[k] : undefined),
+      (word) => {
+        if (word.length >= 3 && isValidEquation(word)) foundTrueStatement = true;
+      },
+    );
+
+    if (!foundTrueStatement) {
+      safeGivens = true;
+    }
+  }
+
+  if (!safeGivens) return null;
+
+  for (const k of allKeys) {
+    const cell = grid[k];
+    if (!cell) continue;
+    if (givenKeys.has(k)) {
+      board[k] = { id: `g_${k}`, ...cell, isGiven: true };
+    } else {
+      bank.push({ id: `b_${k}`, val: cell.val, type: cell.type });
+    }
+  }
+
+  bank.sort((a, b) => {
+    const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
+    if (w(a) !== w(b)) return w(a) - w(b);
+    return String(a.val).localeCompare(String(b.val));
+  });
+
+  return {
+    board,
+    bank,
+    initialBankSize: bank.length,
+    status: "playing",
+  };
+};
+
+const buildExactGrid = (prng: () => number, targetTotalTiles: number, maxSideLength: number) => {
+  let bestGrid: Grid | null = null;
+  let bestGridKeys: string[] = [];
+
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const grid: Grid = {};
+    const gridKeys: string[] = [];
+    const usage: EquationUsage = { horizontal: new Set(), vertical: new Set() };
+    const stmt = generateValidStatement(prng);
+    if (stmt.length > maxSideLength) continue;
+
+    const bounds: Bounds = { minR: 0, maxR: 0, minC: 0, maxC: stmt.length - 1 };
+
+    for (let i = 0; i < stmt.length; i++) {
+      const char = stmt[i];
+      if (!char) continue;
+      const key = getKey(0, i);
+      grid[key] = { type: getCellType(char), val: char };
+      gridKeys.push(key);
+      usage.horizontal.add(key);
+    }
+
+    let fails = 0;
+    while (gridKeys.length < targetTotalTiles && fails < 40) {
+      const added = placeEquation(
+        grid,
+        gridKeys,
+        usage,
+        bounds,
+        prng,
+        maxSideLength,
+        targetTotalTiles - gridKeys.length,
+      );
+      fails += Number(added === 0);
+    }
+
+    if (gridKeys.length > bestGridKeys.length) {
+      bestGrid = grid;
+      bestGridKeys = gridKeys;
+    }
+
+    if (gridKeys.length === targetTotalTiles) {
+      return { grid, gridKeys };
+    }
+  }
+
+  return bestGrid && bestGridKeys.length === targetTotalTiles
+    ? { grid: bestGrid, gridKeys: bestGridKeys }
+    : null;
+};
+
+const buildGameFromTarget = (
+  prng: () => number,
+  targetTotalTiles: number,
+  maxSideLength: number,
+  givenCount: number,
+  inventoryCount: number,
+) => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const candidate = buildExactGrid(prng, targetTotalTiles, maxSideLength);
+    if (!candidate) continue;
+
+    const finalGame = finalizeGame(candidate.grid, candidate.gridKeys, prng, {
+      givenCount,
+      inventoryCount,
+    });
+    if (!finalGame) continue;
+
+    return finalGame;
+  }
+
+  return null;
+};
+
+export const generateCustomGameAttempt = (
+  config: CustomGameConfig,
+  attempt: number,
+): GameState | null => {
+  const targetTotalTiles = config.givenCount + config.inventoryCount;
+  if (config.givenCount <= 0 || config.inventoryCount <= 0 || config.sizeLimit < 1) return null;
+  if (targetTotalTiles < 5) return null;
+  if (targetTotalTiles > config.sizeLimit * config.sizeLimit) return null;
+
+  const baseSeed = getSeedNumber(config.seed);
+  const prng = xoshiro128pp((baseSeed + Math.imul(attempt + 1, 0x9e3779b9)) >>> 0);
+  const finalGame = buildGameFromTarget(
+    prng,
+    targetTotalTiles,
+    config.sizeLimit,
+    config.givenCount,
+    config.inventoryCount,
+  );
+  if (!finalGame) return null;
+
+  return {
+    ...finalGame,
+    difficulty: "Custom",
+    stage: 1,
+    customConfig: config,
+  };
 };
 
 export const generateGame = (stage: number, difficulty: Difficulty) => {
@@ -253,6 +436,10 @@ export const generateGame = (stage: number, difficulty: Difficulty) => {
     diffPercent = 0.4;
     minInv = 10;
     maxInv = 14;
+  } else if (difficulty === "Hard") {
+    diffPercent = 0.2;
+    minInv = 15;
+    maxInv = 21;
   } else {
     diffPercent = 0.2;
     minInv = 15;
@@ -261,92 +448,21 @@ export const generateGame = (stage: number, difficulty: Difficulty) => {
 
   const targetInv = minInv + Math.floor(prng() * (maxInv - minInv + 1));
   const targetTotalTiles = Math.ceil(targetInv / (1 - diffPercent));
+  const numInventory = Math.min(Math.max(minInv, 1), maxInv);
+  const numGivens = Math.max(1, targetTotalTiles - numInventory);
+  const finalGame = buildGameFromTarget(prng, targetTotalTiles, 10, numGivens, numInventory);
+  if (!finalGame) return { board: {}, bank: [], initialBankSize: 0, status: "playing" as const };
+  return finalGame;
+};
 
-  let bestGrid: Grid = {};
-  let bestGridKeys: string[] = [];
-
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const grid: Grid = {};
-    const gridKeys: string[] = [];
-    const usage: EquationUsage = { horizontal: new Set(), vertical: new Set() };
-    const stmt = generateValidStatement(prng);
-    const bounds: Bounds = { minR: 0, maxR: 0, minC: 0, maxC: stmt.length - 1 };
-
-    for (let i = 0; i < stmt.length; i++) {
-      const char = stmt[i];
-      if (!char) continue;
-      const key = getKey(0, i);
-      grid[key] = { type: getCellType(char), val: char };
-      gridKeys.push(key);
-      usage.horizontal.add(key);
-    }
-
-    let fails = 0;
-    while (gridKeys.length < targetTotalTiles && fails < 40) {
-      fails += Number(placeEquation(grid, gridKeys, usage, bounds, prng) === 0);
-    }
-
-    if (gridKeys.length > bestGridKeys.length) {
-      bestGrid = grid;
-      bestGridKeys = gridKeys;
-    }
-
-    if (gridKeys.length >= targetTotalTiles) {
-      break;
-    }
+export const generateCustomGame = (config: CustomGameConfig): GameState | null => {
+  for (let attempt = 0; attempt < CUSTOM_GAME_RETRY_LIMIT; attempt++) {
+    const finalGame = generateCustomGameAttempt(config, attempt);
+    if (!finalGame) continue;
+    return finalGame;
   }
 
-  const board: { [key: string]: TileData } = {};
-  const bank: TileData[] = [];
-
-  const totalTiles = bestGridKeys.length;
-  let numGivens = Math.round(totalTiles * diffPercent);
-  let numInventory = totalTiles - numGivens;
-
-  const maxInventory = Math.min(maxInv, totalTiles > 0 ? totalTiles - 1 : 0);
-  numInventory = Math.min(Math.max(numInventory, minInv), maxInventory);
-  numGivens = totalTiles - numInventory;
-
-  const allKeys = bestGridKeys;
-  let givenKeys = new Set<string>();
-  let safeGivens = false;
-  let givenAttempts = 0;
-
-  while (!safeGivens && givenAttempts < 200) {
-    givenAttempts++;
-    givenKeys = pickRandomKeys(allKeys, numGivens, prng);
-
-    let foundTrueStatement = false;
-    forEachEquation(
-      Array.from(givenKeys),
-      (k) => (givenKeys.has(k) ? bestGrid[k] : undefined),
-      (word) => {
-        if (word.length >= 3 && isValidEquation(word)) foundTrueStatement = true;
-      },
-    );
-
-    if (!foundTrueStatement) {
-      safeGivens = true;
-    }
-  }
-
-  for (const k of allKeys) {
-    const cell = bestGrid[k];
-    if (!cell) continue;
-    if (givenKeys.has(k)) {
-      board[k] = { id: `g_${k}`, ...cell, isGiven: true };
-    } else {
-      bank.push({ id: `b_${k}`, val: cell.val, type: cell.type });
-    }
-  }
-
-  bank.sort((a, b) => {
-    const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
-    if (w(a) !== w(b)) return w(a) - w(b);
-    return String(a.val).localeCompare(String(b.val));
-  });
-
-  return { board, bank, initialBankSize: bank.length, status: "playing" as const };
+  return null;
 };
 
 type ValidationResult = { valid: true } | { valid: false; reason: string };

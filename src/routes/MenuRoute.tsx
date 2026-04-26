@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { MainMenu } from "@/components/MainMenu";
 import { toGamePath } from "@/routes/routeUtils";
-import type { Difficulty } from "@/services/storage";
+import type { GameMode } from "@/services/storage";
 import { loadProgress } from "@/services/storage";
 
 interface MenuRouteProps {
@@ -13,11 +13,15 @@ export default function MenuRoute({ onGameRoutePreload }: Readonly<MenuRouteProp
   const location = useLocation();
   const [progress] = useState(loadProgress);
 
-  const handleStart = (difficulty: Difficulty) => {
-    location.route(toGamePath(difficulty, progress[difficulty].current));
+  const handleStart = (mode: GameMode) => {
+    if (mode === "Custom") {
+      location.route("/game/custom");
+      return;
+    }
+    location.route(toGamePath(mode, progress[mode].current));
   };
 
-  const handleStartIntent = () => {
+  const handleStartIntent = (_mode: GameMode) => {
     void onGameRoutePreload?.();
   };
 
