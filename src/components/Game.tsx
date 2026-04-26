@@ -617,7 +617,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   const rows = maxR - minR + 1;
 
   return (
-    <div className="h-screen w-full flex flex-col overflow-hidden bg-slate-50">
+    <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
       <GameHeader
         difficulty={difficulty}
         stage={stage}

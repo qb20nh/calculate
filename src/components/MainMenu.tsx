@@ -16,7 +16,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
   const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
 
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6 animate-fade-in">
+    <div className="h-dvh w-full flex flex-col items-center justify-center bg-slate-50 p-6 animate-fade-in">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 md:p-12 border border-slate-100">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mb-2">
