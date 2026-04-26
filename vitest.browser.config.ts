@@ -12,6 +12,7 @@ const browserConsoleState = new Map<
     appPage?: Page;
   }
 >();
+const browserMatrix = ["chromium", "firefox", "webkit"] as const;
 
 const isKnownHydrationMismatch = (text: string) =>
   text.includes("Expected a DOM node of type") &&
@@ -99,9 +100,14 @@ export default defineConfig({
     browser: {
       enabled: true,
       headless: true,
+      fileParallelism: true,
       provider: playwright({
         launchOptions: {
           args: ["--disable-dev-shm-usage", "--no-sandbox"],
+          env: {
+            ...process.env,
+            PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS: "1",
+          },
         },
       }),
       commands: {
@@ -111,7 +117,10 @@ export default defineConfig({
         clickButton,
         drainBrowserConsoleErrors,
       },
-      instances: [{ browser: "chromium", name: "chromium" }],
+      instances: browserMatrix.map((browser) => ({
+        browser,
+        name: browser,
+      })),
     },
     include: ["tests/browser/**/*.browser.test.ts"],
   },
