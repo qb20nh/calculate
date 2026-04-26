@@ -3,19 +3,20 @@ import preact from "@preact/preset-vite";
 import { playwright } from "@vitest/browser-playwright";
 import type { Page } from "playwright";
 import { defineConfig } from "vitest/config";
-import type { BrowserCommand } from "vitest/node";
+import type { BrowserCommand, BrowserInstanceOption } from "vitest/node";
 
 const browserSmokeFile = fileURLToPath(
   new URL("./tests/browser/console-smoke.test.ts", import.meta.url),
 );
 const browserSmokeEnabled = process.env.ENABLE_BROWSER_SMOKE === "1";
-const browserMatrix = process.env.ENABLE_BROWSER_MATRIX === "1"
-  ? [
-      { browser: "chromium", name: "chromium" },
-      { browser: "firefox", name: "firefox" },
-      { browser: "webkit", name: "webkit" },
-    ]
-  : [{ browser: "chromium", name: "chromium" }];
+const browserMatrix: BrowserInstanceOption[] =
+  process.env.ENABLE_BROWSER_MATRIX === "1"
+    ? [
+        { browser: "chromium", name: "chromium" },
+        { browser: "firefox", name: "firefox" },
+        { browser: "webkit", name: "webkit" },
+      ]
+    : [{ browser: "chromium", name: "chromium" }];
 
 const browserConsoleState = new Map<
   string,

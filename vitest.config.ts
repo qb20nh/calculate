@@ -9,6 +9,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["tests/browser/**", "tests/**/*.browser.{test,spec}.{ts,tsx}"],
     coverage: {
       provider: "v8",
       include: ["src/**"],
