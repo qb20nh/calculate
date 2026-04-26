@@ -71,7 +71,8 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Easy"));
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/game/easy/1");
+      expect(window.location.pathname).toBe("/game/easy");
+      expect(window.location.search).toBe("?stage=1");
     });
 
     await waitFor(() => {
@@ -121,7 +122,7 @@ describe("App", () => {
       Medium: { current: 1, max: 1 },
       Hard: { current: 3, max: 3 },
     });
-    window.history.replaceState(null, "", "/game/hard/3");
+    window.history.replaceState(null, "", "/game/hard?stage=3");
 
     render(<App />);
 
@@ -139,7 +140,8 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/game/easy/3");
+      expect(window.location.pathname).toBe("/game/easy");
+      expect(window.location.search).toBe("?stage=3");
     });
     expect(screen.getAllByText("Easy — Stage 3").length).toBeGreaterThan(0);
   });
@@ -150,7 +152,22 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/game/medium/1");
+      expect(window.location.pathname).toBe("/game/medium");
+      expect(window.location.search).toBe("?stage=1");
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText("Medium — Stage 1").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("should redirect a difficulty route with trailing slash to the canonical path", async () => {
+    window.history.replaceState(null, "", "/game/medium/");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/game/medium");
+      expect(window.location.search).toBe("?stage=1");
     });
     await waitFor(() => {
       expect(screen.getAllByText("Medium — Stage 1").length).toBeGreaterThan(0);
@@ -163,7 +180,7 @@ describe("App", () => {
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
     });
-    window.history.replaceState(null, "", "/game/easy/7");
+    window.history.replaceState(null, "", "/game/easy?stage=7");
 
     render(<App />);
 
@@ -171,12 +188,14 @@ describe("App", () => {
     expect(
       screen.getByText("Stage 7 is locked. Latest available is Easy — Stage 2."),
     ).toBeDefined();
-    expect(window.location.pathname).toBe("/game/easy/7");
+    expect(window.location.pathname).toBe("/game/easy");
+    expect(window.location.search).toBe("?stage=7");
 
     fireEvent.click(screen.getByText("Latest available"));
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/game/easy/2");
+      expect(window.location.pathname).toBe("/game/easy");
+      expect(window.location.search).toBe("?stage=2");
     });
   });
 
@@ -199,7 +218,7 @@ describe("App", () => {
   });
 
   it("should render 404 for invalid game route params", async () => {
-    window.history.replaceState(null, "", "/game/unknown/1");
+    window.history.replaceState(null, "", "/game/unknown?stage=1");
 
     render(<App />);
 
@@ -209,7 +228,7 @@ describe("App", () => {
   });
 
   it("should render 404 for invalid game stage params", async () => {
-    window.history.replaceState(null, "", "/game/easy/0");
+    window.history.replaceState(null, "", "/game/easy?stage=0");
 
     render(<App />);
 

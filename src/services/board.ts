@@ -86,7 +86,7 @@ const pickRandomKeys = (keys: string[], count: number, prng: () => number) =>
 const forEachEquation = (
   keys: string[],
   getTile: (k: string) => { val: string } | undefined,
-  callback: (word: { val: string; key: string }[]) => boolean | void,
+  callback: (word: { val: string; key: string }[]) => boolean | undefined,
 ) => {
   const { minR, maxR, minC, maxC } = getGridBounds(keys);
 

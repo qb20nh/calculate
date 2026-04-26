@@ -2,12 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import GameRoute from "@/routes/GameRoute";
 
+const requireValue = <T,>(value: T | undefined): T => {
+  if (value === undefined) {
+    throw new Error("Expected value");
+  }
+  return value;
+};
+
 // Mock preact-iso's useLocation
 const mockRoute = vi.fn();
+let mockLocationUrl = "/game/easy?stage=1";
 vi.mock("preact-iso", () => ({
   useLocation: () => ({
     route: mockRoute,
-    path: "/game/easy/1",
+    path: "/game/easy",
+    url: mockLocationUrl,
   }),
 }));
 
@@ -26,7 +35,7 @@ vi.mock("@/services/storage", () => ({
   saveProgress: vi.fn(),
   parseDifficultySlug: (s: string) => (s === "easy" ? "Easy" : null),
   parseStageParam: (s: string) => Number(s) || null,
-  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}/${stage}`,
+  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}?stage=${stage}`,
 }));
 
 describe("GameRoute", () => {
@@ -36,34 +45,34 @@ describe("GameRoute", () => {
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
     });
+    mockLocationUrl = "/game/easy?stage=10";
 
-    render(<GameRoute difficulty="easy" stage="10" />);
+    render(<GameRoute difficulty="easy" />);
 
     expect(screen.getByText("Stage 10 locked")).toBeDefined();
 
-    const latestButton = screen.getByText("Latest available");
-    fireEvent.click(latestButton);
-    expect(mockRoute).toHaveBeenCalledWith("/game/easy/1");
+    fireEvent.click(screen.getByText("Latest available"));
+    expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=1");
   });
 
   it("should handle back button", () => {
-    render(<GameRoute difficulty="easy" stage="1" />);
+    mockLocationUrl = "/game/easy?stage=1";
+    render(<GameRoute difficulty="easy" />);
 
     // Game calls onBack
-    const backButton = screen.getAllByLabelText("Back")[0];
-    fireEvent.click(backButton);
+    fireEvent.click(requireValue(screen.getAllByLabelText("Back")[0]));
     expect(mockRoute).toHaveBeenCalledWith("/");
   });
 
   it("should handle stage change", () => {
-    render(<GameRoute difficulty="easy" stage="1" />);
+    mockLocationUrl = "/game/easy?stage=1";
+    render(<GameRoute difficulty="easy" />);
 
     // Game calls onStageChange when header buttons are clicked
     // But since Game is mocked or we can't easily reach its internals,
     // we should have tested GameRoute's handleStageChange directly if possible.
     // Actually, I can just find the stage navigation button in Game's header.
-    const nextButton = screen.getAllByLabelText("Next Stage")[0];
-    fireEvent.click(nextButton);
-    expect(mockRoute).toHaveBeenCalledWith("/game/easy/2");
+    fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
+    expect(mockRoute).toHaveBeenCalledWith("/game/easy?stage=2");
   });
 });

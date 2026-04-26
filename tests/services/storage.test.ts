@@ -51,6 +51,20 @@ describe("storage service", () => {
     expect(loadGameState()).toEqual(state);
   });
 
+  it("should save and load game state with a different difficulty and won status", () => {
+    const state: GameState = {
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "won",
+      difficulty: "Hard",
+      stage: 2,
+    };
+
+    saveGameState(state);
+    expect(loadGameState()).toEqual(state);
+  });
+
   it("should remove game state when saving null", () => {
     saveGameState({
       stage: 1,
@@ -73,6 +87,44 @@ describe("storage service", () => {
       Hard: { current: 1, max: 1 },
     });
     expect(loadGameState()).toBeNull();
+    expect(() =>
+      saveProgress({
+        Easy: { current: 2, max: 3 },
+        Medium: { current: 1, max: 1 },
+        Hard: { current: 1, max: 1 },
+      }),
+    ).not.toThrow();
+    expect(() => saveGameState(null)).not.toThrow();
+  });
+
+  it("should fall back when stored JSON is corrupt", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "math_scrabble_progress" ? "{" : "[not-json"),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    });
+
+    expect(loadProgress()).toEqual({
+      Easy: { current: 1, max: 1 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    expect(loadGameState()).toBeNull();
+  });
+
+  it("should ignore storage write failures", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(() => {
+        throw new Error("quota exceeded");
+      }),
+      removeItem: vi.fn(() => {
+        throw new Error("quota exceeded");
+      }),
+      clear: vi.fn(),
+    });
+
     expect(() =>
       saveProgress({
         Easy: { current: 2, max: 3 },

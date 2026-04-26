@@ -15,7 +15,8 @@
     "jscpd": "jscpd src",
     "test": "vitest run --coverage",
     "knip": "knip",
-    "quality": "concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:test\" \"pnpm:jscpd\" \"pnpm:lint\""
+    "typecheck": "tsc --noEmit",
+    "quality": "concurrently --kill-others-on-fail \"pnpm:knip\" \"pnpm:typecheck\" \"pnpm:test\" \"pnpm:jscpd\" \"pnpm:lint\""
   },
   "dependencies": {
     "clsx": "^2.1.1",

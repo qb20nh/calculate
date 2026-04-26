@@ -13,15 +13,12 @@ import {
 
 interface GameRouteProps {
   difficulty?: string;
-  stage?: string;
 }
 
-export default function GameRoute({
-  difficulty: difficultySlug,
-  stage: stageParam,
-}: Readonly<GameRouteProps>) {
+export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameRouteProps>) {
   const location = useLocation();
   const difficulty = parseDifficultySlug(difficultySlug);
+  const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const parsedStage = parseStageParam(stageParam);
   const [progress, setProgress] = useState(loadProgress);
 
@@ -30,17 +27,22 @@ export default function GameRoute({
     return loadGameState();
   }, [difficulty]);
 
+  const difficultyProgress = difficulty ? progress[difficulty] : null;
   const requestedStage =
-    difficulty && stageParam === undefined
+    difficulty && stageParam === null
       ? ((savedState?.difficulty === difficulty ? savedState.stage : null) ??
-        progress[difficulty].current)
+        difficultyProgress?.current ??
+        1)
       : parsedStage;
-  const latestAvailableStage = difficulty ? progress[difficulty].max : null;
+  const latestAvailableStage = difficultyProgress?.max ?? null;
   const isStageLocked =
-    difficulty !== null && requestedStage !== null && requestedStage > progress[difficulty].max;
+    difficulty !== null &&
+    requestedStage !== null &&
+    difficultyProgress !== null &&
+    requestedStage > difficultyProgress.max;
   const stage = requestedStage;
   const targetPath = difficulty && stage ? toGamePath(difficulty, stage) : null;
-  const shouldRedirect = targetPath !== null && location.path !== targetPath && !isStageLocked;
+  const shouldRedirect = targetPath !== null && location.url !== targetPath && !isStageLocked;
   const lockedNotice =
     difficulty && requestedStage && latestAvailableStage
       ? `Stage ${requestedStage} is locked. Latest available is ${difficulty} — Stage ${latestAvailableStage}.`
@@ -50,6 +52,14 @@ export default function GameRoute({
     if (!shouldRedirect || !targetPath) return;
     location.route(targetPath, true);
   }, [location, shouldRedirect, targetPath]);
+
+  const initialGameState = useMemo<GameState | null>(() => {
+    if (!difficulty || !stage) return null;
+    if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
+    return savedState;
+  }, [difficulty, savedState, stage]);
+
+  if (!difficulty || !stage) return <NotFoundRoute />;
 
   const updateProgress = (nextStage: number, includeMax: boolean) => {
     setProgress((prev) => {
@@ -84,14 +94,6 @@ export default function GameRoute({
   const handleStateChange = (state: GameState) => {
     saveGameState(state);
   };
-
-  const initialGameState = useMemo<GameState | null>(() => {
-    if (!difficulty || !stage) return null;
-    if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
-    return savedState;
-  }, [difficulty, savedState, stage]);
-
-  if (!difficulty || !stage) return <NotFoundRoute />;
 
   if (isStageLocked && latestAvailableStage) {
     return (

@@ -16,7 +16,7 @@ vi.mock("@/services/storage", () => ({
     Medium: { current: 1, max: 1 },
     Hard: { current: 1, max: 1 },
   }),
-  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}/${stage}`,
+  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}?stage=${stage}`,
 }));
 
 describe("MenuRoute", () => {

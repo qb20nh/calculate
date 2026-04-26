@@ -241,8 +241,94 @@ export const Game: FunctionalComponent<GameProps> = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const gameContentRef = useRef<HTMLDivElement>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const inventoryRef = useRef<HTMLDivElement>(null);
+  const resetDialogRef = useRef<HTMLDialogElement>(null);
+  const resetCancelRef = useRef<HTMLButtonElement>(null);
+  const completionDialogRef = useRef<HTMLDialogElement>(null);
+  const completionDismissRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const supportsModalDialog =
+    typeof HTMLDialogElement !== "undefined" &&
+    typeof HTMLDialogElement.prototype.showModal === "function";
+
+  const isDialogOpen = isResetDialogOpen || isCompletionDialogOpen;
+
+  useEffect(() => {
+    const mainContent = gameContentRef.current;
+    if (!mainContent) return;
+
+    if (isDialogOpen) {
+      mainContent.setAttribute("inert", "");
+      mainContent.setAttribute("aria-hidden", "true");
+    } else {
+      mainContent.removeAttribute("inert");
+      mainContent.removeAttribute("aria-hidden");
+    }
+
+    return () => {
+      mainContent.removeAttribute("inert");
+      mainContent.removeAttribute("aria-hidden");
+    };
+  }, [isDialogOpen]);
+
+  useEffect(() => {
+    const dialog = resetDialogRef.current;
+    if (!dialog) return;
+    if (!supportsModalDialog) return;
+    if (isResetDialogOpen && !dialog.hasAttribute("open")) {
+      dialog.showModal();
+    }
+  }, [isResetDialogOpen, supportsModalDialog]);
+
+  useEffect(() => {
+    const dialog = resetDialogRef.current;
+    if (!dialog || !isResetDialogOpen) return;
+
+    const handleCancel = (event: Event) => {
+      event.preventDefault();
+      setIsResetDialogOpen(false);
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+    return () => dialog.removeEventListener("cancel", handleCancel);
+  }, [isResetDialogOpen]);
+
+  useEffect(() => {
+    const dialog = completionDialogRef.current;
+    if (!dialog) return;
+    if (!supportsModalDialog) return;
+    if (isCompletionDialogOpen && !dialog.hasAttribute("open")) {
+      dialog.showModal();
+    }
+  }, [isCompletionDialogOpen, supportsModalDialog]);
+
+  useEffect(() => {
+    const dialog = completionDialogRef.current;
+    if (!dialog || !isCompletionDialogOpen) return;
+
+    const handleCancel = (event: Event) => {
+      event.preventDefault();
+      dismissCompletionDialog();
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+    return () => dialog.removeEventListener("cancel", handleCancel);
+  }, [isCompletionDialogOpen]);
+
+  useEffect(() => {
+    if (!isDialogOpen) {
+      restoreFocusRef.current?.focus();
+      restoreFocusRef.current = null;
+      return;
+    }
+
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const initialFocus = isResetDialogOpen ? resetCancelRef.current : completionDismissRef.current;
+    initialFocus?.focus();
+  }, [isDialogOpen, isResetDialogOpen, isCompletionDialogOpen]);
 
   const checkScroll = () => {
     if (inventoryRef.current) {
@@ -618,148 +704,150 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   return (
     <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
-      <GameHeader
-        difficulty={difficulty}
-        stage={stage}
-        maxStage={maxStage}
-        status={status}
-        onBack={onBack}
-        onStageChange={onStageChange}
-        onReset={resetLevel}
-      />
+      <div ref={gameContentRef} className="flex min-h-0 flex-1 flex-col">
+        <GameHeader
+          difficulty={difficulty}
+          stage={stage}
+          maxStage={maxStage}
+          status={status}
+          onBack={onBack}
+          onStageChange={onStageChange}
+          onReset={resetLevel}
+        />
 
-      <div
-        className="flex-1 relative overflow-hidden touch-none select-none"
-        ref={boardContainerRef}
-        data-testid="game-board-container"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onClickCapture={handleCaptureClick}
-      >
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in">
-          <div
-            ref={panContainerRef}
-            className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
-            style={{
-              display: "grid",
-              gap: 0,
-              gridTemplateColumns: `repeat(${cols}, 2.75rem)`,
-              gridTemplateRows: `repeat(${rows}, 2.75rem)`,
-              transform: `translate(${panOffset.current.x}px, ${panOffset.current.y}px)`,
-              willChange: "transform",
-            }}
-          >
-            {Array.from({ length: rows * cols }).map((_, i) => {
-              const r = Math.floor(i / cols) + minR;
-              const c = (i % cols) + minC;
-              const key = `${r},${c}`;
-              return (
-                <BoardCell
-                  key={key}
-                  cellKey={key}
-                  cell={board[key]}
-                  isFringe={fringe.has(key)}
-                  selectedTileId={selectedTileId}
-                  selectedTileType={selectedTileType}
-                  onClick={handleBoardClick}
-                />
-              );
-            })}
+        <div
+          className="flex-1 relative overflow-hidden touch-none select-none"
+          ref={boardContainerRef}
+          data-testid="game-board-container"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onClickCapture={handleCaptureClick}
+        >
+          <div className="absolute top-0 left-0 w-full h-full pointer-events-none animate-fade-in">
+            <div
+              ref={panContainerRef}
+              className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
+              style={{
+                display: "grid",
+                gap: 0,
+                gridTemplateColumns: `repeat(${cols}, 2.75rem)`,
+                gridTemplateRows: `repeat(${rows}, 2.75rem)`,
+                transform: `translate(${panOffset.current.x}px, ${panOffset.current.y}px)`,
+                willChange: "transform",
+              }}
+            >
+              {Array.from({ length: rows * cols }).map((_, i) => {
+                const r = Math.floor(i / cols) + minR;
+                const c = (i % cols) + minC;
+                const key = `${r},${c}`;
+                return (
+                  <BoardCell
+                    key={key}
+                    cellKey={key}
+                    cell={board[key]}
+                    isFringe={fringe.has(key)}
+                    selectedTileId={selectedTileId}
+                    selectedTileType={selectedTileType}
+                    onClick={handleBoardClick}
+                  />
+                );
+              })}
+            </div>
           </div>
+
+          {toast && (
+            <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-[60] animate-fade-in font-medium text-sm md:text-base whitespace-nowrap">
+              {toast}
+            </div>
+          )}
         </div>
 
-        {toast && (
-          <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-[60] animate-fade-in font-medium text-sm md:text-base whitespace-nowrap">
-            {toast}
-          </div>
-        )}
-      </div>
+        <div className="bg-white border-t border-slate-200 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
+          <div className="max-w-4xl mx-auto relative">
+            {canScrollLeft && (
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none z-30" />
+            )}
+            {canScrollRight && (
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-30" />
+            )}
+            <div
+              ref={inventoryRef}
+              onScroll={checkScroll}
+              className="pt-4 px-8 pb-6 md:pt-6 md:pb-8 overflow-x-auto board-container flex flex-nowrap md:flex-wrap md:justify-center gap-3 md:gap-4"
+              style={{ justifyContent: "safe center" }}
+            >
+              {groupedBank.map((group) => {
+                const content = group.val;
+                const isSelected =
+                  selectedTileId !== null &&
+                  group.tiles.some((t: TileData) => t.id === selectedTileId);
+                const count = group.tiles.length;
+                const firstTile = group.tiles[0];
+                if (!firstTile) return null;
 
-      <div className="bg-white border-t border-slate-200 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
-        <div className="max-w-4xl mx-auto relative">
-          {canScrollLeft && (
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none z-30" />
-          )}
-          {canScrollRight && (
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-30" />
-          )}
-          <div
-            ref={inventoryRef}
-            onScroll={checkScroll}
-            className="pt-4 px-8 pb-6 md:pt-6 md:pb-8 overflow-x-auto board-container flex flex-nowrap md:flex-wrap md:justify-center gap-3 md:gap-4"
-            style={{ justifyContent: "safe center" }}
-          >
-            {groupedBank.map((group) => {
-              const content = group.val;
-              const isSelected =
-                selectedTileId !== null &&
-                group.tiles.some((t: TileData) => t.id === selectedTileId);
-              const count = group.tiles.length;
-              const firstTile = group.tiles[0];
-              if (!firstTile) return null;
-
-              return (
-                <div key={group.val} className="relative m-1 inline-block">
-                  {count > 1 && (
-                    <div
-                      className={cn(
-                        "absolute top-1 left-1 w-full h-full rounded-[2px] pointer-events-none opacity-50",
-                        `tile-${group.type}`,
-                      )}
-                    />
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (gameState?.status !== "playing") return;
-                      if (isSelected) {
-                        setSelectedTileId(null);
-                      } else {
-                        setSelectedTileId(firstTile.id);
-                      }
-                    }}
-                    className={cn(
-                      "tile w-11 h-11 text-xl md:text-2xl flex-shrink-0 relative z-10",
-                      `tile-${group.type}`,
-                      isSelected && "selected",
+                return (
+                  <div key={group.val} className="relative m-1 inline-block">
+                    {count > 1 && (
+                      <div
+                        className={cn(
+                          "absolute top-1 left-1 w-full h-full rounded-[2px] pointer-events-none opacity-50",
+                          `tile-${group.type}`,
+                        )}
+                      />
                     )}
-                  >
-                    {content}
-                  </button>
 
-                  {count > 1 && (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (gameState?.status !== "playing") return;
+                        if (isSelected) {
+                          setSelectedTileId(null);
+                        } else {
+                          setSelectedTileId(firstTile.id);
+                        }
+                      }}
                       className={cn(
-                        "absolute -top-2.5 -right-2.5 text-white text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full z-20 shadow-md border-2 border-white pointer-events-none",
-                        group.type === "val"
-                          ? "theme-number-bg"
-                          : group.type === "op"
-                            ? "theme-operator-bg"
-                            : "theme-relation-bg",
+                        "tile w-11 h-11 text-xl md:text-2xl flex-shrink-0 relative z-10",
+                        `tile-${group.type}`,
+                        isSelected && "selected",
                       )}
                     >
-                      {count}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {groupedBank.length === 0 && (
-              <div className="text-slate-400 font-medium italic py-3 px-4">Bank is empty.</div>
-            )}
+                      {content}
+                    </button>
+
+                    {count > 1 && (
+                      <div
+                        className={cn(
+                          "absolute -top-2.5 -right-2.5 text-white text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full z-20 shadow-md border-2 border-white pointer-events-none",
+                          group.type === "val"
+                            ? "theme-number-bg"
+                            : group.type === "op"
+                              ? "theme-operator-bg"
+                              : "theme-relation-bg",
+                        )}
+                      >
+                        {count}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {groupedBank.length === 0 && (
+                <div className="text-slate-400 font-medium italic py-3 px-4">Bank is empty.</div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {isResetDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
+          <dialog
+            ref={resetDialogRef}
+            open={!supportsModalDialog && isResetDialogOpen}
             className="rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in"
             aria-labelledby="reset-dialog-title"
             aria-describedby="reset-dialog-desc"
@@ -776,6 +864,7 @@ export const Game: FunctionalComponent<GameProps> = ({
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
+                  ref={resetCancelRef}
                   type="button"
                   onClick={() => setIsResetDialogOpen(false)}
                   className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
@@ -791,15 +880,15 @@ export const Game: FunctionalComponent<GameProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
 
       {isCompletionDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
+          <dialog
+            ref={completionDialogRef}
+            open={!supportsModalDialog && isCompletionDialogOpen}
             className="rounded-[2rem] border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in"
             aria-labelledby="completion-dialog-title"
             aria-describedby="completion-dialog-desc"
@@ -825,6 +914,7 @@ export const Game: FunctionalComponent<GameProps> = ({
               </p>
               <div className="w-full flex flex-col gap-3">
                 <button
+                  ref={completionDismissRef}
                   type="button"
                   onClick={dismissCompletionDialog}
                   className="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-4 px-8 rounded-2xl shadow-sm transform transition active:scale-95 text-lg"
@@ -840,7 +930,7 @@ export const Game: FunctionalComponent<GameProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
     </div>

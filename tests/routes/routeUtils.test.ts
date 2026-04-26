@@ -16,6 +16,10 @@ describe("route utils", () => {
     expect(addBasePath("/calculate/game/easy", "/calculate/")).toBe("/calculate/game/easy");
   });
 
+  it("should preserve query-stage game paths", () => {
+    expect(addBasePath("/game/easy?stage=3", "/")).toBe("/game/easy?stage=3");
+  });
+
   it("should remove a project base path from browser routes", () => {
     expect(removeBasePath("/game/easy", "/")).toBe("/game/easy");
     expect(removeBasePath("/calculate?stage=1#top", "/calculate/")).toBe("/?stage=1#top");

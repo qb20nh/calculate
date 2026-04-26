@@ -29,6 +29,9 @@ jobs:
       - name: Scan unused code
         run: pnpm knip
 
+      - name: Type check
+        run: pnpm typecheck
+
       - name: Check code style and formatting
         run: pnpm lint
 

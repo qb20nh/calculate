@@ -24,17 +24,18 @@ export function injectSkeletonPlugin(): Plugin {
 
         // Extract innerHTML of #app using preact-iso boundaries
         const appMatch = sourceHtml.match(/<!--\$s-->([\s\S]*?)<!--\/\$s-->/);
-        if (!appMatch) {
-          throw new Error("Could not find prerendered content in game/easy/index.html");
+        const skeletonHtml = appMatch?.[1];
+        if (typeof skeletonHtml !== "string") {
+          throw new TypeError("Could not find prerendered content in game/easy/index.html");
         }
 
-        // The inner HTML of the app
-        let skeletonHtml = appMatch[1];
-
         // Clean up any other possible preact-iso artifacts inside if needed
-        skeletonHtml = skeletonHtml.replaceAll(/<script type="isodata">[\s\S]*?<\/script>/g, "");
+        const cleanedSkeletonHtml = skeletonHtml.replaceAll(
+          /<script type="isodata">[\s\S]*?<\/script>/g,
+          "",
+        );
 
-        console.log(`Extracted skeleton HTML (${skeletonHtml.length} bytes)`);
+        console.log(`Extracted skeleton HTML (${cleanedSkeletonHtml.length} bytes)`);
 
         // Inject into index.html
         const targetHtmlPath = join(distDir, "index.html");
@@ -42,7 +43,7 @@ export function injectSkeletonPlugin(): Plugin {
 
         targetHtml = targetHtml.replace(
           /<template id="game-skeleton">[\s\S]*?<\/template>/,
-          `<template id="game-skeleton">${skeletonHtml}</template>`,
+          `<template id="game-skeleton">${cleanedSkeletonHtml}</template>`,
         );
 
         await writeFile(targetHtmlPath, targetHtml);
@@ -58,13 +59,14 @@ export function injectSkeletonPlugin(): Plugin {
           let target404Html = await readFile(target404Path, "utf8");
           target404Html = target404Html.replace(
             /<template id="game-skeleton">[\s\S]*?<\/template>/,
-            `<template id="game-skeleton">${skeletonHtml}</template>`,
+            `<template id="game-skeleton">${cleanedSkeletonHtml}</template>`,
           );
           await writeFile(target404Path, target404Html);
           console.log("Injected skeleton into dist/404.html");
         }
       } catch (err) {
         console.error("Failed to inject skeleton:", err);
+        throw err instanceof Error ? err : new Error(String(err));
       }
     },
   };

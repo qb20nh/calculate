@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 export interface ProgressBarProps {
   /** Whether the progress bar should be in a loading state. */
@@ -26,36 +26,38 @@ export const useProgressBar = (props: ProgressBarProps) => {
 
   const [progress, setProgress] = useState(0);
   const [isFading, setIsFading] = useState(false);
-  const [prevIsLoading, setPrevIsLoading] = useState(isLoading);
-
-  // Synchronously reset state when loading starts to ensure we start from a clean baseline.
-  if (isLoading && !prevIsLoading) {
-    setPrevIsLoading(true);
-    setIsFading(false);
-    setProgress(0);
-  }
+  const wasLoadingRef = useRef(isLoading);
 
   useEffect(() => {
-    let trickle: ReturnType<typeof setInterval>;
-    let resetTimer: ReturnType<typeof setTimeout>;
+    const wasLoading = wasLoadingRef.current;
+    let trickle: ReturnType<typeof setInterval> | undefined;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
     // Coordination in a microtask to avoid cascading render warnings from synchronous setState calls.
     const coordinationTimer = setTimeout(() => {
       if (isLoading) {
+        if (!wasLoading) {
+          setProgress(0);
+          setIsFading(false);
+        }
+
         // Jump to 20 to trigger the initial slide-in if we're at the baseline
         setProgress((prev) => (prev === 0 ? 20 : prev));
         trickle = setInterval(() => setProgress(getNextTrickleProgress), trickleMs);
-      } else if (prevIsLoading) {
+        wasLoadingRef.current = true;
+      } else if (wasLoading) {
         // Simultaneous completion sequence: snap to 100% and start fade out
         setProgress(100);
         setIsFading(true);
 
         // Reset after the simultaneous animation completes
         resetTimer = setTimeout(() => {
-          setPrevIsLoading(false);
           setProgress(0);
           setIsFading(false);
+          wasLoadingRef.current = false;
         }, transitionMs);
+      } else {
+        wasLoadingRef.current = false;
       }
     }, 0);
 
@@ -64,7 +66,7 @@ export const useProgressBar = (props: ProgressBarProps) => {
       if (trickle) clearInterval(trickle);
       if (resetTimer) clearTimeout(resetTimer);
     };
-  }, [isLoading, prevIsLoading, transitionMs, trickleMs]);
+  }, [isLoading, transitionMs, trickleMs]);
 
   const isVisible = isLoading || isFading || progress > 0;
 

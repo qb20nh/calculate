@@ -59,10 +59,6 @@ const getHtmlCandidates = (outDir: string, routePath: string) => {
   const normalizedRoute = routePath.replaceAll(/\/+$/g, "") || "/";
   const routeDir = normalizedRoute.replace(/^\/+/, "");
   const candidates = [routeDir ? join(outDir, routeDir, "index.html") : join(outDir, "index.html")];
-  const gameStage = new RegExp(/^\/game\/(easy|medium|hard)\/[1-9]\d*$/).exec(normalizedRoute);
-  if (gameStage) {
-    candidates.push(join(outDir, "game", gameStage[1], "index.html"));
-  }
   candidates.push(join(outDir, "index.html"));
   return candidates;
 };

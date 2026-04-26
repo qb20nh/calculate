@@ -43,7 +43,7 @@ const toDifficultySlug = (difficulty: Difficulty): DifficultySlug =>
   difficulty.toLowerCase() as DifficultySlug;
 
 export const toGamePath = (difficulty: Difficulty, stage: number) => {
-  return `/game/${toDifficultySlug(difficulty)}/${stage}`;
+  return `/game/${toDifficultySlug(difficulty)}?stage=${stage}`;
 };
 
 export const parseDifficultySlug = (slug?: string): Difficulty | null => {
@@ -51,8 +51,8 @@ export const parseDifficultySlug = (slug?: string): Difficulty | null => {
   return DIFFICULTY_BY_SLUG[slug];
 };
 
-export const parseStageParam = (stageParam?: string): number | null => {
-  if (stageParam === undefined) return null;
+export const parseStageParam = (stageParam?: string | null): number | null => {
+  if (stageParam === undefined || stageParam === null) return null;
   const stage = Number(stageParam);
   return Number.isSafeInteger(stage) && stage >= 1 ? stage : null;
 };

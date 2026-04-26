@@ -34,7 +34,7 @@ export function App() {
           >
             <Route path="/" component={MenuRoute} onGameRoutePreload={preloadGameRoute} />
             <Route path="/game/:difficulty" component={GameRoute} />
-            <Route path="/game/:difficulty/:stage" component={GameRoute} />
+            <Route path="/game/:difficulty/" component={GameRoute} />
             <Route path="/404" component={NotFoundRoute} />
             <Route default component={NotFoundRoute} />
           </Router>

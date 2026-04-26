@@ -83,6 +83,23 @@ describe("board service", () => {
     expect(validateBoard(board).valid).toBe(true);
   });
 
+  it("should validate crossing horizontal and vertical equations", () => {
+    const board = {
+      "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "0,2": { id: "3", val: "2", type: "val" as const, isGiven: true },
+      "0,3": { id: "4", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,4": { id: "5", val: "3", type: "val" as const, isGiven: true },
+      "1,2": { id: "6", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "2,2": { id: "7", val: "5", type: "val" as const, isGiven: true },
+      "3,2": { id: "8", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "4,2": { id: "9", val: "7", type: "val" as const, isGiven: true },
+    };
+
+    const result = validateBoard(board);
+    expect(result.valid).toBe(true);
+  });
+
   it("should invalidate an incorrect board", () => {
     const board = createTestBoard({ "0,4": "6" });
     const result = validateBoard(board);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Game } from "@/components/Game";
 import * as BoardService from "@/services/board";
 import { generateGame } from "@/services/board";
+import type { GameState } from "@/services/storage";
 
 vi.mock("@/services/board", async () => {
   const actual = await vi.importActual<typeof BoardService>("@/services/board");
@@ -40,6 +41,56 @@ const waitForGameLoaded = async () => {
     expect(screen.queryByText("Generating Puzzle...")).toBeNull();
   });
 };
+
+const enableNativeDialogSupport = () => {
+  const showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  });
+  const close = vi.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  });
+
+  const previousShowModal = Object.getOwnPropertyDescriptor(
+    HTMLDialogElement.prototype,
+    "showModal",
+  );
+  const previousClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "close");
+
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: showModal,
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: close,
+  });
+
+  return {
+    showModal,
+    close,
+    restore: () => {
+      if (previousShowModal) {
+        Object.defineProperty(HTMLDialogElement.prototype, "showModal", previousShowModal);
+      } else {
+        delete (HTMLDialogElement.prototype as { showModal?: unknown }).showModal;
+      }
+
+      if (previousClose) {
+        Object.defineProperty(HTMLDialogElement.prototype, "close", previousClose);
+      } else {
+        delete (HTMLDialogElement.prototype as { close?: unknown }).close;
+      }
+    },
+  };
+};
+
+const makeGameState = (overrides: Partial<GameState> = {}): GameState => ({
+  ...generateGame(1, "Easy"),
+  difficulty: "Easy",
+  stage: 1,
+  ...overrides,
+});
 
 describe("Game", () => {
   beforeEach(() => {
@@ -229,6 +280,42 @@ describe("Game", () => {
     expect(generateGameSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("should close the reset dialog when Cancel is clicked", async () => {
+    renderGame();
+
+    await waitForGameLoaded();
+
+    fireEvent.click(screen.getByLabelText("Reset Stage"));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
+    });
+
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByRole("dialog", { name: "Reset this stage?" })).toBeNull();
+  });
+
+  it("should close the reset dialog from the native cancel event", async () => {
+    const dialogSupport = enableNativeDialogSupport();
+    try {
+      renderGame();
+
+      await waitForGameLoaded();
+
+      fireEvent.click(screen.getByLabelText("Reset Stage"));
+      const dialog = await screen.findByRole("dialog", { name: "Reset this stage?" });
+      expect(dialogSupport.showModal).toHaveBeenCalledTimes(1);
+
+      dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "Reset this stage?" })).toBeNull();
+      });
+    } finally {
+      dialogSupport.restore();
+    }
+  });
+
   it("should handle back button", async () => {
     const onBack = vi.fn();
     renderGame({ onBack });
@@ -354,18 +441,26 @@ describe("Game", () => {
 
     await waitForGameLoaded();
 
-    fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
-    fireEvent.click(screen.getAllByLabelText("Place tile here")[0]);
+    const dialogSupport = enableNativeDialogSupport();
+    try {
+      fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
+      fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
 
-    await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: "Perfect!" })).toBeDefined();
-    });
+      await screen.findByRole("dialog", { name: "Perfect!" });
+      expect(dialogSupport.showModal).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByText("Dismiss"));
+      await waitFor(() => {
+        expect(screen.getByRole("dialog", { name: "Perfect!" })).toBeDefined();
+      });
 
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
-    });
+      fireEvent.click(screen.getByText("Dismiss"));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+      });
+    } finally {
+      dialogSupport.restore();
+    }
   });
 
   it("should call onStageChange when stage navigation buttons are clicked", async () => {
@@ -378,10 +473,10 @@ describe("Game", () => {
       expect(screen.getAllByLabelText("Previous Stage").length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByLabelText("Previous Stage")[0]);
+    fireEvent.click(requireValue(screen.getAllByLabelText("Previous Stage")[0]));
     expect(onStageChange).toHaveBeenCalledWith(1);
 
-    fireEvent.click(screen.getAllByLabelText("Next Stage")[0]);
+    fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
     expect(onStageChange).toHaveBeenCalledWith(3);
   });
 
@@ -532,10 +627,7 @@ describe("Game", () => {
 
       // Force it to solved state (or just mock it)
       // Actually, let's just render with solved state
-      const solvedState = {
-        ...generateGame(1, "Easy"),
-        status: "solved" as const,
-      } as unknown as BoardService.GameState;
+      const solvedState: GameState = makeGameState({ status: "won" });
       cleanup(); // Remove previous render
       renderGame({ initialState: solvedState });
 
@@ -549,15 +641,15 @@ describe("Game", () => {
     });
 
     it("should handle inventory selection and stacking", async () => {
-      const customState = {
-        ...generateGame(1, "Easy"),
+      const customState: GameState = {
+        ...makeGameState(),
         bank: [
           { id: "v1", val: "5", type: "val" },
           { id: "v2", val: "5", type: "val" },
           { id: "o1", val: "+", type: "op" },
           { id: "r1", val: "=", type: "rel" },
         ],
-      } as unknown as BoardService.GameState;
+      };
       renderGame({ initialState: customState });
       await waitForGameLoaded();
 
@@ -577,10 +669,7 @@ describe("Game", () => {
     });
 
     it("should ignore inventory clicks when game is solved", async () => {
-      const solvedState = {
-        ...generateGame(1, "Easy"),
-        status: "solved" as const,
-      } as unknown as BoardService.GameState;
+      const solvedState: GameState = makeGameState({ status: "won" });
       renderGame({ initialState: solvedState });
       await waitForGameLoaded();
 
@@ -593,19 +682,85 @@ describe("Game", () => {
     });
 
     it("should handle operator and relation stacking", async () => {
-      const customState = {
-        ...generateGame(1, "Easy"),
+      const customState: GameState = {
+        ...makeGameState(),
         bank: [
           { id: "o1", val: "+", type: "op" },
           { id: "o2", val: "+", type: "op" },
           { id: "r1", val: "=", type: "rel" },
           { id: "r2", val: "=", type: "rel" },
         ],
-      } as unknown as BoardService.GameState;
+      };
       renderGame({ initialState: customState });
       await waitForGameLoaded();
 
       expect(screen.getAllByText("2")).toHaveLength(2); // Two stack badges of '2'
+    });
+
+    it("should focus the dismiss button when the completion dialog opens", async () => {
+      const mockGame = {
+        board: {
+          "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+        },
+        bank: [{ id: "b1", val: "1", type: "val" }],
+        initialBankSize: 1,
+        status: "playing",
+      };
+      vi.mocked(BoardService.generateGame).mockReturnValue(
+        mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
+      );
+      vi.mocked(BoardService.validateBoard).mockReturnValue({ valid: true });
+
+      renderGame({ onWin: vi.fn() });
+      await waitForGameLoaded();
+
+      const dialogSupport = enableNativeDialogSupport();
+      try {
+        fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
+        fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+
+        await screen.findByRole("dialog", { name: "Perfect!" });
+        await waitFor(() => {
+          expect(document.activeElement).toBe(screen.getByRole("button", { name: "Dismiss" }));
+        });
+      } finally {
+        dialogSupport.restore();
+      }
+    });
+
+    it("should dismiss the completion dialog from the native cancel event", async () => {
+      const mockGame = {
+        board: {
+          "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+        },
+        bank: [{ id: "b1", val: "1", type: "val" }],
+        initialBankSize: 1,
+        status: "playing",
+      };
+      vi.mocked(BoardService.generateGame).mockReturnValue(
+        mockGame as unknown as ReturnType<typeof BoardService.generateGame>,
+      );
+      vi.mocked(BoardService.validateBoard).mockReturnValue({ valid: true });
+
+      const dialogSupport = enableNativeDialogSupport();
+      try {
+        renderGame({ onWin: vi.fn() });
+        await waitForGameLoaded();
+
+        fireEvent.click(screen.getByText("1", { selector: ".tile-val" }));
+        fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+
+        const dialog = await screen.findByRole("dialog", { name: "Perfect!" });
+        dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+
+        await waitFor(() => {
+          expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+        });
+      } finally {
+        dialogSupport.restore();
+      }
     });
   });
 });
