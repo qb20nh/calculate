@@ -1,9 +1,13 @@
 import { Languages, Monitor, Moon, SunMedium } from "lucide-preact";
 import type { FunctionalComponent } from "preact";
+import { useLocation } from "preact-iso/router";
 import { useAppSettings } from "@/lib/appSettings";
 
 export const AppChrome: FunctionalComponent = () => {
+  const { path } = useLocation();
   const { copy, preferences, cycleThemePreference, toggleLocale } = useAppSettings();
+
+  if (path !== "/") return null;
   const themeIcon =
     preferences.theme === "dark" ? (
       <Moon width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
