@@ -2,6 +2,8 @@ import { cleanup, render, waitFor } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import { reportAppRenderError, useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 
+vi.unmock("preact/hooks");
+
 function TestProbe({ ready, route }: { ready: boolean; route: string }) {
   useAppReadinessSignal(ready, route);
   return null;
@@ -89,7 +91,6 @@ describe("useAppReadinessSignal", () => {
 
     expect(() => mockedUseAppReadinessSignal(true, "ssr")).not.toThrow();
 
-    vi.unmock("preact/hooks");
     vi.resetModules();
     global.window = originalWindow;
   });

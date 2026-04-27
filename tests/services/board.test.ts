@@ -6,7 +6,7 @@ import {
   generateGame,
   validateBoard,
 } from "@/services/board";
-import { OP_MINUS, OP_PLUS, REL_EQ } from "@/services/math";
+import { OP_MINUS, OP_PLUS, REL_EQ, REL_GT } from "@/services/math";
 import type { Difficulty } from "@/services/storage";
 
 describe("board service", () => {
@@ -562,6 +562,52 @@ describe("board service", () => {
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.reason.toLowerCase()).toContain("formula");
+    }
+  });
+
+  it("should invalidate a board with a greater-than formula that is false", () => {
+    const board = {
+      "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: REL_GT, type: "rel" as const, isGiven: true },
+      "0,2": { id: "3", val: "3", type: "val" as const, isGiven: true },
+    };
+
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("formula");
+    }
+  });
+
+  it("should ignore formulas that start with a relation token", () => {
+    const board = {
+      "0,0": { id: "1", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,1": { id: "2", val: "1", type: "val" as const, isGiven: true },
+      "0,2": { id: "3", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "0,3": { id: "4", val: "1", type: "val" as const, isGiven: true },
+    };
+
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("formula");
+    }
+  });
+
+  it("should report an isolated invalid formula when a valid one also exists", () => {
+    const board = {
+      ...createCrossingNetworkBoard(),
+      "20,0": { id: "99", val: "2", type: "val" as const, isGiven: true },
+      "20,1": { id: "100", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "20,2": { id: "101", val: "3", type: "val" as const, isGiven: true },
+      "20,3": { id: "102", val: REL_GT, type: "rel" as const, isGiven: true },
+      "20,4": { id: "103", val: "10", type: "val" as const, isGiven: true },
+    };
+
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason).toContain('Invalid formula: "2+3>10"');
     }
   });
 });

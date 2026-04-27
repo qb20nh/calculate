@@ -117,4 +117,33 @@ describe("custom game worker", () => {
         "Could not generate a puzzle with those settings. Try a larger board or different seed.",
     });
   });
+
+  it("should post failure when generation throws", async () => {
+    const config: CustomGameConfig = {
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
+    };
+    mockGenerateCustomGameAttempt.mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    await import("@/workers/customGame.worker");
+
+    mockHandler?.({
+      origin: "https://example.test",
+      data: {
+        type: "generate",
+        config,
+      },
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig }>);
+
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: "failure",
+      reason:
+        "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    });
+  });
 });

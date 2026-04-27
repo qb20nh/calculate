@@ -2,6 +2,7 @@ import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-preact";
 import type { ComponentChildren, FunctionalComponent } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
+import { useAppSettings } from "@/lib/appSettings";
 import { cn } from "@/lib/utils";
 import { generateGame, getGridBounds, validateBoard } from "@/services/board";
 import type { TileData } from "@/services/math";
@@ -21,7 +22,7 @@ interface GameProps {
 }
 
 const headerButtonClass =
-  "p-2 text-slate-400 transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400";
+  "p-2 theme-muted-text transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-current";
 
 const headerPillClass =
   "flex items-center theme-primary-bg-soft rounded-full shadow-inner theme-primary-border overflow-hidden";
@@ -32,10 +33,10 @@ const HeaderShell: FunctionalComponent<{
   centerMobile: ComponentChildren;
   right: ComponentChildren;
 }> = ({ left, centerDesktop, centerMobile, right }) => (
-  <div className="flex justify-between items-center p-3 sm:p-4 bg-white shadow-sm z-20 shrink-0 border-b border-slate-100 relative">
+  <div className="flex justify-between items-center p-3 sm:p-4 theme-panel shadow-sm z-20 shrink-0 relative">
     <div className="flex items-center gap-2 sm:gap-3">
       {left}
-      <div className="hidden sm:block h-8 w-[1px] bg-slate-100 mx-1" />
+      <div className="hidden sm:block h-8 w-[1px] theme-border-line mx-1" />
       <div className="hidden sm:block">{centerDesktop}</div>
     </div>
 
@@ -55,6 +56,7 @@ const BoardCell: FunctionalComponent<{
   selectedTileType: TileData["type"] | null;
   onClick: (key: string) => void;
 }> = ({ cellKey, cell, isFringe, selectedTileId, selectedTileType, onClick }) => {
+  const { copy } = useAppSettings();
   if (!cell && !isFringe) {
     return <div className="w-full h-full pointer-events-none" />;
   }
@@ -74,7 +76,7 @@ const BoardCell: FunctionalComponent<{
           selectedTileId && selectedTileType && "highlight",
           selectedTileType && `highlight-${selectedTileType}`,
         )}
-        aria-label="Place tile here"
+        aria-label={copy.game.placeTileHere}
       />
     );
   }
@@ -110,6 +112,7 @@ const StageHeader: FunctionalComponent<{
   onStageChange: (newStage: number) => void;
   onReset?: () => void;
 }> = ({ difficulty, stage, maxStage, status, onBack, onStageChange, onReset }) => {
+  const { copy } = useAppSettings();
   const stageBar = (
     <div className={headerPillClass}>
       <button
@@ -121,7 +124,8 @@ const StageHeader: FunctionalComponent<{
           "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
           "transition-colors",
         )}
-        aria-label="Previous Stage"
+        aria-label={copy.game.previousStage}
+        data-skeleton-button="previous"
       >
         <ChevronLeft width={16} height={16} strokeWidth={3} />
       </button>
@@ -129,7 +133,7 @@ const StageHeader: FunctionalComponent<{
         id="skeleton-title"
         className="px-2 py-1 theme-primary-text text-sm font-bold whitespace-nowrap text-center min-w-[120px]"
       >
-        {difficulty} — Stage {stage}
+        {copy.game.stageLabel(difficulty, stage)}
       </span>
       <button
         type="button"
@@ -140,7 +144,8 @@ const StageHeader: FunctionalComponent<{
           "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
           "transition-colors",
         )}
-        aria-label="Next Stage"
+        aria-label={copy.game.nextStage}
+        data-skeleton-button="next"
       >
         <ChevronRight width={16} height={16} strokeWidth={3} />
       </button>
@@ -153,8 +158,9 @@ const StageHeader: FunctionalComponent<{
         <button
           type="button"
           onClick={onBack}
-          aria-label="Back"
+          aria-label={copy.game.back}
           className={cn(headerButtonClass, "theme-primary-hover-text theme-primary-hover-bg")}
+          data-skeleton-button="back"
         >
           <ChevronLeft width={20} height={20} strokeWidth={2.5} />
         </button>
@@ -167,7 +173,8 @@ const StageHeader: FunctionalComponent<{
           onClick={onReset}
           disabled={!onReset}
           className={cn(headerButtonClass, "theme-danger-text theme-danger-hover-bg")}
-          aria-label="Reset Stage"
+          aria-label={copy.game.resetStage}
+          data-skeleton-button="reset"
         >
           <RotateCcw width={20} height={20} strokeWidth={2.5} />
         </button>
@@ -194,45 +201,49 @@ export const UnavailableLevelShell: FunctionalComponent<{
   onStageChange,
   onReset,
   onLatestAvailable,
-}) => (
-  <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
-    <StageHeader
-      difficulty={difficulty}
-      stage={requestedStage}
-      maxStage={Math.max(requestedStage, availableStage)}
-      status="won"
-      onBack={onBack}
-      onStageChange={onStageChange}
-      onReset={onReset}
-    />
+}) => {
+  const { copy } = useAppSettings();
 
-    <div className="flex-1 flex items-center justify-center p-4">
-      <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-xl">
-        <h1 className="text-3xl font-black tracking-tight text-slate-800">
-          Stage {requestedStage} locked
-        </h1>
-        <p className="mt-3 text-slate-600 font-normal">{notice}</p>
+  return (
+    <div className="theme-page-bg h-dvh w-full flex flex-col overflow-hidden">
+      <StageHeader
+        difficulty={difficulty}
+        stage={requestedStage}
+        maxStage={Math.max(requestedStage, availableStage)}
+        status="won"
+        onBack={onBack}
+        onStageChange={onStageChange}
+        onReset={onReset}
+      />
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
-          >
-            Back to menu
-          </button>
-          <button
-            type="button"
-            onClick={onLatestAvailable}
-            className="flex-1 rounded-2xl theme-primary-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
-          >
-            Go to stage {availableStage}
-          </button>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="theme-panel max-w-md w-full rounded-3xl p-8 text-center shadow-xl">
+          <h1 className="text-3xl font-black tracking-tight">
+            {copy.game.stageLockedTitle(requestedStage)}
+          </h1>
+          <p className="mt-3 theme-muted-text font-normal">{notice}</p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex-1 rounded-2xl border theme-border px-5 py-3 font-bold theme-muted-text transition hover:bg-black/5 active:scale-95"
+            >
+              {copy.game.backToMenu}
+            </button>
+            <button
+              type="button"
+              onClick={onLatestAvailable}
+              className="flex-1 rounded-2xl theme-primary-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
+            >
+              {copy.game.goToStage(availableStage)}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const GameLoadingShell: FunctionalComponent<{
   difficulty: GameMode;
@@ -241,34 +252,38 @@ export const GameLoadingShell: FunctionalComponent<{
   notice?: string | undefined;
   onBack: () => void;
   onStageChange: (newStage: number) => void;
-}> = ({ difficulty, stage, maxStage, notice, onBack, onStageChange }) => (
-  <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
-    <div id="skeleton-progress" className="route-progress">
-      <div className="route-progress-bar" style={{ width: "0%" }} />
+}> = ({ difficulty, stage, maxStage, notice, onBack, onStageChange }) => {
+  const { copy } = useAppSettings();
+
+  return (
+    <div className="theme-page-bg h-dvh w-full flex flex-col overflow-hidden">
+      <div id="skeleton-progress" className="route-progress">
+        <div className="route-progress-bar" style={{ width: "0%" }} />
+      </div>
+      <div
+        id="skeleton-spinner"
+        className="fixed inset-0 z-[90] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
+      >
+        <div className="size-16 animate-spin rounded-full border-4 theme-spinner" />
+      </div>
+      <StageHeader
+        difficulty={difficulty}
+        stage={stage}
+        maxStage={maxStage}
+        onBack={onBack}
+        onStageChange={onStageChange}
+      />
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center font-bold theme-muted-text">
+        {notice && (
+          <p className="max-w-xs rounded-2xl theme-operator-bg-soft theme-operator-text px-5 py-3 text-sm border theme-operator-border">
+            {notice}
+          </p>
+        )}
+        <p data-skeleton-loading-text>{copy.game.generatingPuzzle}</p>
+      </div>
     </div>
-    <div
-      id="skeleton-spinner"
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-50/50"
-    >
-      <div className="size-16 animate-spin rounded-full border-4 theme-spinner" />
-    </div>
-    <StageHeader
-      difficulty={difficulty}
-      stage={stage}
-      maxStage={maxStage}
-      onBack={onBack}
-      onStageChange={onStageChange}
-    />
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center font-bold text-slate-500">
-      {notice && (
-        <p className="max-w-xs rounded-2xl theme-operator-bg-soft theme-operator-text px-5 py-3 text-sm border theme-operator-border">
-          {notice}
-        </p>
-      )}
-      <p>Generating Puzzle...</p>
-    </div>
-  </div>
-);
+  );
+};
 
 const TILE_SIZE = 44;
 
@@ -284,6 +299,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   onStageChange,
   onStateChange,
 }) => {
+  const { copy } = useAppSettings();
   const [gameState, setGameState] = useState<GameState | null>(initialState || null);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -612,7 +628,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           const width = bounds.maxC - bounds.minC + 1;
           const height = bounds.maxR - bounds.minR + 1;
           if (width > customConfig.sizeLimit || height > customConfig.sizeLimit) {
-            setToast("Submitted solution exceeds the configured size limit.");
+            setToast(copy.game.solutionTooLarge);
             timer = setTimeout(() => setToast(null), 3500);
             return () => {
               if (timer) clearTimeout(timer);
@@ -625,7 +641,7 @@ export const Game: FunctionalComponent<GameProps> = ({
         setToast(null);
         setIsCompletionDialogOpen(true);
       } else {
-        setToast(validation.reason);
+        setToast(copy.game.validationReason(validation.reason));
         timer = setTimeout(() => setToast(null), 3500);
       }
     } else {
@@ -635,7 +651,7 @@ export const Game: FunctionalComponent<GameProps> = ({
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [gameState, stage, onWin]);
+  }, [copy, gameState, stage, onWin]);
 
   const handleBoardClick = (key: string) => {
     if (gameState?.status !== "playing") return;
@@ -773,7 +789,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   const rows = maxR - minR + 1;
 
   return (
-    <div className="h-dvh w-full flex flex-col overflow-hidden bg-slate-50">
+    <div className="theme-page-bg h-dvh w-full flex flex-col overflow-hidden">
       <div ref={gameContentRef} className="flex min-h-0 flex-1 flex-col">
         <StageHeader
           difficulty={difficulty}
@@ -799,7 +815,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
             <div
               ref={panContainerRef}
-              className="bg-slate-100/30 rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
+              className="theme-panel-strong rounded-lg p-1 absolute top-0 left-0 pointer-events-auto transition-none"
               style={{
                 display: "grid",
                 gap: 0,
@@ -829,19 +845,19 @@ export const Game: FunctionalComponent<GameProps> = ({
           </div>
 
           {toast && (
-            <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-[60] animate-fade-in font-medium text-sm md:text-base whitespace-nowrap">
+            <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 theme-panel-strong px-6 py-3 rounded-full shadow-2xl z-[60] animate-fade-in font-medium text-sm md:text-base whitespace-nowrap">
               {toast}
             </div>
           )}
         </div>
 
-        <div className="bg-white border-t border-slate-200 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
+        <div className="theme-panel border-t shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
           <div className="max-w-4xl mx-auto relative">
             {canScrollLeft && (
-              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none z-30" />
+              <div className="absolute left-0 top-0 bottom-0 w-8 theme-edge-fade-left pointer-events-none z-30" />
             )}
             {canScrollRight && (
-              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-30" />
+              <div className="absolute right-0 top-0 bottom-0 w-8 theme-edge-fade-right pointer-events-none z-30" />
             )}
             <div
               ref={inventoryRef}
@@ -907,7 +923,9 @@ export const Game: FunctionalComponent<GameProps> = ({
                 );
               })}
               {groupedBank.length === 0 && (
-                <div className="text-slate-400 font-medium italic py-3 px-4">Bank is empty.</div>
+                <div className="theme-muted-text font-medium italic py-3 px-4">
+                  {copy.game.bankEmpty}
+                </div>
               )}
             </div>
           </div>
@@ -915,39 +933,36 @@ export const Game: FunctionalComponent<GameProps> = ({
       </div>
 
       {isResetDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <dialog
             ref={resetDialogRef}
             open={!supportsModalDialog && isResetDialogOpen}
-            className="m-auto rounded-3xl border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in block"
+            className="m-auto rounded-3xl theme-panel p-0 shadow-2xl animate-fade-in block"
             aria-labelledby="reset-dialog-title"
             aria-describedby="reset-dialog-desc"
           >
             <div className="max-w-sm p-8 text-center">
-              <h2
-                id="reset-dialog-title"
-                className="text-2xl font-black tracking-tight text-slate-800"
-              >
-                Reset this stage?
+              <h2 id="reset-dialog-title" className="text-2xl font-black tracking-tight">
+                {copy.game.resetDialogTitle}
               </h2>
-              <p id="reset-dialog-desc" className="mt-3 text-slate-500 font-medium">
-                Current progress on this stage will be lost.
+              <p id="reset-dialog-desc" className="mt-3 theme-muted-text font-medium">
+                {copy.game.resetDialogDescription}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
                   ref={resetCancelRef}
                   type="button"
                   onClick={() => setIsResetDialogOpen(false)}
-                  className="flex-1 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
+                  className="flex-1 rounded-2xl border theme-border px-5 py-3 font-bold theme-muted-text transition hover:bg-black/5 active:scale-95"
                 >
-                  Cancel
+                  {copy.game.cancel}
                 </button>
                 <button
                   type="button"
                   onClick={confirmResetLevel}
                   className="flex-1 rounded-2xl theme-danger-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
                 >
-                  Reset
+                  {copy.game.reset}
                 </button>
               </div>
             </div>
@@ -956,11 +971,11 @@ export const Game: FunctionalComponent<GameProps> = ({
       )}
 
       {isCompletionDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <dialog
             ref={completionDialogRef}
             open={!supportsModalDialog && isCompletionDialogOpen}
-            className="m-auto rounded-[2rem] border border-slate-100 bg-white p-0 shadow-2xl animate-fade-in block"
+            className="m-auto rounded-[2rem] theme-panel p-0 shadow-2xl animate-fade-in block"
             aria-labelledby="completion-dialog-title"
             aria-describedby="completion-dialog-desc"
           >
@@ -971,26 +986,23 @@ export const Game: FunctionalComponent<GameProps> = ({
                   height={40}
                   strokeWidth={3}
                   className="theme-number-text"
-                  aria-label="Success"
+                  aria-label={copy.game.successLabel}
                 />
               </div>
-              <h2
-                id="completion-dialog-title"
-                className="text-3xl font-black text-slate-800 mb-2 tracking-tight"
-              >
-                Perfect!
+              <h2 id="completion-dialog-title" className="text-3xl font-black mb-2 tracking-tight">
+                {copy.game.perfect}
               </h2>
-              <p id="completion-dialog-desc" className="text-slate-500 mb-8 font-medium">
-                You cleared the board.
+              <p id="completion-dialog-desc" className="theme-muted-text mb-8 font-medium">
+                {copy.game.clearedBoard}
               </p>
               <div className="w-full flex flex-col gap-3">
                 <button
                   ref={completionDismissRef}
                   type="button"
                   onClick={dismissCompletionDialog}
-                  className="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-4 px-8 rounded-2xl shadow-sm transform transition active:scale-95 text-lg"
+                  className="w-full border theme-border hover:bg-black/5 theme-muted-text font-bold py-4 px-8 rounded-2xl shadow-sm transform transition active:scale-95 text-lg"
                 >
-                  Dismiss
+                  {copy.game.dismiss}
                 </button>
                 {showNextLevelButton && (
                   <button
@@ -998,7 +1010,7 @@ export const Game: FunctionalComponent<GameProps> = ({
                     onClick={() => onWin(stage + 1)}
                     className="w-full theme-primary-bg text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
                   >
-                    Next level
+                    {copy.game.nextLevel}
                   </button>
                 )}
               </div>

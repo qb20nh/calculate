@@ -370,7 +370,9 @@ describe("CustomGameRoute", () => {
       },
     } as unknown as MessageEvent<WorkerMessage>);
 
-    await screen.findByText("No board found.");
+    await screen.findByText(
+      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    );
     expect(screen.getByText("Custom Game")).toBeDefined();
   });
 

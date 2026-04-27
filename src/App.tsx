@@ -2,10 +2,12 @@ import type { ComponentChildren } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import { ErrorBoundary } from "preact-iso/lazy";
 import { LocationProvider, Route, Router, useLocation } from "preact-iso/router";
+import { AppChrome } from "@/components/AppChrome";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProgressBar } from "@/components/ProgressBar";
 import { reportAppRenderError } from "@/hooks/useAppReadinessSignal";
 import { useLoading } from "@/hooks/useLoading";
+import { AppSettingsProvider } from "@/lib/appSettings";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
 
@@ -30,25 +32,28 @@ export function App() {
   const isLoading = isRouteLoading || isGlobalLoading;
 
   return (
-    <LocationProvider>
-      <BasePathProvider>
-        <ErrorBoundary onError={reportAppRenderError}>
-          <Router
-            onLoadStart={() => setIsRouteLoading(true)}
-            onLoadEnd={() => setIsRouteLoading(false)}
-          >
-            <Route path="/" component={MenuRoute} onGameRoutePreload={preloadGameRoute} />
-            <Route path="/game" component={NotFoundRoute} />
-            <Route path="/game/" component={NotFoundRoute} />
-            <Route path="/game/:difficulty" component={GameRoute} />
-            <Route path="/game/:difficulty/" component={GameRoute} />
-            <Route path="/404" component={NotFoundRoute} />
-            <Route default component={NotFoundRoute} />
-          </Router>
-          <ProgressBar isLoading={isLoading} />
-          <LoadingSpinner isVisible={isLoading} />
-        </ErrorBoundary>
-      </BasePathProvider>
-    </LocationProvider>
+    <AppSettingsProvider>
+      <LocationProvider>
+        <BasePathProvider>
+          <AppChrome />
+          <ErrorBoundary onError={reportAppRenderError}>
+            <Router
+              onLoadStart={() => setIsRouteLoading(true)}
+              onLoadEnd={() => setIsRouteLoading(false)}
+            >
+              <Route path="/" component={MenuRoute} onGameRoutePreload={preloadGameRoute} />
+              <Route path="/game" component={NotFoundRoute} />
+              <Route path="/game/" component={NotFoundRoute} />
+              <Route path="/game/:difficulty" component={GameRoute} />
+              <Route path="/game/:difficulty/" component={GameRoute} />
+              <Route path="/404" component={NotFoundRoute} />
+              <Route default component={NotFoundRoute} />
+            </Router>
+            <ProgressBar isLoading={isLoading} />
+            <LoadingSpinner isVisible={isLoading} />
+          </ErrorBoundary>
+        </BasePathProvider>
+      </LocationProvider>
+    </AppSettingsProvider>
   );
 }

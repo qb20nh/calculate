@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game } from "@/components/Game";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
+import { useAppSettings } from "@/lib/appSettings";
 import { parseCustomGameConfig, toCustomGamePath } from "@/routes/routeUtils";
 import { generateCustomGame } from "@/services/board";
 import {
@@ -47,27 +48,38 @@ const sameCustomConfig = (left: CustomGameConfig | null | undefined, right: Cust
   left.seed === right.seed &&
   (left.limitSolutionSize ?? false) === right.limitSolutionSize;
 
-const isValidCustomConfig = (config: CustomGameConfig) => {
+const isValidCustomConfig = (
+  config: CustomGameConfig,
+  validation: {
+    givenCountPositive: string;
+    inventoryCountPositive: string;
+    sizeLimitPositive: string;
+    settingsInvalid: string;
+    totalTiles: string;
+    sizeLimitMin: string;
+    tileCountExceeds: string;
+  },
+) => {
   if (!Number.isSafeInteger(config.givenCount) || config.givenCount <= 0) {
-    return "Given count must be a positive whole number.";
+    return validation.givenCountPositive;
   }
   if (!Number.isSafeInteger(config.inventoryCount) || config.inventoryCount <= 0) {
-    return "Inventory tile count must be a positive whole number.";
+    return validation.inventoryCountPositive;
   }
   if (!Number.isSafeInteger(config.sizeLimit) || config.sizeLimit <= 0) {
-    return "Board size limit must be a positive whole number.";
+    return validation.sizeLimitPositive;
   }
   if (typeof config.limitSolutionSize !== "boolean") {
-    return "Custom option settings are invalid.";
+    return validation.settingsInvalid;
   }
   if (config.givenCount + config.inventoryCount < 9) {
-    return "Need at least 9 total tiles.";
+    return validation.totalTiles;
   }
   if (config.sizeLimit < 5) {
-    return "Board size limit must be at least 5.";
+    return validation.sizeLimitMin;
   }
   if (config.givenCount + config.inventoryCount > config.sizeLimit * config.sizeLimit) {
-    return "Tile count exceeds board size limit.";
+    return validation.tileCountExceeds;
   }
   return null;
 };
@@ -80,7 +92,7 @@ type FieldProps = {
 
 const Field = ({ label, htmlFor, children }: FieldProps) => (
   <div className="grid gap-2">
-    <label htmlFor={htmlFor} className="text-sm font-bold text-slate-600">
+    <label htmlFor={htmlFor} className="text-sm font-bold theme-muted-text">
       {label}
     </label>
     {children}
@@ -100,24 +112,21 @@ function CustomGameSetup({
   onDraftChange: (next: CustomGameConfig) => void;
   onSubmit: () => void;
 }>) {
+  const { copy } = useAppSettings();
   useAppReadinessSignal(true, "custom-setup");
 
   return (
-    <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
+    <div className="theme-page-bg h-dvh w-full flex items-center justify-center p-4">
+      <div className="theme-panel w-full max-w-lg rounded-3xl p-6 shadow-xl md:p-8">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
-              Custom Game
-            </h1>
-            <p className="mt-2 font-medium text-slate-500">
-              Pick exact counts, size limit, and seed. URL will keep setup.
-            </p>
+            <h1 className="text-3xl font-black tracking-tight md:text-4xl">{copy.custom.title}</h1>
+            <p className="mt-2 font-medium theme-muted-text">{copy.custom.subtitle}</p>
           </div>
         </div>
 
         <div className="grid gap-4">
-          <Field label="Given count" htmlFor="custom-given-count">
+          <Field label={copy.custom.givenCount} htmlFor="custom-given-count">
             <input
               id="custom-given-count"
               type="number"
@@ -130,11 +139,11 @@ function CustomGameSetup({
                   givenCount: Number(e.currentTarget.value),
                 })
               }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+              className="theme-input rounded-2xl px-4 py-3 outline-none"
             />
           </Field>
 
-          <Field label="Inventory tile count" htmlFor="custom-inventory-count">
+          <Field label={copy.custom.inventoryCount} htmlFor="custom-inventory-count">
             <input
               id="custom-inventory-count"
               type="number"
@@ -147,11 +156,11 @@ function CustomGameSetup({
                   inventoryCount: Number(e.currentTarget.value),
                 })
               }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+              className="theme-input rounded-2xl px-4 py-3 outline-none"
             />
           </Field>
 
-          <Field label="Board size limit" htmlFor="custom-size-limit">
+          <Field label={copy.custom.sizeLimit} htmlFor="custom-size-limit">
             <input
               id="custom-size-limit"
               type="number"
@@ -164,11 +173,11 @@ function CustomGameSetup({
                   sizeLimit: Number(e.currentTarget.value),
                 })
               }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+              className="theme-input rounded-2xl px-4 py-3 outline-none"
             />
           </Field>
 
-          <Field label="Seed" htmlFor="custom-seed">
+          <Field label={copy.custom.seed} htmlFor="custom-seed">
             <input
               id="custom-seed"
               type="text"
@@ -179,12 +188,12 @@ function CustomGameSetup({
                   seed: e.currentTarget.value,
                 })
               }
-              placeholder="blank or 0 = random"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+              placeholder={copy.custom.seedPlaceholder}
+              className="theme-input rounded-2xl px-4 py-3 outline-none"
             />
           </Field>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="theme-panel rounded-2xl p-4">
             <label className="flex gap-3">
               <input
                 id="custom-limit-solution-size"
@@ -196,14 +205,12 @@ function CustomGameSetup({
                     limitSolutionSize: e.currentTarget.checked,
                   })
                 }
-                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-slate-700"
+                className="mt-1 h-4 w-4 shrink-0 rounded border theme-border text-[var(--theme-ink)]"
               />
-              <span className="text-sm font-bold text-slate-700">
-                Limit submitted solution size too
-              </span>
+              <span className="text-sm font-bold">{copy.custom.limitSolutionSize}</span>
             </label>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Reject a solved board if its final width or height exceeds the configured limit.
+            <p className="mt-2 text-sm leading-6 theme-muted-text">
+              {copy.custom.limitSolutionSizeDescription}
             </p>
           </div>
         </div>
@@ -218,16 +225,16 @@ function CustomGameSetup({
           <button
             type="button"
             onClick={onBackToMenu}
-            className="rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
+            className="rounded-2xl border theme-border px-5 py-4 font-bold theme-muted-text transition active:scale-95"
           >
-            Back to menu
+            {copy.custom.backToMenu}
           </button>
           <button
             type="button"
             onClick={onSubmit}
             className="rounded-2xl theme-primary-bg px-5 py-4 font-bold text-white shadow-xl transition active:scale-95"
           >
-            Start custom game
+            {copy.custom.start}
           </button>
         </div>
       </div>
@@ -239,33 +246,32 @@ function CustomGameLoading({
   retryCount,
   onCancel,
 }: Readonly<{ retryCount: number; onCancel: () => void }>) {
+  const { copy } = useAppSettings();
   useAppReadinessSignal(false, "custom-loading");
 
   return (
-    <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
+    <div className="theme-page-bg h-dvh w-full flex items-center justify-center p-4">
+      <div className="theme-panel w-full max-w-lg rounded-3xl p-6 shadow-xl md:p-8">
         <div className="flex items-center gap-4">
-          <div className="size-14 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+          <div className="size-14 animate-spin rounded-full border-4 theme-spinner" />
           <div className="grid gap-1">
-            <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              Generating custom game
-            </h1>
-            <p className="font-medium text-slate-500">
-              Retry {retryCount} / {CUSTOM_GAME_RETRY_LIMIT}
+            <h1 className="text-2xl font-black tracking-tight">{copy.custom.loadingTitle}</h1>
+            <p className="font-medium theme-muted-text">
+              {copy.custom.retryLabel(retryCount, CUSTOM_GAME_RETRY_LIMIT)}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-          Worker retries the same seeded generator until it finds a valid board or hits the limit.
+        <div className="mt-6 rounded-2xl theme-panel-strong px-4 py-3 text-sm font-medium">
+          {copy.custom.loadingHint}
         </div>
 
         <button
           type="button"
           onClick={onCancel}
-          className="mt-6 w-full rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
+          className="mt-6 w-full rounded-2xl border theme-border px-5 py-4 font-bold theme-muted-text transition active:scale-95"
         >
-          Cancel
+          {copy.custom.cancel}
         </button>
       </div>
     </div>
@@ -273,6 +279,7 @@ function CustomGameLoading({
 }
 
 export default function CustomGameRoute() {
+  const { copy } = useAppSettings();
   const location = useLocation();
   const searchParams = useMemo(
     () => new URL(location.url, "http://localhost").searchParams,
@@ -292,9 +299,7 @@ export default function CustomGameRoute() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(
-    parsedConfig === null && searchParams.toString().length > 0
-      ? "Invalid custom settings in URL."
-      : null,
+    parsedConfig === null && searchParams.toString().length > 0 ? copy.custom.invalidUrl : null,
   );
 
   const workerRef = useRef<CustomGameWorkerHandle | null>(null);
@@ -333,7 +338,7 @@ export default function CustomGameRoute() {
         setRetryCount(0);
 
         if (message.type === "failure") {
-          setError(message.reason);
+          setError(copy.custom.generationError);
           return;
         }
 
@@ -347,9 +352,7 @@ export default function CustomGameRoute() {
         terminateWorker();
         setIsGenerating(false);
         setRetryCount(0);
-        setError(
-          "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-        );
+        setError(copy.custom.generationError);
       };
 
       worker.postMessage({
@@ -360,9 +363,7 @@ export default function CustomGameRoute() {
       terminateWorker();
       setIsGenerating(false);
       setRetryCount(0);
-      setError(
-        "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-      );
+      setError(copy.custom.generationError);
     }
   };
 
@@ -375,7 +376,7 @@ export default function CustomGameRoute() {
       limitSolutionSize: Boolean(draft.limitSolutionSize),
     };
 
-    const validationError = isValidCustomConfig(normalized);
+    const validationError = isValidCustomConfig(normalized, copy.custom.validation);
     if (validationError) {
       setError(validationError);
       return;
@@ -409,7 +410,7 @@ export default function CustomGameRoute() {
         createNewGame={() => {
           const nextGame = generateCustomGame(activeConfig);
           if (!nextGame) {
-            throw new Error("Could not regenerate custom puzzle.");
+            throw new Error(copy.custom.couldNotRegenerate);
           }
           return nextGame;
         }}

@@ -45,6 +45,18 @@ describe("App", () => {
     expect(await screen.findByText("Math")).toBeDefined();
   });
 
+  it("should render in Korean when saved preferences exist", async () => {
+    localStorage.setItem("math_scrabble_prefs", JSON.stringify({ theme: "dark", locale: "ko" }));
+
+    render(<App />);
+
+    expect(await screen.findByText("수학")).toBeDefined();
+    await waitFor(() => {
+      expect(document.documentElement.dataset.theme).toBe("dark");
+      expect(document.documentElement.lang).toBe("ko");
+    });
+  });
+
   it("should render menu at root even when saved game exists", async () => {
     localStorage.setItem(
       "math_scrabble_state",

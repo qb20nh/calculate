@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
+import { useAppSettings } from "@/lib/appSettings";
 import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import {
@@ -37,6 +38,7 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
 }
 
 function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
+  const { copy } = useAppSettings();
   const location = useLocation();
   const difficulty = parseDifficultySlug(difficultySlug);
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
@@ -85,9 +87,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const shouldRedirect =
     isClient && targetPath !== null && location.url !== targetPath && !isStageLocked;
   const lockedNotice =
-    difficulty && requestedStage && latestAvailableStage
-      ? "This level is not unlocked yet. Use the buttons below to leave or continue."
-      : undefined;
+    difficulty && requestedStage && latestAvailableStage ? copy.game.stageLockedNotice : undefined;
 
   useEffect(() => {
     if (!shouldRedirect || !targetPath) return;

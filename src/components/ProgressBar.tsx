@@ -1,6 +1,7 @@
 import type { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { type ProgressBarProps, useProgressBar } from "@/hooks/useProgressBar";
+import { useAppSettings } from "@/lib/appSettings";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
  * and snaps/fades when finished.
  */
 export const ProgressBar: FunctionalComponent<ProgressBarProps> = (props) => {
+  const { copy } = useAppSettings();
   const { progress, isFading, isVisible, isResetting, transitionMs } = useProgressBar(props);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export const ProgressBar: FunctionalComponent<ProgressBarProps> = (props) => {
 
   return (
     <progress
-      aria-label="Loading"
+      aria-label={copy.aria.loading}
       max={100}
       value={progress}
       className={cn(

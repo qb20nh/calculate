@@ -2,8 +2,10 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --theme-bg: #f8fafc;
     --theme-surface: #ffffff;
+    --theme-surface-strong: #eef2ff;
     --theme-ink: #0f172a;
     --theme-muted: color-mix(in srgb, var(--theme-ink) 35%, var(--theme-bg));
     --theme-border: color-mix(in srgb, var(--theme-ink) 12%, var(--theme-bg));
@@ -27,6 +29,35 @@
     --theme-number-soft: color-mix(in srgb, var(--theme-number) 8%, var(--theme-bg));
     --theme-operator-soft: color-mix(in srgb, var(--theme-operator) 8%, var(--theme-bg));
   }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --theme-bg: #020617;
+    --theme-surface: #0f172a;
+    --theme-surface-strong: #111827;
+    --theme-ink: #e5e7eb;
+    --theme-muted: color-mix(in srgb, var(--theme-ink) 58%, var(--theme-bg));
+    --theme-border: color-mix(in srgb, var(--theme-ink) 16%, var(--theme-bg));
+    --theme-relation: #60a5fa;
+    --theme-primary: #a855f7;
+    --theme-number: #4ade80;
+    --theme-operator: #fb923c;
+    --theme-danger: #f87171;
+    --theme-primary-soft: color-mix(in srgb, var(--theme-primary) 16%, var(--theme-bg));
+    --theme-primary-softer: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-bg));
+    --theme-primary-border: color-mix(in srgb, var(--theme-primary) 45%, var(--theme-bg));
+    --theme-primary-text: color-mix(in srgb, var(--theme-primary) 82%, white);
+    --theme-primary-muted-text: color-mix(in srgb, var(--theme-primary) 62%, var(--theme-bg));
+    --theme-relation-soft: color-mix(in srgb, var(--theme-relation) 16%, var(--theme-bg));
+    --theme-relation-softer: color-mix(in srgb, var(--theme-relation) 10%, var(--theme-bg));
+    --theme-relation-border: color-mix(in srgb, var(--theme-relation) 45%, var(--theme-bg));
+    --theme-relation-text: color-mix(in srgb, var(--theme-relation) 84%, white);
+    --theme-relation-muted-text: color-mix(in srgb, var(--theme-relation) 62%, var(--theme-bg));
+    --theme-danger-soft: color-mix(in srgb, var(--theme-danger) 20%, var(--theme-bg));
+    --theme-danger-border: color-mix(in srgb, var(--theme-danger) 42%, var(--theme-bg));
+    --theme-number-soft: color-mix(in srgb, var(--theme-number) 12%, var(--theme-bg));
+    --theme-operator-soft: color-mix(in srgb, var(--theme-operator) 12%, var(--theme-bg));
+  }
 }
 
 @layer base {
@@ -44,6 +75,7 @@
 
   body {
     background-color: var(--theme-bg);
+    color: var(--theme-ink);
     touch-action: none;
     -webkit-overflow-scrolling: none;
     overscroll-behavior: none;
@@ -263,6 +295,107 @@
 
   .theme-btn-secondary:hover {
     background-color: color-mix(in srgb, var(--theme-surface) 80%, var(--theme-bg));
+  }
+
+  .theme-page-bg {
+    background:
+      radial-gradient(
+        circle at top,
+        color-mix(in srgb, var(--theme-primary) 10%, transparent) 0,
+        transparent 30%
+      ),
+      var(--theme-bg);
+  }
+
+  .theme-panel {
+    background-color: var(--theme-surface);
+    color: var(--theme-ink);
+    border: 1px solid var(--theme-border);
+  }
+
+  .theme-panel-strong {
+    background-color: var(--theme-surface-strong);
+    color: var(--theme-ink);
+    border: 1px solid var(--theme-border);
+  }
+
+  .theme-border-line {
+    background-color: var(--theme-border);
+  }
+
+  .theme-border {
+    border-color: var(--theme-border);
+  }
+
+  .theme-muted-text {
+    color: var(--theme-muted);
+  }
+
+  .theme-control-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid var(--theme-border);
+    background-color: color-mix(in srgb, var(--theme-surface) 90%, var(--theme-bg));
+    color: var(--theme-ink);
+    padding: 0.5rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-ink) 10%, transparent);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .theme-control-pill:hover {
+    background-color: color-mix(in srgb, var(--theme-surface) 78%, var(--theme-bg));
+    transform: translateY(-1px);
+  }
+
+  .theme-control-label {
+    color: var(--theme-muted);
+  }
+
+  .theme-input {
+    width: 100%;
+    border: 1px solid var(--theme-border);
+    background-color: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-bg));
+    color: var(--theme-ink);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .theme-input::placeholder {
+    color: color-mix(in srgb, var(--theme-muted) 85%, transparent);
+  }
+
+  .theme-input:focus {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 18%, transparent);
+  }
+
+  .theme-edge-fade-left {
+    background-image: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--theme-surface) 100%, transparent),
+      color-mix(in srgb, var(--theme-surface) 92%, transparent),
+      transparent
+    );
+  }
+
+  .theme-edge-fade-right {
+    background-image: linear-gradient(
+      to left,
+      color-mix(in srgb, var(--theme-surface) 100%, transparent),
+      color-mix(in srgb, var(--theme-surface) 92%, transparent),
+      transparent
+    );
   }
 
   .theme-btn-danger {

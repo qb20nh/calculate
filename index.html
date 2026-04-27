@@ -6,6 +6,27 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="color-scheme" content="light dark" />
 		<title>Vite + Preact</title>
+		<script>
+			(() => {
+					var raw = localStorage.getItem("math_scrabble_prefs");
+					var prefs = raw ? JSON.parse(raw) : {};
+					var theme = prefs && (prefs.theme === "light" || prefs.theme === "dark" ? prefs.theme : "system");
+					var locale = prefs && prefs.locale === "ko" ? "ko" : "en";
+					var resolved;
+				try {
+					resolved =
+						theme === "system"
+							? window.matchMedia?.("(prefers-color-scheme: dark)").matches
+								? "dark"
+								: "light"
+							: theme;
+					document.documentElement.dataset.theme = resolved;
+					document.documentElement.lang = locale;
+					document.documentElement.style.colorScheme = resolved;
+					document.title = locale === "ko" ? "수학 크로스워드" : "Math Crossword";
+				} catch {}
+			})();
+		</script>
 	</head>
 	<body>
 		<div id="app"></div>
@@ -20,7 +41,6 @@
 				var stage = url.searchParams.get("stage");
 				var app = document.getElementById("app");
 				var template = document.getElementById("game-skeleton");
-				var difficulty;
 				var clone;
 				var titleElem;
 				var progressBar;
@@ -29,12 +49,51 @@
 
 				if (!match || !stage || !app || !template) return;
 
-				difficulty = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+				var isKorean = document.documentElement.lang === "ko";
+				var difficultyLabels = isKorean
+					? { easy: "쉬움", medium: "보통", hard: "어려움" }
+					: { easy: "Easy", medium: "Medium", hard: "Hard" };
+				var difficultyText = difficultyLabels[match[1]] || match[1].charAt(0).toUpperCase() + match[1].slice(1);
+				var loadingText = isKorean ? "퍼즐 생성 중..." : "Generating Puzzle...";
+				var buttonLabels = isKorean
+					? {
+							back: "뒤로",
+							previous: "이전 단계",
+							next: "다음 단계",
+							reset: "단계 초기화",
+						}
+					: {
+							back: "Back",
+							previous: "Previous Stage",
+							next: "Next Stage",
+							reset: "Reset Stage",
+						};
+
 				clone = template.content.cloneNode(true);
 				titleElem = clone.getElementById("skeleton-title");
 
 				if (titleElem) {
-					titleElem.textContent = `${difficulty} — Stage ${stage}`;
+					titleElem.textContent =
+						document.documentElement.lang === "ko"
+							? `${difficultyText} — ${stage}단계`
+							: `${difficultyText} — Stage ${stage}`;
+				}
+
+				clone
+					.querySelectorAll("[data-skeleton-button]")
+					.forEach((button) => {
+						var key = button.dataset.skeletonButton;
+						if (!key) return;
+						if (buttonLabels[key]) {
+							button.setAttribute("aria-label", buttonLabels[key]);
+						}
+					});
+				var loadingTextNode;
+				if (document.documentElement.lang === "ko") {
+					loadingTextNode = clone.querySelector("[data-skeleton-loading-text]");
+					if (loadingTextNode) {
+						loadingTextNode.textContent = loadingText;
+					}
 				}
 
 				// If app already has content (like the main menu from a SPA fallback), clear it
