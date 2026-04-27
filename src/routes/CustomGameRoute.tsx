@@ -2,6 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game } from "@/components/Game";
+import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { parseCustomGameConfig, toCustomGamePath } from "@/routes/routeUtils";
 import { generateCustomGame } from "@/services/board";
 import {
@@ -86,7 +87,7 @@ const Field = ({ label, htmlFor, children }: FieldProps) => (
   </div>
 );
 
-const CustomGameSetup = ({
+function CustomGameSetup({
   draft,
   error,
   onBackToMenu,
@@ -98,173 +99,175 @@ const CustomGameSetup = ({
   onBackToMenu: () => void;
   onDraftChange: (next: CustomGameConfig) => void;
   onSubmit: () => void;
-}) => (
-  <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
-    <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
-            Custom Game
-          </h1>
-          <p className="mt-2 font-medium text-slate-500">
-            Pick exact counts, size limit, and seed. URL will keep setup.
-          </p>
+}) {
+  useAppReadinessSignal(true, "custom-setup");
+
+  return (
+    <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
+        <div className="mb-6 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
+              Custom Game
+            </h1>
+            <p className="mt-2 font-medium text-slate-500">
+              Pick exact counts, size limit, and seed. URL will keep setup.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-4">
-        <Field label="Given count" htmlFor="custom-given-count">
-          <input
-            id="custom-given-count"
-            type="number"
-            min="1"
-            step="1"
-            value={draft.givenCount}
-            onInput={(e) =>
-              onDraftChange({
-                ...draft,
-                givenCount: Number((e.currentTarget as HTMLInputElement).value),
-              })
-            }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
-          />
-        </Field>
-
-        <Field label="Inventory tile count" htmlFor="custom-inventory-count">
-          <input
-            id="custom-inventory-count"
-            type="number"
-            min="1"
-            step="1"
-            value={draft.inventoryCount}
-            onInput={(e) =>
-              onDraftChange({
-                ...draft,
-                inventoryCount: Number((e.currentTarget as HTMLInputElement).value),
-              })
-            }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
-          />
-        </Field>
-
-        <Field label="Board size limit" htmlFor="custom-size-limit">
-          <input
-            id="custom-size-limit"
-            type="number"
-            min="1"
-            step="1"
-            value={draft.sizeLimit}
-            onInput={(e) =>
-              onDraftChange({
-                ...draft,
-                sizeLimit: Number((e.currentTarget as HTMLInputElement).value),
-              })
-            }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
-          />
-        </Field>
-
-        <Field label="Seed" htmlFor="custom-seed">
-          <input
-            id="custom-seed"
-            type="text"
-            value={draft.seed}
-            onInput={(e) =>
-              onDraftChange({
-                ...draft,
-                seed: (e.currentTarget as HTMLInputElement).value,
-              })
-            }
-            placeholder="blank or 0 = random"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
-          />
-        </Field>
-
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <label className="flex gap-3">
+        <div className="grid gap-4">
+          <Field label="Given count" htmlFor="custom-given-count">
             <input
-              id="custom-limit-solution-size"
-              type="checkbox"
-              checked={draft.limitSolutionSize}
-              onChange={(e) =>
+              id="custom-given-count"
+              type="number"
+              min="1"
+              step="1"
+              value={draft.givenCount}
+              onInput={(e) =>
                 onDraftChange({
                   ...draft,
-                  limitSolutionSize: (e.currentTarget as HTMLInputElement).checked,
+                  givenCount: Number((e.currentTarget as HTMLInputElement).value),
                 })
               }
-              className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-slate-700"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
             />
-            <span className="text-sm font-bold text-slate-700">
-              Limit submitted solution size too
-            </span>
-          </label>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Reject a solved board if its final width or height exceeds the configured limit.
+          </Field>
+
+          <Field label="Inventory tile count" htmlFor="custom-inventory-count">
+            <input
+              id="custom-inventory-count"
+              type="number"
+              min="1"
+              step="1"
+              value={draft.inventoryCount}
+              onInput={(e) =>
+                onDraftChange({
+                  ...draft,
+                  inventoryCount: Number((e.currentTarget as HTMLInputElement).value),
+                })
+              }
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+            />
+          </Field>
+
+          <Field label="Board size limit" htmlFor="custom-size-limit">
+            <input
+              id="custom-size-limit"
+              type="number"
+              min="1"
+              step="1"
+              value={draft.sizeLimit}
+              onInput={(e) =>
+                onDraftChange({
+                  ...draft,
+                  sizeLimit: Number((e.currentTarget as HTMLInputElement).value),
+                })
+              }
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+            />
+          </Field>
+
+          <Field label="Seed" htmlFor="custom-seed">
+            <input
+              id="custom-seed"
+              type="text"
+              value={draft.seed}
+              onInput={(e) =>
+                onDraftChange({
+                  ...draft,
+                  seed: (e.currentTarget as HTMLInputElement).value,
+                })
+              }
+              placeholder="blank or 0 = random"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
+            />
+          </Field>
+
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <label className="flex gap-3">
+              <input
+                id="custom-limit-solution-size"
+                type="checkbox"
+                checked={draft.limitSolutionSize}
+                onChange={(e) =>
+                  onDraftChange({
+                    ...draft,
+                    limitSolutionSize: (e.currentTarget as HTMLInputElement).checked,
+                  })
+                }
+                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-slate-700"
+              />
+              <span className="text-sm font-bold text-slate-700">
+                Limit submitted solution size too
+              </span>
+            </label>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Reject a solved board if its final width or height exceeds the configured limit.
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            {error}
           </p>
+        )}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onBackToMenu}
+            className="rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
+          >
+            Back to menu
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            className="rounded-2xl theme-primary-bg px-5 py-4 font-bold text-white shadow-xl transition active:scale-95"
+          >
+            Start custom game
+          </button>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {error && (
-        <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-          {error}
-        </p>
-      )}
+function CustomGameLoading({ retryCount, onCancel }: { retryCount: number; onCancel: () => void }) {
+  useAppReadinessSignal(false, "custom-loading");
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+  return (
+    <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
+        <div className="flex items-center gap-4">
+          <div className="size-14 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+          <div className="grid gap-1">
+            <h1 className="text-2xl font-black tracking-tight text-slate-800">
+              Generating custom game
+            </h1>
+            <p className="font-medium text-slate-500">
+              Retry {retryCount} / {CUSTOM_GAME_RETRY_LIMIT}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+          Worker retries the same seeded generator until it finds a valid board or hits the limit.
+        </div>
+
         <button
           type="button"
-          onClick={onBackToMenu}
-          className="rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
+          onClick={onCancel}
+          className="mt-6 w-full rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
         >
-          Back to menu
-        </button>
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="rounded-2xl theme-primary-bg px-5 py-4 font-bold text-white shadow-xl transition active:scale-95"
-        >
-          Start custom game
+          Cancel
         </button>
       </div>
     </div>
-  </div>
-);
-
-const CustomGameLoading = ({
-  retryCount,
-  onCancel,
-}: {
-  retryCount: number;
-  onCancel: () => void;
-}) => (
-  <div className="h-dvh w-full flex items-center justify-center bg-slate-50 p-4">
-    <div className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-xl md:p-8">
-      <div className="flex items-center gap-4">
-        <div className="size-14 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-black tracking-tight text-slate-800">
-            Generating custom game
-          </h1>
-          <p className="font-medium text-slate-500">
-            Retry {retryCount} / {CUSTOM_GAME_RETRY_LIMIT}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-        Worker retries the same seeded generator until it finds a valid board or hits the limit.
-      </div>
-
-      <button
-        type="button"
-        onClick={onCancel}
-        className="mt-6 w-full rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-600 transition active:scale-95"
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-);
+  );
+}
 
 export default function CustomGameRoute() {
   const location = useLocation();

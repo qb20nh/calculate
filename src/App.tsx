@@ -4,6 +4,7 @@ import { ErrorBoundary } from "preact-iso/lazy";
 import { LocationProvider, Route, Router, useLocation } from "preact-iso/router";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProgressBar } from "@/components/ProgressBar";
+import { reportAppRenderError } from "@/hooks/useAppReadinessSignal";
 import { useLoading } from "@/hooks/useLoading";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
@@ -31,7 +32,7 @@ export function App() {
   return (
     <LocationProvider>
       <BasePathProvider>
-        <ErrorBoundary>
+        <ErrorBoundary onError={reportAppRenderError}>
           <Router
             onLoadStart={() => setIsRouteLoading(true)}
             onLoadEnd={() => setIsRouteLoading(false)}

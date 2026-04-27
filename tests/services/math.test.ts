@@ -115,11 +115,13 @@ describe("math service", () => {
     expect(evaluateExpression(`2${OP_PLUS}${OP_PLUS}3`)).toBeNull();
     expect(evaluateExpression(`2${OP_PLUS}`)).toBeNull();
     expect(evaluateExpression(`${OP_PLUS}2`)).toBeNull();
+    expect(evaluateExpression(`-2${OP_PLUS}3`)).toBe(1);
     expect(evaluateExpression(`2${OP_DIV}0`)).toBeNull();
     expect(evaluateExpression(`7${OP_DIV}3`)).toBeNull(); // Only integer division
     expect(evaluateExpression(`01${OP_PLUS}2`)).toBeNull(); // No leading zeros
     expect(evaluateExpression(`2${OP_PLUS}3=5`)).toBeNull(); // No relations in evaluateExpression
     expect(evaluateExpression("2a+3")).toBeNull(); // No letters
+    expect(evaluateExpression("2x3")).toBeNull(); // Unknown characters
     expect(evaluateExpression(`2${OP_MULT}`)).toBeNull(); // Missing right token
     expect(evaluateExpression(`${OP_MULT}2`)).toBeNull(); // Missing left token
     expect(evaluateExpression(`7${OP_DIV}2`)).toBeNull(); // Non-integer division
@@ -238,6 +240,15 @@ describe("math service", () => {
           { val: "4" },
         ]),
       ).toBe(true);
+      expect(
+        isValidEquation([
+          { val: "10" },
+          { val: OP_MINUS },
+          { val: "5" },
+          { val: REL_GT },
+          { val: "5" },
+        ]),
+      ).toBe(false);
       expect(
         isValidEquation([
           { val: "5" },

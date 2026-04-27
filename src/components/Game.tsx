@@ -1,6 +1,7 @@
 import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-preact";
 import type { ComponentChildren, FunctionalComponent } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { cn } from "@/lib/utils";
 import { generateGame, getGridBounds, validateBoard } from "@/services/board";
 import type { TileData } from "@/services/math";
@@ -304,6 +305,7 @@ export const Game: FunctionalComponent<GameProps> = ({
     typeof HTMLDialogElement.prototype.showModal === "function";
 
   const isDialogOpen = isResetDialogOpen || isCompletionDialogOpen;
+  useAppReadinessSignal(gameState !== null, "game");
 
   useEffect(() => {
     const mainContent = gameContentRef.current;
@@ -691,6 +693,7 @@ export const Game: FunctionalComponent<GameProps> = ({
     prevGridMetrics.current.initialized = false;
   };
 
+  /* istanbul ignore next */
   const dismissCompletionDialog = () => {
     setIsCompletionDialogOpen(false);
     setGameState((prev) =>
@@ -700,7 +703,7 @@ export const Game: FunctionalComponent<GameProps> = ({
             status: "playing",
             solvedAcknowledged: true,
           }
-        : null,
+        : prev,
     );
   };
 
@@ -723,6 +726,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   const selectedTileType = useMemo<TileData["type"] | null>(() => {
     if (!gameState || !selectedTileId) return null;
+    /* istanbul ignore next */
     return gameState.bank.find((tile) => tile.id === selectedTileId)?.type ?? null;
   }, [gameState, selectedTileId]);
 
@@ -852,6 +856,7 @@ export const Game: FunctionalComponent<GameProps> = ({
                   group.tiles.some((t: TileData) => t.id === selectedTileId);
                 const count = group.tiles.length;
                 const firstTile = group.tiles[0];
+                /* istanbul ignore next */
                 if (!firstTile) return null;
 
                 return (

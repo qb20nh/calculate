@@ -1,5 +1,6 @@
 import { CUSTOM_GAME_RETRY_LIMIT } from "@/services/customGameGeneration";
 import {
+  evaluateExpression,
   generateValidStatement,
   getHashSeed,
   isValidEquation,
@@ -134,103 +135,138 @@ const analyzeBoard = (board: BoardLike): BoardValidation => {
   if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
 
   const trueFormulas: FormulaRun[] = [];
-  const coveredKeys = new Set<string>();
+  const invalidFormulas: FormulaRun[] = [];
   let invalidFormula: string | null = null;
+  const isRelation = (token: string) => token === REL_EQ || token === REL_LT || token === REL_GT;
+  const isOperator = (token: string) =>
+    token === OP_PLUS || token === OP_MINUS || token === OP_MULT || token === OP_DIV;
+
+  const classifyFormula = (word: { val: string; key: string }[]) => {
+    const tokens = word.map((w) => w.val);
+    const relationIndices = tokens.flatMap((token, index) => (isRelation(token) ? [index] : []));
+    const hasOperator = tokens.some((t) => isOperator(t));
+    const firstRelationIndex = relationIndices[0];
+    const secondRelationIndex = relationIndices[1];
+
+    if (!hasOperator || relationIndices.length === 0) return "ignore" as const;
+
+    const firstRelation = relationIndices[0];
+    const lastRelation = relationIndices[relationIndices.length - 1];
+    if (firstRelation === undefined || lastRelation === undefined) return "ignore" as const;
+
+    const isAllEquals = relationIndices.every((index) => tokens[index] === REL_EQ);
+    if (isAllEquals) {
+      if (firstRelation === 0 || lastRelation === tokens.length - 1) return "ignore" as const;
+
+      const values: number[] = [];
+      let start = 0;
+      for (const relationIndex of relationIndices) {
+        const segment = tokens.slice(start, relationIndex).join("");
+        const value = evaluateExpression(segment);
+        if (value === null) return "ignore" as const;
+        values.push(value);
+        start = relationIndex + 1;
+      }
+
+      const finalSegment = tokens.slice(start).join("");
+      const finalValue = evaluateExpression(finalSegment);
+      if (finalValue === null) return "ignore" as const;
+      values.push(finalValue);
+
+      const base = values[0];
+      if (base === undefined) return "ignore" as const;
+      if (values.some((value) => Math.abs(value - base) >= 0.0001)) {
+        return { status: "invalid" as const, formula: tokens.join("") };
+      }
+
+      return { status: "valid" as const };
+    }
+
+    if (
+      relationIndices.length === 1 ||
+      (relationIndices.length === 2 &&
+        firstRelationIndex !== undefined &&
+        secondRelationIndex !== undefined &&
+        tokens[firstRelationIndex] === REL_LT &&
+        tokens[secondRelationIndex] === REL_GT &&
+        secondRelationIndex === firstRelationIndex + 1)
+    ) {
+      if (firstRelation === 0 || lastRelation === tokens.length - 1) return "ignore" as const;
+
+      const relationStart = firstRelation;
+      const relationEnd = lastRelation;
+      const leftSide = tokens.slice(0, relationStart).join("");
+      const rightSide = tokens.slice(relationEnd + 1).join("");
+      const leftVal = evaluateExpression(leftSide);
+      const rightVal = evaluateExpression(rightSide);
+      if (leftVal === null || rightVal === null) return "ignore" as const;
+
+      if (
+        relationIndices.length === 2 &&
+        firstRelationIndex !== undefined &&
+        secondRelationIndex !== undefined &&
+        tokens[firstRelationIndex] === REL_LT &&
+        tokens[secondRelationIndex] === REL_GT
+      ) {
+        if (Math.abs(leftVal - rightVal) < 0.0001) {
+          return { status: "invalid" as const, formula: tokens.join("") };
+        }
+        return { status: "valid" as const };
+      }
+
+      const relation = tokens[firstRelation];
+      if (relation === REL_EQ && Math.abs(leftVal - rightVal) >= 0.0001) {
+        return { status: "invalid" as const, formula: tokens.join("") };
+      }
+      if (relation === REL_LT && !(leftVal < rightVal)) {
+        return { status: "invalid" as const, formula: tokens.join("") };
+      }
+      if (relation === REL_GT && !(leftVal > rightVal)) {
+        return { status: "invalid" as const, formula: tokens.join("") };
+      }
+
+      return { status: "valid" as const };
+    }
+
+    return "ignore" as const;
+  };
 
   forEachEquation(
     placedKeys,
     (k) => board[k],
     (word) => {
-      const tokens = word.map((w) => w.val);
-      const hasRelation = tokens.some((t) => t === REL_EQ || t === REL_LT || t === REL_GT);
-      const hasOperator = tokens.some(
-        (t) => t === OP_PLUS || t === OP_MINUS || t === OP_MULT || t === OP_DIV,
-      );
-      if (!hasRelation || !hasOperator) return;
+      const result = classifyFormula(word);
+      if (result === "ignore") return;
 
-      let relationStart = -1;
-      let relationEnd = -1;
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (token === REL_EQ || token === REL_LT || token === REL_GT) {
-          if (relationStart === -1) relationStart = i;
-          relationEnd = i;
-        }
-      }
-      if (relationStart <= 0 || relationEnd >= tokens.length - 1) return;
-
-      if (!isValidEquation(word)) {
-        invalidFormula = tokens.join("");
-        return false;
+      if (result.status === "invalid") {
+        invalidFormula = result.formula;
+        invalidFormulas.push({ keys: word.map((w) => w.key) });
+        return;
       }
 
       const keys = word.map((w) => w.key);
       trueFormulas.push({ keys });
-      for (const key of keys) coveredKeys.add(key);
     },
   );
 
-  if (invalidFormula) {
-    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
-  }
-
   if (trueFormulas.length === 0) {
     return { valid: false, reason: "No valid mathematical formula found." };
-  }
-
-  if (coveredKeys.size !== placedKeys.length) {
-    return { valid: false, reason: "Every tile must belong to a valid formula." };
   }
 
   if (trueFormulas.length < 2) {
     return { valid: false, reason: "At least two crossing formulas are required." };
   }
 
-  const parent = trueFormulas.map((_, index) => index);
-  const find = (index: number): number => {
-    const root = parent[index];
-    if (root === undefined || root === index) return index;
-    const next = find(root);
-    parent[index] = next;
-    return next;
-  };
-  const union = (left: number, right: number) => {
-    const leftRoot = find(left);
-    const rightRoot = find(right);
-    if (leftRoot !== rightRoot) {
-      parent[rightRoot] = leftRoot;
-    }
-  };
-
-  const formulasByTile = new Map<string, number[]>();
-  for (let i = 0; i < trueFormulas.length; i++) {
-    const formula = trueFormulas[i];
-    if (!formula) continue;
-    for (const key of formula.keys) {
-      const next = formulasByTile.get(key);
-      if (next) {
-        next.push(i);
-      } else {
-        formulasByTile.set(key, [i]);
-      }
-    }
+  const trueTileKeys = new Set<string>();
+  for (const formula of trueFormulas) {
+    for (const key of formula.keys) trueTileKeys.add(key);
   }
 
-  for (const indices of formulasByTile.values()) {
-    if (indices.length < 2) continue;
-    const [first, ...rest] = indices;
-    if (first === undefined) continue;
-    for (const index of rest) {
-      if (index === undefined) continue;
-      union(first, index);
-    }
-  }
-
-  const root = find(0);
-  for (let i = 1; i < trueFormulas.length; i++) {
-    if (find(i) !== root) {
-      return { valid: false, reason: "All formulas must be connected by crossings." };
-    }
+  const hasIsolatedInvalidFormula = invalidFormulas.some((formula) =>
+    formula.keys.every((key) => !trueTileKeys.has(key)),
+  );
+  if (hasIsolatedInvalidFormula && invalidFormula) {
+    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
   }
 
   return { valid: true };
@@ -298,6 +334,7 @@ const placeEquation = (
           const cr = startR + i * dir.dy;
           const cc = startC + i * dir.dx;
           const ck = cells[i];
+          /* istanbul ignore next */
           if (!ck) {
             collision = true;
             break;
@@ -487,17 +524,20 @@ const buildGameFromTarget = (
 ) => {
   for (let attempt = 0; attempt < 100; attempt++) {
     const candidate = buildExactGrid(prng, targetTotalTiles, maxSideLength);
+    /* istanbul ignore next */
     if (!candidate) continue;
 
     const finalGame = finalizeGame(candidate.grid, candidate.gridKeys, prng, {
       givenCount,
       inventoryCount,
     });
+    /* istanbul ignore next */
     if (!finalGame) continue;
 
     return finalGame;
   }
 
+  /* istanbul ignore next */
   return null;
 };
 

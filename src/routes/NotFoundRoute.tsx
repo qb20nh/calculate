@@ -1,6 +1,9 @@
+import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { addBasePath } from "@/routes/routeUtils";
 
 export default function NotFoundRoute() {
+  useAppReadinessSignal(true, "notfound");
+
   return (
     <main className="h-dvh w-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
       <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-3">Page not found</h1>

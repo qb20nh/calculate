@@ -17,7 +17,8 @@ describe("browser smoke", () => {
     const browserCommands = commands as unknown as {
       captureBrowserConsole(): Promise<void>;
       gotoRoute(path: string): Promise<void>;
-      waitForText(text: string): Promise<void>;
+      waitForAppSettled(text: string): Promise<void>;
+      waitForRouteSettled(path: string, text: string): Promise<void>;
       clickButton(name: string): Promise<void>;
       drainBrowserConsoleErrors(): Promise<string[]>;
     };
@@ -26,20 +27,20 @@ describe("browser smoke", () => {
 
     const visit = async (path: string, text: string, label: string) => {
       await browserCommands.gotoRoute(path);
-      await browserCommands.waitForText(text);
+      await browserCommands.waitForRouteSettled(path, text);
       const errors = await browserCommands.drainBrowserConsoleErrors();
       expect(errors, `${label} should not emit page errors`).toEqual([]);
     };
 
     await visit("/", "Math Crossword", "root");
     await browserCommands.clickButton("Easy");
-    await browserCommands.waitForText("Easy — Stage 1");
+    await browserCommands.waitForAppSettled("Easy — Stage 1");
     expect(
       await browserCommands.drainBrowserConsoleErrors(),
       "menu navigation should not emit page errors",
     ).toEqual([]);
     await browserCommands.clickButton("Back");
-    await browserCommands.waitForText("Math Crossword");
+    await browserCommands.waitForAppSettled("Math Crossword");
     expect(
       await browserCommands.drainBrowserConsoleErrors(),
       "back navigation should not emit page errors",

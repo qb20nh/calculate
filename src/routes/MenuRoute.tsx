@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { MainMenu } from "@/components/MainMenu";
+import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { toGamePath } from "@/routes/routeUtils";
 import type { GameMode } from "@/services/storage";
 import { loadProgress } from "@/services/storage";
@@ -12,6 +13,7 @@ interface MenuRouteProps {
 export default function MenuRoute({ onGameRoutePreload }: Readonly<MenuRouteProps>) {
   const location = useLocation();
   const [progress] = useState(loadProgress);
+  useAppReadinessSignal(true, "menu");
 
   const handleStart = (mode: GameMode) => {
     if (mode === "Custom") {

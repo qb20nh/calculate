@@ -66,6 +66,12 @@ vi.mock("@/components/Game", () => ({
       <button type="button" onClick={() => onStateChange({ status: "won", stage } as GameState)}>
         Mock State Won
       </button>
+      <button
+        type="button"
+        onClick={() => onStateChange({ status: "playing", stage } as GameState)}
+      >
+        Mock State Playing
+      </button>
       <button type="button" onClick={() => onStageChange(stage + 1)} aria-label="Next Stage">
         Next Stage
       </button>
@@ -192,6 +198,36 @@ describe("GameRoute", () => {
     // Game calls onStateChange with won status
     fireEvent.click(screen.getByText("Mock State Won"));
     // This should trigger updateMaxProgress(2)
+  });
+
+  it("should ignore non-won state updates", () => {
+    mockLocationUrl = "/game/easy?stage=1";
+    mockLoadProgress.mockReturnValue({
+      Easy: { current: 1, max: 3 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+
+    render(<GameRoute difficulty="easy" />);
+
+    mockRoute.mockClear();
+    fireEvent.click(screen.getByText("Mock State Playing"));
+    expect(mockRoute).not.toHaveBeenCalledWith("/game/easy?stage=2");
+  });
+
+  it("should not lower an already higher unlocked stage", () => {
+    mockLocationUrl = "/game/easy?stage=1";
+    mockLoadProgress.mockReturnValue({
+      Easy: { current: 1, max: 3 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+
+    render(<GameRoute difficulty="easy" />);
+
+    mockRoute.mockClear();
+    fireEvent.click(screen.getByText("Mock State Won"));
+    expect(mockRoute).not.toHaveBeenCalledWith("/game/easy?stage=2", true);
   });
 
   it("should handle reset in UnavailableLevelShell", () => {

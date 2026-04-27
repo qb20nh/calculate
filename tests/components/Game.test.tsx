@@ -242,6 +242,44 @@ describe("Game", () => {
     });
   });
 
+  it("should sort returned tiles lexicographically when bank types match", async () => {
+    vi.mocked(BoardService.generateGame).mockReturnValue({
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "m1", val: "2", type: "val", isGiven: false },
+      },
+      bank: [
+        { id: "b1", val: "3", type: "val" },
+        { id: "b2", val: "1", type: "val" },
+        { id: "b3", val: "9", type: "val" },
+      ],
+      initialBankSize: 3,
+      status: "playing",
+    } as unknown as ReturnType<typeof BoardService.generateGame>);
+
+    renderGame();
+
+    await waitForGameLoaded();
+
+    const movableBoardTile = screen
+      .getAllByRole("button")
+      .find(
+        (button) =>
+          button.textContent === "2" &&
+          button.className.includes("tile-val") &&
+          !button.className.includes("w-11"),
+      );
+    expect(movableBoardTile).toBeDefined();
+    fireEvent.click(requireValue(movableBoardTile));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("1", { selector: ".tile-val" }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText("2", { selector: ".tile-val" }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText("3", { selector: ".tile-val" }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText("9", { selector: ".tile-val" }).length).toBeGreaterThan(0);
+    });
+  });
+
   it("should handle reset", async () => {
     const generateGameSpy = vi.mocked(BoardService.generateGame);
     generateGameSpy.mockClear();
@@ -264,6 +302,31 @@ describe("Game", () => {
 
     expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
     expect(generateGameSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("should reset using a custom game factory when provided", async () => {
+    const createNewGame = vi.fn(() =>
+      makeGameState({
+        board: {
+          "0,0": { id: "g1", val: "3", type: "val", isGiven: true },
+          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+          "0,2": { id: "g3", val: "3", type: "val", isGiven: true },
+        },
+        bank: [],
+        initialBankSize: 0,
+        status: "playing",
+      }),
+    );
+
+    renderGame({ createNewGame });
+
+    await waitForGameLoaded();
+
+    fireEvent.click(screen.getByLabelText("Reset Stage"));
+    fireEvent.click(screen.getByText("Reset"));
+
+    expect(createNewGame).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
   });
 
   it("should cancel reset when dialog is dismissed", async () => {
@@ -467,6 +530,50 @@ describe("Game", () => {
       ).toBeDefined();
     });
     expect(screen.queryByRole("dialog", { name: "Perfect!" })).toBeNull();
+  });
+
+  it("should allow custom wins that stay within the submitted solution size limit", async () => {
+    const customGame = {
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: "+", type: "op", isGiven: true },
+        "0,2": { id: "g3", val: "1", type: "val", isGiven: true },
+        "0,3": { id: "g4", val: "=", type: "rel", isGiven: true },
+        "0,4": { id: "g5", val: "2", type: "val", isGiven: true },
+      },
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Custom",
+      stage: 1,
+      customConfig: {
+        givenCount: 5,
+        inventoryCount: 0,
+        sizeLimit: 5,
+        seed: "1",
+        limitSolutionSize: true,
+      },
+    } as GameState;
+    vi.mocked(BoardService.validateBoard).mockReturnValueOnce({ valid: true });
+
+    render(
+      <Game
+        difficulty="Custom"
+        stage={1}
+        maxStage={1}
+        initialState={customGame}
+        showNextLevelButton={false}
+        onWin={vi.fn()}
+        onBack={vi.fn()}
+        onStageChange={vi.fn()}
+        onStateChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { name: "Perfect!" })).toBeDefined();
+    });
+    expect(screen.queryByText("Submitted solution exceeds the configured size limit.")).toBeNull();
   });
 
   it("should dismiss win dialog without advancing", async () => {

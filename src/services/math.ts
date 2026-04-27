@@ -118,25 +118,80 @@ export const evaluateExpression = (str: string) => {
   // Map Unicode symbols to standard ASCII operators for evaluation
   const normalized = str.replaceAll(OP_MINUS, "-").replaceAll(OP_MULT, "*").replaceAll(OP_DIV, "/");
 
-  if (/[+\-*/]{2,}/.test(normalized)) return null;
-  if (/^[+\-*/]/.test(normalized)) return null;
-  if (/[+\-*/]$/.test(normalized)) return null;
   if (!/^[0-9+\-*/]+$/.test(normalized)) return null;
-  if (/(^|[+\-*/])0\d+/.test(normalized)) return null;
 
-  const tokens = normalized.match(/\d+|[+\-*/]/g);
-  if (!tokens) return null;
+  const tokens: Array<number | "+" | "-" | "*" | "/"> = [];
+  let sign = 1;
+  let expectNumber = true;
+  for (let i = 0; i < normalized.length; ) {
+    const ch = normalized.charAt(i);
+    if (ch === "") return null;
+
+    if (ch >= "0" && ch <= "9") {
+      let end = i + 1;
+      while (end < normalized.length) {
+        const next = normalized.charAt(end);
+        if (next < "0" || next > "9") break;
+        end++;
+      }
+
+      const raw = normalized.slice(i, end);
+      if ((raw.length > 1 && raw.startsWith("0")) || (/^0\d+/.test(raw) && expectNumber)) {
+        return null;
+      }
+
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return null;
+      tokens.push(sign * value);
+      sign = 1;
+      expectNumber = false;
+      i = end;
+      continue;
+    }
+
+    if (ch === "+") {
+      if (expectNumber) return null;
+      tokens.push("+");
+      expectNumber = true;
+      i++;
+      continue;
+    }
+
+    if (ch === "-") {
+      if (expectNumber) {
+        sign *= -1;
+        i++;
+        continue;
+      }
+      tokens.push("-");
+      expectNumber = true;
+      i++;
+      continue;
+    }
+
+    if (ch === "*" || ch === "/") {
+      if (expectNumber) return null;
+      tokens.push(ch);
+      expectNumber = true;
+      i++;
+      continue;
+    }
+
+    return null;
+  }
+
+  if (expectNumber) return null;
 
   const values: number[] = [];
   const ops: Array<"+" | "-"> = [];
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-    if (!t) return null;
+    if (t === undefined) return null;
     if (t === "*" || t === "/") {
       const left = values.pop();
       if (left === undefined) return null;
       const rightToken = tokens[++i];
-      if (!rightToken) return null;
+      if (rightToken === undefined) return null;
       const right = Number(rightToken);
       if (!Number.isFinite(right)) return null;
       if (t === "*") {

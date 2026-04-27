@@ -19,6 +19,7 @@ const browserConsoleState = new Map<
   {
     errors: string[];
     appPage?: Page;
+    crashed?: boolean;
   }
 >();
 const isKnownHydrationMismatch = (text: string) =>
@@ -30,6 +31,29 @@ const isKnownHydrationMismatch = (text: string) =>
 const isKnownJsxSourceHint = (text: string) =>
   text.includes("Add @babel/plugin-transform-react-jsx-source") &&
   text.includes("detailed component stack");
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: string) =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
+
+const waitForTwoFrames = async (page: Page) => {
+  await withTimeout(
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        }),
+    ),
+    250,
+    "Timed out waiting for the page to settle after render",
+  );
+};
 
 const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[0]) => {
   const state = browserConsoleState.get(sessionId);
@@ -62,6 +86,12 @@ const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[
     process.stderr.write(`[page error] ${text}\n`);
   });
 
+  appPage.on("crash", () => {
+    state.crashed = true;
+    state.errors.push("Page crashed");
+    process.stderr.write("[page crash] browser page crashed\n");
+  });
+
   return appPage;
 };
 
@@ -71,6 +101,7 @@ const captureBrowserConsole: BrowserCommand = async (context) => {
 
   browserConsoleState.set(sessionId, {
     errors: [] as string[],
+    crashed: false,
   });
 
   await ensureAppPage(context);
@@ -80,6 +111,9 @@ const gotoRoute: BrowserCommand<[string]> = async (context, path) => {
   const previewBaseUrl = process.env.VITEST_PREVIEW_URL;
   if (!previewBaseUrl) throw new Error("Missing VITEST_PREVIEW_URL");
   const page = await ensureAppPage(context);
+  const state = browserConsoleState.get(context.sessionId);
+  if (!state) throw new Error("Browser console state not initialized");
+  if (state.crashed || page.isClosed()) throw new Error("Browser page crashed or closed");
   await page.goto(new URL(path, previewBaseUrl).toString(), {
     waitUntil: "domcontentloaded",
   });
@@ -87,10 +121,120 @@ const gotoRoute: BrowserCommand<[string]> = async (context, path) => {
 
 const waitForText: BrowserCommand<[string]> = async (context, text) => {
   const page = await ensureAppPage(context);
-  await page.waitForFunction(
-    (expectedText) => document.body.textContent?.includes(expectedText),
-    text,
+  const state = browserConsoleState.get(context.sessionId);
+  if (!state) throw new Error("Browser console state not initialized");
+  if (state.crashed || page.isClosed()) throw new Error("Browser page crashed or closed");
+
+  await withTimeout(
+    page.waitForFunction(
+      (expectedText) => {
+        const bodyText = document.body.textContent ?? "";
+        const hasText = bodyText.includes(expectedText);
+        const hasRouteLoader =
+          document.querySelector("#skeleton-progress") !== null ||
+          document.querySelector("#skeleton-spinner") !== null ||
+          document.querySelector('[role="progressbar"]') !== null;
+
+        return hasText && !hasRouteLoader;
+      },
+      text,
+      { timeout: 5000 },
+    ),
+    5000,
+    "Timed out waiting for route text to appear",
   );
+};
+
+const waitForAppSettled: BrowserCommand<[string]> = async (context, text) => {
+  const page = await ensureAppPage(context);
+  const state = browserConsoleState.get(context.sessionId);
+  if (!state) throw new Error("Browser console state not initialized");
+  if (state.crashed || page.isClosed()) throw new Error("Browser page crashed or closed");
+
+  await withTimeout(
+    page.waitForFunction(
+      (expectedText: string) => {
+        const appWindow = window as typeof window & {
+          __APP_READY__?: boolean;
+          __APP_RENDER_ERROR__?: string;
+        };
+
+        if (appWindow.__APP_RENDER_ERROR__) return false;
+        if (!appWindow.__APP_READY__) return false;
+
+        const bodyText = document.body.textContent ?? "";
+        if (!bodyText.includes(expectedText)) return false;
+
+        return (
+          document.querySelector("#skeleton-progress") === null &&
+          document.querySelector("#skeleton-spinner") === null &&
+          document.querySelector('[role="progressbar"]') === null
+        );
+      },
+      text,
+      { timeout: 5000 },
+    ),
+    5000,
+    "Timed out waiting for the app to settle",
+  );
+
+  await waitForTwoFrames(page);
+};
+
+const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, path, text) => {
+  const page = await ensureAppPage(context);
+  const state = browserConsoleState.get(context.sessionId);
+  if (!state) throw new Error("Browser console state not initialized");
+  if (state.crashed || page.isClosed()) throw new Error("Browser page crashed or closed");
+
+  await withTimeout(
+    page.waitForFunction(
+      ({ expectedText, currentPath }: { expectedText: string; currentPath: string }) => {
+        const appWindow = window as typeof window & {
+          __APP_READY__?: boolean;
+          __APP_RENDER_ERROR__?: string;
+        };
+
+        if (appWindow.__APP_RENDER_ERROR__) return false;
+        if (!appWindow.__APP_READY__) return false;
+
+        const bodyText = document.body.textContent ?? "";
+        if (!bodyText.includes(expectedText)) return false;
+
+        if (
+          document.querySelector("#skeleton-progress") !== null ||
+          document.querySelector("#skeleton-spinner") !== null ||
+          document.querySelector('[role="progressbar"]') !== null
+        ) {
+          return false;
+        }
+
+        if (currentPath === "/") {
+          return document.querySelector("h1")?.textContent?.includes("Math Crossword") ?? false;
+        }
+
+        if (currentPath.startsWith("/game/custom")) {
+          return document.querySelector("#custom-given-count") !== null;
+        }
+
+        if (
+          currentPath.startsWith("/game/easy") ||
+          currentPath.startsWith("/game/medium") ||
+          currentPath.startsWith("/game/hard")
+        ) {
+          return document.querySelector('[data-testid="game-board-container"]') !== null;
+        }
+
+        return document.querySelector("h1")?.textContent?.includes("Page not found") ?? false;
+      },
+      { expectedText: text, currentPath: path },
+      { timeout: 5000 },
+    ),
+    5000,
+    "Timed out waiting for the route to settle",
+  );
+
+  await waitForTwoFrames(page);
 };
 
 const clickButton: BrowserCommand<[string]> = async (context, name) => {
@@ -134,6 +278,8 @@ export default defineConfig({
       commands: {
         captureBrowserConsole,
         gotoRoute,
+        waitForAppSettled,
+        waitForRouteSettled,
         waitForText,
         clickButton,
         drainBrowserConsoleErrors,
