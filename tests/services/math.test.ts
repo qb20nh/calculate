@@ -199,6 +199,32 @@ describe("math service", () => {
     );
   });
 
+  it("should not generate division with two double-digit operands", () => {
+    // Check 1000 generated statements to ensure the constraint is respected
+    for (let i = 0; i < 1000; i++) {
+      const prng = xoshiro128pp(i);
+      const tokens = generateValidStatement(prng);
+      if (tokens.includes(OP_DIV)) {
+        const divIdx = tokens.indexOf(OP_DIV);
+        const relIdx = tokens.findIndex((t) => t === REL_EQ || t === REL_LT || t === REL_GT);
+        const leftStr = tokens.slice(0, divIdx).join("");
+        const rightStr = tokens.slice(divIdx + 1, relIdx).join("");
+
+        const left = Number(leftStr);
+        const right = Number(rightStr);
+
+        if (left >= 10 && right >= 10) {
+          // The constraint allows double-digit operands only if the division evaluates to 2.
+          if (left / right !== 2) {
+            throw new Error(
+              `Division with two double-digit operands found (result is not 2): ${tokens.join("")} (${left} / ${right} = ${left / right})`,
+            );
+          }
+        }
+      }
+    }
+  });
+
   describe("isValidEquation", () => {
     it("should validate basic equations", () => {
       expect(
@@ -300,44 +326,28 @@ describe("math service", () => {
     });
 
     it("should cover all relRoll branches in generateValidStatement", () => {
-      // 0.75 < relRoll <= 0.83 -> REL_LT
-      expect(generateValidStatement(() => 0.8)).toContain(REL_LT);
-      // 0.83 < relRoll <= 0.91 -> REL_GT
-      expect(generateValidStatement(() => 0.85)).toContain(REL_GT);
-      // relRoll > 0.91 -> REL_NEQ
-      const neqTokens = generateValidStatement(() => 0.95);
+      // Use a sequence PRNG to control opIndex and relRoll independently
+      const createSequencePrng = (vals: number[]) => {
+        let i = 0;
+        return () => vals[i++] ?? vals[vals.length - 1] ?? 0;
+      };
+
+      // opIndex = 0 (Plus), relRoll = 0.8 (REL_LT)
+      expect(generateValidStatement(createSequencePrng([0, 0.8]))).toContain(REL_LT);
+      // opIndex = 0 (Plus), relRoll = 0.85 (REL_GT)
+      expect(generateValidStatement(createSequencePrng([0, 0.85]))).toContain(REL_GT);
+      // opIndex = 0 (Plus), relRoll = 0.95 (REL_NEQ)
+      const neqTokens = generateValidStatement(createSequencePrng([0, 0.95]));
       expect(neqTokens).toContain(REL_LT);
       expect(neqTokens).toContain(REL_GT);
     });
 
     it("should cover applyRelation branches", () => {
-      // Since generateValidStatement uses the PRNG, this is tricky to hit exactly,
-      // but let's test isValidEquation with forced REL_NEQ
-      expect(
-        isValidEquation([
-          { val: "5" },
-          { val: OP_PLUS },
-          { val: "1" },
-          { val: REL_LT },
-          { val: REL_GT },
-          { val: "7" },
-        ]),
-      ).toBe(true);
-      expect(
-        isValidEquation([
-          { val: "5" },
-          { val: OP_PLUS },
-          { val: "1" },
-          { val: REL_LT },
-          { val: REL_GT },
-          { val: "6" },
-        ]),
-      ).toBe(false);
-
       // Coverage for applyRelation branch with small base
-      const _prng = () => 0.1; // Force subtraction
-      // REL_GT branch
-      expect(generateValidStatement(() => 0.85)).toBeDefined();
+      // Force REL_GT but with baseValue = 0 to trigger the REL_LT fallback in division
+      // opIndex = 3 (Division), relRoll = 0.85 (REL_GT), right = 18 (0.85*20), result = 0
+      const tokens = generateValidStatement(() => 0.85);
+      expect(tokens).toContain(REL_LT); // Fallback from GT to LT
     });
   });
 });

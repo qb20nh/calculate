@@ -122,7 +122,16 @@ export const generateValidStatement = (prng: () => number) => {
     right = randInt(prng, 1, 20);
     // Limit result to keep left (divisor * result) < 100
     const maxResult = Math.min(20, Math.floor(99 / right));
-    result = randInt(prng, 0, maxResult);
+    // Constraint: two operands cannot be both double digit for division.
+    // If right >= 10, then left must be < 10.
+    if (right >= 10) {
+      // Constraint: two operands cannot be both double digit for division,
+      // except for the special 2N/N=2 case.
+      // So if right >= 10, result must be 0 (left < 10) or 2 (2N/N=2).
+      result = prng() > 0.5 ? 0 : 2;
+    } else {
+      result = randInt(prng, 0, maxResult);
+    }
     left = right * result;
   }
 
