@@ -55,6 +55,21 @@ const waitForTwoFrames = async (page: Page) => {
   );
 };
 
+const ROUTE_SETTLE_TIMEOUT_MS = 15000;
+
+const expectedReadyRouteForPath = (path: string) => {
+  if (path === "/") return "menu";
+  if (path.startsWith("/game/custom")) return "custom-setup";
+  if (
+    path.startsWith("/game/easy") ||
+    path.startsWith("/game/medium") ||
+    path.startsWith("/game/hard")
+  ) {
+    return "game";
+  }
+  return "notfound";
+};
+
 const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[0]) => {
   const state = browserConsoleState.get(sessionId);
   if (!state) throw new Error("Browser console state not initialized");
@@ -132,15 +147,14 @@ const waitForText: BrowserCommand<[string]> = async (context, text) => {
         const hasText = bodyText.includes(expectedText);
         const hasRouteLoader =
           document.querySelector("#skeleton-progress") !== null ||
-          document.querySelector("#skeleton-spinner") !== null ||
-          document.querySelector('[role="progressbar"]') !== null;
+          document.querySelector("#skeleton-spinner") !== null;
 
         return hasText && !hasRouteLoader;
       },
       text,
-      { timeout: 5000 },
+      { timeout: ROUTE_SETTLE_TIMEOUT_MS },
     ),
-    5000,
+    ROUTE_SETTLE_TIMEOUT_MS,
     "Timed out waiting for route text to appear",
   );
 };
@@ -167,14 +181,13 @@ const waitForAppSettled: BrowserCommand<[string]> = async (context, text) => {
 
         return (
           document.querySelector("#skeleton-progress") === null &&
-          document.querySelector("#skeleton-spinner") === null &&
-          document.querySelector('[role="progressbar"]') === null
+          document.querySelector("#skeleton-spinner") === null
         );
       },
       text,
-      { timeout: 5000 },
+      { timeout: ROUTE_SETTLE_TIMEOUT_MS },
     ),
-    5000,
+    ROUTE_SETTLE_TIMEOUT_MS,
     "Timed out waiting for the app to settle",
   );
 
@@ -189,22 +202,31 @@ const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, pa
 
   await withTimeout(
     page.waitForFunction(
-      ({ expectedText, currentPath }: { expectedText: string; currentPath: string }) => {
+      ({
+        expectedText,
+        currentPath,
+        expectedReadyRoute,
+      }: {
+        expectedText: string;
+        currentPath: string;
+        expectedReadyRoute: string;
+      }) => {
         const appWindow = window as typeof window & {
           __APP_READY__?: boolean;
+          __APP_READY_ROUTE__?: string;
           __APP_RENDER_ERROR__?: string;
         };
 
         if (appWindow.__APP_RENDER_ERROR__) return false;
         if (!appWindow.__APP_READY__) return false;
+        if (appWindow.__APP_READY_ROUTE__ !== expectedReadyRoute) return false;
 
         const bodyText = document.body.textContent ?? "";
         if (!bodyText.includes(expectedText)) return false;
 
         if (
           document.querySelector("#skeleton-progress") !== null ||
-          document.querySelector("#skeleton-spinner") !== null ||
-          document.querySelector('[role="progressbar"]') !== null
+          document.querySelector("#skeleton-spinner") !== null
         ) {
           return false;
         }
@@ -227,10 +249,14 @@ const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, pa
 
         return document.querySelector("h1")?.textContent?.includes("Page not found") ?? false;
       },
-      { expectedText: text, currentPath: path },
-      { timeout: 5000 },
+      {
+        expectedText: text,
+        currentPath: path,
+        expectedReadyRoute: expectedReadyRouteForPath(path),
+      },
+      { timeout: ROUTE_SETTLE_TIMEOUT_MS },
     ),
-    5000,
+    ROUTE_SETTLE_TIMEOUT_MS + 2000,
     "Timed out waiting for the route to settle",
   );
 

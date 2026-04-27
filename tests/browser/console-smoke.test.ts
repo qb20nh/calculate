@@ -12,42 +12,57 @@ const routes = [
   { path: "/does-not-exist", label: "fallback", text: "Page not found" },
 ] as const;
 
+const browserCommands = () =>
+  commands as unknown as {
+    captureBrowserConsole(): Promise<void>;
+    gotoRoute(path: string): Promise<void>;
+    waitForAppSettled(text: string): Promise<void>;
+    waitForRouteSettled(path: string, text: string): Promise<void>;
+    clickButton(name: string): Promise<void>;
+    drainBrowserConsoleErrors(): Promise<string[]>;
+  };
+
+const assertRouteQuiet = async ({ path, text, label }: (typeof routes)[number]) => {
+  const browser = browserCommands();
+
+  await browser.captureBrowserConsole();
+  await browser.gotoRoute(path);
+  await browser.waitForRouteSettled(path, text);
+
+  expect(await browser.drainBrowserConsoleErrors(), `${label} should not emit page errors`).toEqual(
+    [],
+  );
+};
+
 describe("browser smoke", () => {
-  it("keeps routes quiet", async () => {
-    const browserCommands = commands as unknown as {
-      captureBrowserConsole(): Promise<void>;
-      gotoRoute(path: string): Promise<void>;
-      waitForAppSettled(text: string): Promise<void>;
-      waitForRouteSettled(path: string, text: string): Promise<void>;
-      clickButton(name: string): Promise<void>;
-      drainBrowserConsoleErrors(): Promise<string[]>;
-    };
+  it("keeps the root route quiet and supports menu navigation", async () => {
+    const browser = browserCommands();
 
-    await browserCommands.captureBrowserConsole();
+    await browser.captureBrowserConsole();
+    await browser.gotoRoute("/");
+    await browser.waitForRouteSettled("/", "Math Crossword");
+    expect(await browser.drainBrowserConsoleErrors(), "root should not emit page errors").toEqual(
+      [],
+    );
 
-    const visit = async (path: string, text: string, label: string) => {
-      await browserCommands.gotoRoute(path);
-      await browserCommands.waitForRouteSettled(path, text);
-      const errors = await browserCommands.drainBrowserConsoleErrors();
-      expect(errors, `${label} should not emit page errors`).toEqual([]);
-    };
-
-    await visit("/", "Math Crossword", "root");
-    await browserCommands.clickButton("Easy");
-    await browserCommands.waitForAppSettled("Easy — Stage 1");
+    await browser.clickButton("Easy");
+    await browser.waitForAppSettled("Easy — Stage 1");
     expect(
-      await browserCommands.drainBrowserConsoleErrors(),
+      await browser.drainBrowserConsoleErrors(),
       "menu navigation should not emit page errors",
     ).toEqual([]);
-    await browserCommands.clickButton("Back");
-    await browserCommands.waitForAppSettled("Math Crossword");
+
+    await browser.clickButton("Back");
+    await browser.waitForAppSettled("Math Crossword");
     expect(
-      await browserCommands.drainBrowserConsoleErrors(),
+      await browser.drainBrowserConsoleErrors(),
       "back navigation should not emit page errors",
     ).toEqual([]);
+  });
 
-    for (const route of routes) {
-      await visit(route.path, route.text, route.label);
-    }
+  routes.forEach((route) => {
+    it(`keeps the ${route.label} route quiet`, async () => {
+      await assertRouteQuiet(route);
+    });
   });
 });

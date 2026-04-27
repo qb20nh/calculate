@@ -22,6 +22,6 @@ describe("ProgressBar", () => {
     // Advance for coordinationTimer (0ms)
     vi.advanceTimersByTime(10);
     expect(container.firstChild).not.toBeNull();
-    expect(container.firstElementChild?.getAttribute("role")).toBe("progressbar");
+    expect(container.firstElementChild?.tagName).toBe("PROGRESS");
   });
 });
