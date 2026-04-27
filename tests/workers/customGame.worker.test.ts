@@ -3,7 +3,9 @@ import type { CustomGameConfig } from "@/services/storage";
 
 const mockGenerateCustomGameAttempt = vi.fn();
 let mockHandler:
-  | ((event: MessageEvent<{ type: string; config?: CustomGameConfig }>) => void)
+  | ((
+      event: MessageEvent<{ type: string; config?: CustomGameConfig; retryCount?: number }>,
+    ) => void)
   | null = null;
 const mockPostMessage = vi.fn();
 
@@ -68,8 +70,9 @@ describe("custom game worker", () => {
       data: {
         type: "generate",
         config: game.customConfig,
+        retryCount: 0,
       },
-    } as MessageEvent<{ type: "generate"; config: CustomGameConfig }>);
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
 
     expect(mockGenerateCustomGameAttempt).toHaveBeenCalledWith(game.customConfig, 0);
     expect(mockPostMessage).toHaveBeenCalledWith({
@@ -77,6 +80,42 @@ describe("custom game worker", () => {
       retryCount: 1,
       totalRetries: 1000,
     });
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: "success",
+      game,
+    });
+  });
+
+  it("should replay a specific retry once", async () => {
+    const game = {
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Custom",
+      stage: 1,
+      customConfig: {
+        givenCount: 6,
+        inventoryCount: 10,
+        sizeLimit: 10,
+        seed: "123",
+        limitSolutionSize: false,
+      },
+    };
+    mockGenerateCustomGameAttempt.mockReturnValueOnce(game);
+
+    await import("@/workers/customGame.worker");
+
+    mockHandler?.({
+      origin: "",
+      data: {
+        type: "generate",
+        config: game.customConfig,
+        retryCount: 4,
+      },
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
+
+    expect(mockGenerateCustomGameAttempt).toHaveBeenCalledWith(game.customConfig, 3);
     expect(mockPostMessage).toHaveBeenCalledWith({
       type: "success",
       game,
@@ -100,8 +139,9 @@ describe("custom game worker", () => {
       data: {
         type: "generate",
         config,
+        retryCount: 0,
       },
-    } as MessageEvent<{ type: "generate"; config: CustomGameConfig }>);
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
 
     expect(mockGenerateCustomGameAttempt).toHaveBeenCalledTimes(1000);
     expect(mockPostMessage).toHaveBeenCalledWith(
@@ -137,8 +177,9 @@ describe("custom game worker", () => {
       data: {
         type: "generate",
         config,
+        retryCount: 0,
       },
-    } as MessageEvent<{ type: "generate"; config: CustomGameConfig }>);
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
 
     expect(mockPostMessage).toHaveBeenCalledWith({
       type: "failure",

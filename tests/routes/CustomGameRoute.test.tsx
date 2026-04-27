@@ -302,6 +302,12 @@ describe("CustomGameRoute", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
 
     expect(mockCreateCustomGameWorker).toHaveBeenCalledTimes(1);
+    expect(mockWorkers[0]?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "generate",
+        retryCount: 0,
+      }),
+    );
     expect(screen.getByText("Retry 0 / 1000")).toBeDefined();
 
     const worker = mockWorkers[0];
@@ -315,6 +321,9 @@ describe("CustomGameRoute", () => {
     } as unknown as MessageEvent<WorkerMessage>);
 
     await screen.findByText("Retry 37 / 1000");
+    expect(window.location.pathname + window.location.search).toBe(
+      "/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=37",
+    );
 
     worker?.onmessage?.({
       data: {
@@ -339,10 +348,45 @@ describe("CustomGameRoute", () => {
 
     await screen.findByText("Mock Game");
     expect(mockSaveGameState).toHaveBeenCalled();
-    expect(mockRoute).toHaveBeenCalledWith(
-      "/game/custom?given=6&inventory=10&size=10&seed=123",
-      true,
+  });
+
+  it("should resume custom generation from the retry count in the url", async () => {
+    mockLocationUrl = "/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=37";
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    const worker = mockWorkers[0];
+    expect(worker).toBeDefined();
+    expect(worker?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "generate",
+        retryCount: 37,
+      }),
     );
+
+    worker?.onmessage?.({
+      data: {
+        type: "success",
+        game: {
+          board: {},
+          bank: [],
+          initialBankSize: 0,
+          status: "playing",
+          difficulty: "Custom",
+          stage: 1,
+          customConfig: {
+            givenCount: 6,
+            inventoryCount: 10,
+            sizeLimit: 10,
+            seed: "123",
+            limitSolutionSize: false,
+          },
+        },
+      },
+    } as unknown as MessageEvent<WorkerMessage>);
+
+    await screen.findByText("Mock Game");
   });
 
   it("should show a worker failure reason", async () => {

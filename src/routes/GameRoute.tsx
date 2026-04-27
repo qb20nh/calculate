@@ -10,7 +10,6 @@ import {
   parseStageParam,
   toGamePath,
 } from "@/routes/routeUtils";
-import { loadingService } from "@/services/loading";
 import {
   DEFAULT_PROGRESS,
   type GameState,
@@ -47,22 +46,10 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const [isClient, setIsClient] = useState(false);
   const [progress, setProgress] = useState(DEFAULT_PROGRESS);
 
-  useState(() => {
-    if (typeof window !== "undefined") {
-      loadingService.start("game-route");
-    }
-  });
-
   useEffect(() => {
     setIsClient(true);
     setProgress(loadProgress());
   }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      loadingService.stop("game-route");
-    }
-  }, [isClient]);
 
   const savedState = useMemo<GameState | null>(() => {
     if (!difficulty || !isClient) return null;

@@ -49,12 +49,13 @@ export const toGamePath = (difficulty: Difficulty, stage: number) => {
   return `/game/${toDifficultySlug(difficulty)}?stage=${stage}`;
 };
 
-export const toCustomGamePath = (config: CustomGameConfig) => {
+export const toCustomGamePath = (config: CustomGameConfig, retryCount = 0) => {
   const searchParams = new URLSearchParams();
   searchParams.set("given", String(config.givenCount));
   searchParams.set("inventory", String(config.inventoryCount));
   searchParams.set("size", String(config.sizeLimit));
   searchParams.set("seed", config.seed);
+  searchParams.set("retryCount", String(retryCount));
   if (config.limitSolutionSize) {
     searchParams.set("limitSolutionSize", "1");
   }
@@ -114,6 +115,14 @@ export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGame
     seed: seedRaw,
     limitSolutionSize: limitSolutionSizeRaw === "1" || limitSolutionSizeRaw === "true",
   };
+};
+
+export const parseCustomGameRetryCount = (searchParams: URLSearchParams): number => {
+  const retryCountRaw = searchParams.get("retryCount");
+  if (retryCountRaw === null) return 0;
+
+  const retryCount = Number(retryCountRaw);
+  return Number.isSafeInteger(retryCount) && retryCount >= 0 ? retryCount : 0;
 };
 
 export const parseStageParam = (stageParam?: string | null): number | null => {

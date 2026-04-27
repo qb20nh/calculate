@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { ErrorBoundary } from "preact-iso/lazy";
 import { LocationProvider, Route, Router, useLocation } from "preact-iso/router";
 import { AppChrome } from "@/components/AppChrome";
@@ -10,6 +10,7 @@ import { useLoading } from "@/hooks/useLoading";
 import { AppSettingsProvider } from "@/lib/appSettings";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
+import { loadingService } from "@/services/loading";
 
 function BasePathProvider({ children }: Readonly<{ children: ComponentChildren }>) {
   const location = useLocation();
@@ -30,6 +31,10 @@ export function App() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const isGlobalLoading = useLoading();
   const isLoading = isRouteLoading || isGlobalLoading;
+
+  useEffect(() => {
+    loadingService.stop("init");
+  }, []);
 
   return (
     <AppSettingsProvider>

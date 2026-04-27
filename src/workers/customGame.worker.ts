@@ -1,15 +1,15 @@
+/// <reference lib="webworker" />
+
 import { generateCustomGameAttempt } from "@/services/board";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
-  type CustomGameGenerationMessage,
+  type CustomGameGenerationFailure,
+  type CustomGameGenerationProgress,
   type CustomGameGenerationRequest,
+  type CustomGameGenerationSuccess,
 } from "@/services/customGameGeneration";
 
-const workerGlobal = self as typeof self & {
-  addEventListener: typeof self.addEventListener;
-  postMessage: typeof self.postMessage;
-  location: Location;
-};
+const workerGlobal = self as DedicatedWorkerGlobalScope;
 
 function isCustomGameGenerationRequest(data: unknown): data is CustomGameGenerationRequest {
   if (typeof data !== "object" || data === null) return false;
@@ -17,14 +17,34 @@ function isCustomGameGenerationRequest(data: unknown): data is CustomGameGenerat
   return "config" in data;
 }
 
-workerGlobal.addEventListener("message", (event: MessageEvent<unknown>) => {
-  if (event.origin !== workerGlobal.location.origin) return;
+workerGlobal.addEventListener("message", (event: MessageEvent<CustomGameGenerationRequest>) => {
+  if (event.origin !== "" && event.origin !== workerGlobal.location.origin) return;
   if (!isCustomGameGenerationRequest(event.data)) return;
 
-  const { config } = event.data;
+  const { config, retryCount } = event.data;
   try {
-    for (let attempt = 0; attempt < CUSTOM_GAME_RETRY_LIMIT; attempt++) {
-      const retryMessage: CustomGameGenerationMessage = {
+    if (retryCount > 0) {
+      const game = generateCustomGameAttempt(config, retryCount - 1);
+      if (game) {
+        const successMessage: CustomGameGenerationSuccess = {
+          type: "success",
+          game,
+        };
+        workerGlobal.postMessage(successMessage);
+        return;
+      }
+
+      const failureMessage: CustomGameGenerationFailure = {
+        type: "failure",
+        reason:
+          "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+      };
+      workerGlobal.postMessage(failureMessage);
+      return;
+    }
+
+    for (let attempt = retryCount; attempt < CUSTOM_GAME_RETRY_LIMIT; attempt++) {
+      const retryMessage: CustomGameGenerationProgress = {
         type: "progress",
         retryCount: attempt + 1,
         totalRetries: CUSTOM_GAME_RETRY_LIMIT,
@@ -33,24 +53,27 @@ workerGlobal.addEventListener("message", (event: MessageEvent<unknown>) => {
 
       const game = generateCustomGameAttempt(config, attempt);
       if (game) {
-        workerGlobal.postMessage({
+        const successMessage: CustomGameGenerationSuccess = {
           type: "success",
           game,
-        } satisfies CustomGameGenerationMessage);
+        };
+        workerGlobal.postMessage(successMessage);
         return;
       }
     }
 
-    workerGlobal.postMessage({
+    const failureMessage: CustomGameGenerationFailure = {
       type: "failure",
       reason:
         "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-    } satisfies CustomGameGenerationMessage);
+    };
+    workerGlobal.postMessage(failureMessage);
   } catch {
-    workerGlobal.postMessage({
+    const failureMessage: CustomGameGenerationFailure = {
       type: "failure",
       reason:
         "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-    } satisfies CustomGameGenerationMessage);
+    };
+    workerGlobal.postMessage(failureMessage);
   }
 });

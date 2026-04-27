@@ -1,6 +1,6 @@
 import hydrate from "preact-iso/hydrate";
 import { App } from "@/App";
-import { preloadGameRoute } from "@/routes/lazyRoutes";
+import { isGameRoutePreloaded, preloadGameRoute } from "@/routes/lazyRoutes";
 import { removeBasePath } from "@/routes/routeUtils";
 import {
   getSystemTheme,
@@ -25,11 +25,10 @@ try {
       const pathname = window.location.pathname;
       const isGameRoute = /^\/game(?:\/|$)/.test(removeBasePath(pathname));
 
-      if (isGameRoute) {
+      if (isGameRoute && !isGameRoutePreloaded()) {
         loadingService.start("init");
         preloadGameRoute().then(() => {
           hydrate(<App />, appElement);
-          loadingService.stop("init");
         });
       } else {
         hydrate(<App />, appElement);

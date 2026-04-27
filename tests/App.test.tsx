@@ -10,6 +10,8 @@ const setProgress = (
 
 const waitForGameLoaded = async (stageLabel: string) => {
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(250);
+  await vi.advanceTimersByTimeAsync(0);
   await waitFor(() => {
     expect(screen.queryByText("Generating Puzzle...")).toBeNull();
     expect(screen.getAllByText(stageLabel).length).toBeGreaterThan(0);
@@ -80,7 +82,7 @@ describe("App", () => {
     vi.useRealTimers();
     render(<App />);
 
-    fireEvent.click(await screen.findByText("Easy"));
+    fireEvent.click(screen.getByText("Easy"));
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/game/easy");
@@ -88,8 +90,10 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText("Generating Puzzle...")).toBeNull();
       expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Generating Puzzle...")).toBeNull();
     });
   });
 
@@ -116,7 +120,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Easy"));
 
-    expect(screen.getByLabelText("Loading").tagName).toBe("PROGRESS");
+    expect(screen.getByLabelText("Loading").tagName).toBe("DIV");
     expect(screen.getByLabelText("Loading screen")).toBeDefined();
 
     await vi.advanceTimersByTimeAsync(1000);
@@ -139,6 +143,7 @@ describe("App", () => {
     render(<App />);
 
     await waitForGameLoaded("Hard — Stage 3");
+    expect(screen.queryByLabelText("Loading screen")).toBeNull();
   });
 
   it("should redirect a difficulty route to saved progress", async () => {

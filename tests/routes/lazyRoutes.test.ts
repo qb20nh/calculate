@@ -1,9 +1,15 @@
-import { describe, it } from "vitest";
-import { preloadGameRoute } from "@/routes/lazyRoutes";
+import { describe, expect, it } from "vitest";
+import { isGameRoutePreloaded, preloadGameRoute } from "@/routes/lazyRoutes";
 
 describe("lazyRoutes", () => {
   it("should preload game route", () => {
     preloadGameRoute();
+  });
+
+  it("should report game route preload state", async () => {
+    expect(isGameRoutePreloaded()).toBe(false);
+    await preloadGameRoute();
+    expect(isGameRoutePreloaded()).toBe(true);
   });
 
   it("should not crash when preloading in non-browser environment", () => {

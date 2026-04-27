@@ -12,19 +12,22 @@ function TestProbe() {
     setLocale,
     cycleThemePreference,
     toggleLocale,
+    t,
   } = useAppSettings();
 
   return (
     <div>
       <span data-testid="title">{copy.appTitle}</span>
       <span data-testid="menu">{copy.menuTitleMain}</span>
-      <span data-testid="difficulty">{copy.difficultyLabel("Custom")}</span>
-      <span data-testid="stage">{copy.game.stageLabel("Easy", 3)}</span>
+      <span data-testid="difficulty">{copy.difficulty.Custom}</span>
+      <span data-testid="stage">
+        {t("game.stageLabel", { difficulty: copy.difficulty.Easy, stage: 3 })}
+      </span>
       <span data-testid="validation">{copy.custom.validation.totalTiles}</span>
-      <span data-testid="theme-label">{copy.themePreferenceLabel("dark")}</span>
-      <span data-testid="locale-label">{copy.localeLabel("ko")}</span>
-      <span data-testid="locked">{copy.game.stageLockedTitle(7)}</span>
-      <span data-testid="goto">{copy.game.goToStage(2)}</span>
+      <span data-testid="theme-label">{copy.themePreference.dark}</span>
+      <span data-testid="locale-label">{copy.localeLabel.ko}</span>
+      <span data-testid="locked">{t("game.stageLockedTitle", { stage: 7 })}</span>
+      <span data-testid="goto">{t("game.goToStage", { stage: 2 })}</span>
       <span data-testid="loading-text">{copy.game.generatingPuzzle}</span>
       <span data-testid="bank-empty">{copy.game.bankEmpty}</span>
       <span data-testid="reset-title">{copy.game.resetDialogTitle}</span>
@@ -35,18 +38,16 @@ function TestProbe() {
       <span data-testid="dismiss">{copy.game.dismiss}</span>
       <span data-testid="next-level">{copy.game.nextLevel}</span>
       <span data-testid="too-large">{copy.game.solutionTooLarge}</span>
-      <span data-testid="vr1">{copy.game.validationReason("Board is empty.")}</span>
-      <span data-testid="vr2">
-        {copy.game.validationReason("No valid mathematical formula found.")}
-      </span>
-      <span data-testid="vr3">
-        {copy.game.validationReason("At least two crossing formulas are required.")}
-      </span>
-      <span data-testid="vr4">{copy.game.validationReason('Invalid formula: "1+1=3"')}</span>
+      <span data-testid="vr1">{copy.game.validation.boardEmpty}</span>
+      <span data-testid="vr2">{copy.game.validation.noFormula}</span>
+      <span data-testid="vr3">{copy.game.validation.noCrossing}</span>
+      <span data-testid="vr4">{t("game.validation.invalidFormula", { formula: "1+1=3" })}</span>
       <span data-testid="custom-title">{copy.custom.title}</span>
       <span data-testid="custom-start">{copy.custom.start}</span>
       <span data-testid="custom-loading">{copy.custom.loadingTitle}</span>
-      <span data-testid="custom-retry">{copy.custom.retryLabel(1, 2)}</span>
+      <span data-testid="custom-retry">
+        {t("custom.retryLabel", { retryCount: 1, totalRetries: 2 })}
+      </span>
       <span data-testid="custom-hint">{copy.custom.loadingHint}</span>
       <span data-testid="custom-cancel">{copy.custom.cancel}</span>
       <span data-testid="custom-invalid">{copy.custom.invalidUrl}</span>

@@ -24,10 +24,9 @@ export const ProgressBar: FunctionalComponent<ProgressBarProps> = (props) => {
   if (!isVisible) return null;
 
   return (
-    <progress
+    <div
+      role="progressbar"
       aria-label={copy.aria.loading}
-      max={100}
-      value={progress}
       className={cn(
         "route-progress fixed inset-x-0 top-0 z-[100] h-1 w-full overflow-hidden",
         isFading ? "opacity-0 transition-opacity" : "opacity-100 transition-none",
@@ -35,9 +34,9 @@ export const ProgressBar: FunctionalComponent<ProgressBarProps> = (props) => {
       )}
     >
       <div
-        className="h-full bg-primary transition-all ease-linear"
+        className="route-progress-bar"
         style={{ width: `${progress}%`, transitionDuration: `${transitionMs}ms` }}
       />
-    </progress>
+    </div>
   );
 };

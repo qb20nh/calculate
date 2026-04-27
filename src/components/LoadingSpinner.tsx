@@ -12,7 +12,7 @@ export const LoadingSpinner: FunctionalComponent<LoadingSpinnerProps> = ({ isVis
   return (
     <output
       aria-label={copy.aria.loadingScreen}
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
+      className="theme-page-bg fixed inset-0 z-[90] flex items-center justify-center"
     >
       <div className="size-16 animate-spin rounded-full border-4 theme-spinner" />
     </output>

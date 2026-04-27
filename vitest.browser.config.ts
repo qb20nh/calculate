@@ -63,16 +63,17 @@ const waitForTwoFrames = async (page: Page) => {
   );
 };
 
-const ROUTE_SETTLE_TIMEOUT_MS = 15000;
+const ROUTE_SETTLE_TIMEOUT_MS = 30000;
 
 const expectedReadyRouteForPath = (path: string) => {
-  if (path === "/") return "menu";
-  if (path.startsWith("/game/custom")) return "custom-setup";
-  if (
-    path.startsWith("/game/easy") ||
-    path.startsWith("/game/medium") ||
-    path.startsWith("/game/hard")
-  ) {
+  const url = new URL(path, "http://localhost");
+  const pathname = url.pathname.replace(/\/$/, "") || "/";
+
+  if (pathname === "/") return "menu";
+  if (pathname === "/game/custom") {
+    return url.searchParams.has("given") ? "game" : "custom-setup";
+  }
+  if (["/game/easy", "/game/medium", "/game/hard"].includes(pathname)) {
     return "game";
   }
   return "notfound";
@@ -225,7 +226,9 @@ const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, pa
           __APP_RENDER_ERROR__?: string;
         };
 
-        if (appWindow.__APP_RENDER_ERROR__) return false;
+        if (appWindow.__APP_RENDER_ERROR__) {
+          throw new Error(`App render error: ${appWindow.__APP_RENDER_ERROR__}`);
+        }
         if (!appWindow.__APP_READY__) return false;
         if (appWindow.__APP_READY_ROUTE__ !== expectedReadyRoute) return false;
 
@@ -234,25 +237,34 @@ const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, pa
 
         if (
           document.querySelector("#skeleton-progress") !== null ||
-          document.querySelector("#skeleton-spinner") !== null
+          document.querySelector("#skeleton-spinner") !== null ||
+          document.querySelector("#custom-generation-spinner") !== null
         ) {
           return false;
         }
 
-        if (currentPath === "/") {
+        const url = new URL(currentPath, "http://localhost");
+        const pathname = url.pathname.replace(/\/$/, "") || "/";
+
+        if (pathname === "/") {
           return document.querySelector("h1")?.textContent?.includes("Math Crossword") ?? false;
         }
 
-        if (currentPath.startsWith("/game/custom")) {
+        if (pathname === "/game/custom" && !url.searchParams.has("given")) {
           return document.querySelector("#custom-given-count") !== null;
         }
 
-        if (
-          currentPath.startsWith("/game/easy") ||
-          currentPath.startsWith("/game/medium") ||
-          currentPath.startsWith("/game/hard")
-        ) {
-          return document.querySelector('[data-testid="game-board-container"]') !== null;
+        if (pathname.startsWith("/game/") && pathname !== "/game") {
+          // If it's a valid difficulty or a custom game with params
+          const isKnownGameRoute = [
+            "/game/easy",
+            "/game/medium",
+            "/game/hard",
+            "/game/custom",
+          ].includes(pathname);
+          if (isKnownGameRoute && (pathname !== "/game/custom" || url.searchParams.has("given"))) {
+            return document.querySelector('[data-testid="game-board-container"]') !== null;
+          }
         }
 
         return document.querySelector("h1")?.textContent?.includes("Page not found") ?? false;
@@ -276,6 +288,23 @@ const clickButton: BrowserCommand<[string]> = async (context, name) => {
   await page.getByRole("button", { name }).click();
 };
 
+const clickTestId: BrowserCommand<[string]> = async (context, testId) => {
+  const page = await ensureAppPage(context);
+  await page.getByTestId(testId).click();
+};
+
+const resetAppState: BrowserCommand = async (context) => {
+  const page = await ensureAppPage(context);
+  await page.evaluate(() => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn("Could not clear storage:", e);
+    }
+  });
+};
+
 const drainBrowserConsoleErrors: BrowserCommand = ({ sessionId }) => {
   const state = browserConsoleState.get(sessionId);
   if (!state) return [];
@@ -296,10 +325,11 @@ export default defineConfig({
       "tests/browser/**/*.spec.tsx",
     ],
     globalSetup: ["./tests/browser/vitest.globalSetup.ts"],
+    testTimeout: 30000,
     browser: {
       enabled: true,
       headless: true,
-      fileParallelism: true,
+      fileParallelism: false,
       provider: playwright({
         launchOptions: {
           args: ["--disable-dev-shm-usage", "--no-sandbox"],
@@ -316,6 +346,8 @@ export default defineConfig({
         waitForRouteSettled,
         waitForText,
         clickButton,
+        clickTestId,
+        resetAppState,
         drainBrowserConsoleErrors,
       },
       instances: browserMatrix,

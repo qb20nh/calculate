@@ -335,29 +335,22 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 9999px;
     border: 1px solid var(--theme-border);
     background-color: color-mix(in srgb, var(--theme-surface) 90%, var(--theme-bg));
     color: var(--theme-ink);
-    padding: 0.5rem 0.8rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-ink) 10%, transparent);
+    padding: 0;
     transition:
       background-color 0.15s ease,
-      border-color 0.15s ease,
-      transform 0.15s ease;
+      border-color 0.15s ease;
   }
 
   .theme-control-pill:hover {
     background-color: color-mix(in srgb, var(--theme-surface) 78%, var(--theme-bg));
-    transform: translateY(-1px);
-  }
-
-  .theme-control-label {
-    color: var(--theme-muted);
+    border-color: var(--theme-primary-border);
   }
 
   .theme-input {
@@ -482,6 +475,20 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
+@keyframes fadeInSoft {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-soft {
+  animation: fadeInSoft 0.24s ease-out forwards;
+}
+
 @theme {
   --animate-fade-in: fadeIn 0.3s ease-out forwards;
+  --animate-fade-in-soft: fadeInSoft 0.24s ease-out forwards;
 }

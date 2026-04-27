@@ -1,10 +1,15 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game } from "@/components/Game";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { useAppSettings } from "@/lib/appSettings";
-import { parseCustomGameConfig, toCustomGamePath } from "@/routes/routeUtils";
+import {
+  addBasePath,
+  parseCustomGameConfig,
+  parseCustomGameRetryCount,
+  toCustomGamePath,
+} from "@/routes/routeUtils";
 import { generateCustomGame } from "@/services/board";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
@@ -225,7 +230,7 @@ function CustomGameSetup({
           <button
             type="button"
             onClick={onBackToMenu}
-            className="rounded-2xl border theme-border px-5 py-4 font-bold theme-muted-text transition active:scale-95"
+            className="rounded-2xl border theme-border px-5 py-4 font-bold transition active:scale-95"
           >
             {copy.custom.backToMenu}
           </button>
@@ -246,18 +251,21 @@ function CustomGameLoading({
   retryCount,
   onCancel,
 }: Readonly<{ retryCount: number; onCancel: () => void }>) {
-  const { copy } = useAppSettings();
+  const { copy, t } = useAppSettings();
   useAppReadinessSignal(false, "custom-loading");
 
   return (
     <div className="theme-page-bg h-dvh w-full flex items-center justify-center p-4">
       <div className="theme-panel w-full max-w-lg rounded-3xl p-6 shadow-xl md:p-8">
         <div className="flex items-center gap-4">
-          <div className="size-14 animate-spin rounded-full border-4 theme-spinner" />
+          <div
+            id="custom-generation-spinner"
+            className="size-14 animate-spin rounded-full border-4 theme-spinner"
+          />
           <div className="grid gap-1">
             <h1 className="text-2xl font-black tracking-tight">{copy.custom.loadingTitle}</h1>
             <p className="font-medium theme-muted-text">
-              {copy.custom.retryLabel(retryCount, CUSTOM_GAME_RETRY_LIMIT)}
+              {t("custom.retryLabel", { retryCount, totalRetries: CUSTOM_GAME_RETRY_LIMIT })}
             </p>
           </div>
         </div>
@@ -269,7 +277,7 @@ function CustomGameLoading({
         <button
           type="button"
           onClick={onCancel}
-          className="mt-6 w-full rounded-2xl border theme-border px-5 py-4 font-bold theme-muted-text transition active:scale-95"
+          className="mt-6 w-full rounded-2xl border theme-border px-5 py-4 font-bold transition active:scale-95"
         >
           {copy.custom.cancel}
         </button>
@@ -286,23 +294,38 @@ export default function CustomGameRoute() {
     [location.url],
   );
   const parsedConfig = useMemo(() => parseCustomGameConfig(searchParams), [searchParams]);
+  const parsedRetryCount = useMemo(() => parseCustomGameRetryCount(searchParams), [searchParams]);
   const savedState = useMemo(() => loadGameState(), []);
   const savedCustomConfig = savedState?.difficulty === "Custom" ? savedState.customConfig : null;
+  const resumeSavedGame =
+    parsedConfig && sameCustomConfig(savedCustomConfig, parsedConfig) ? savedState : null;
 
   const [draft, setDraft] = useState<CustomGameConfig>(parsedConfig ?? DEFAULT_CUSTOM_CONFIG);
   const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(
-    parsedConfig && sameCustomConfig(savedCustomConfig, parsedConfig) ? parsedConfig : null,
+    parsedConfig && resumeSavedGame ? parsedConfig : null,
   );
   const [gameState, setGameState] = useState<GameState | null>(
-    parsedConfig && sameCustomConfig(savedCustomConfig, parsedConfig) ? savedState : null,
+    parsedConfig && resumeSavedGame ? savedState : null,
   );
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(
+    parsedConfig !== null && parsedRetryCount > 0 && resumeSavedGame === null,
+  );
+  const [retryCount, setRetryCount] = useState(parsedRetryCount);
   const [error, setError] = useState<string | null>(
     parsedConfig === null && searchParams.toString().length > 0 ? copy.custom.invalidUrl : null,
   );
 
   const workerRef = useRef<CustomGameWorkerHandle | null>(null);
+  const resumeStartedRef = useRef(false);
+
+  const syncCustomUrl = (config: CustomGameConfig, nextRetryCount: number) => {
+    if (typeof window === "undefined") return;
+
+    const nextPath = addBasePath(toCustomGamePath(config, nextRetryCount));
+    if (window.location.pathname + window.location.search !== nextPath) {
+      window.history.replaceState(null, "", nextPath);
+    }
+  };
 
   const terminateWorker = () => {
     workerRef.current?.terminate();
@@ -311,16 +334,15 @@ export default function CustomGameRoute() {
 
   useEffect(() => () => terminateWorker(), []);
 
-  const startGeneration = (config: CustomGameConfig) => {
-    const nextPath = toCustomGamePath(config);
-    if (location.url !== nextPath) {
-      location.route(nextPath, true);
+  const startGeneration = (config: CustomGameConfig, startRetryCount: number, syncUrl: boolean) => {
+    if (syncUrl) {
+      syncCustomUrl(config, startRetryCount);
     }
 
     terminateWorker();
     setError(null);
     setIsGenerating(true);
-    setRetryCount(0);
+    setRetryCount(startRetryCount);
 
     try {
       const worker = createCustomGameWorker();
@@ -330,6 +352,7 @@ export default function CustomGameRoute() {
         const message = event.data;
         if (message.type === "progress") {
           setRetryCount(message.retryCount);
+          syncCustomUrl(config, message.retryCount);
           return;
         }
 
@@ -358,11 +381,12 @@ export default function CustomGameRoute() {
       worker.postMessage({
         type: "generate",
         config,
+        retryCount: startRetryCount,
       });
     } catch {
       terminateWorker();
       setIsGenerating(false);
-      setRetryCount(0);
+      setRetryCount(startRetryCount);
       setError(copy.custom.generationError);
     }
   };
@@ -383,7 +407,8 @@ export default function CustomGameRoute() {
     }
 
     setDraft(normalized);
-    startGeneration(normalized);
+    setRetryCount(0);
+    startGeneration(normalized, 0, true);
   };
 
   const handleBackToMenu = () => {
@@ -399,6 +424,12 @@ export default function CustomGameRoute() {
   };
 
   const activeGame = gameState ?? null;
+  useLayoutEffect(() => {
+    if (parsedConfig === null || parsedRetryCount <= 0 || resumeSavedGame !== null) return;
+    if (resumeStartedRef.current) return;
+    resumeStartedRef.current = true;
+    startGeneration(parsedConfig, parsedRetryCount, false);
+  }, [parsedConfig, parsedRetryCount, resumeSavedGame]);
 
   if (activeGame && activeConfig) {
     return (

@@ -63,7 +63,7 @@ describe("route utils", () => {
         seed: "123",
         limitSolutionSize: false,
       }),
-    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123");
+    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=0");
     expect(
       toCustomGamePath({
         givenCount: 6,
@@ -72,7 +72,20 @@ describe("route utils", () => {
         seed: "123",
         limitSolutionSize: true,
       }),
-    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123&limitSolutionSize=1");
+    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=0&limitSolutionSize=1");
+
+    expect(
+      toCustomGamePath(
+        {
+          givenCount: 6,
+          inventoryCount: 10,
+          sizeLimit: 10,
+          seed: "123",
+          limitSolutionSize: false,
+        },
+        37,
+      ),
+    ).toBe("/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=37");
 
     expect(
       parseCustomGameConfig(
@@ -84,6 +97,17 @@ describe("route utils", () => {
       sizeLimit: 10,
       seed: "123",
       limitSolutionSize: true,
+    });
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams("given=6&inventory=10&size=10&seed=123&retryCount=37"),
+      ),
+    ).toEqual({
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
     });
   });
 

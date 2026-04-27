@@ -5,20 +5,21 @@ export const CUSTOM_GAME_RETRY_LIMIT = 1000;
 export type CustomGameGenerationRequest = {
   type: "generate";
   config: CustomGameConfig;
+  retryCount: number;
 };
 
-type CustomGameGenerationProgress = {
+export type CustomGameGenerationProgress = {
   type: "progress";
   retryCount: number;
   totalRetries: number;
 };
 
-type CustomGameGenerationSuccess = {
+export type CustomGameGenerationSuccess = {
   type: "success";
   game: GameState;
 };
 
-type CustomGameGenerationFailure = {
+export type CustomGameGenerationFailure = {
   type: "failure";
   reason: string;
 };

@@ -4,4 +4,12 @@ export const MenuRoute = lazy(() => import("@/routes/MenuRoute"));
 export const GameRoute = lazy(() => import("@/routes/GameRoute"));
 export const NotFoundRoute = lazy(() => import("@/routes/NotFoundRoute"));
 
-export const preloadGameRoute = () => GameRoute.preload();
+let gameRoutePreloaded = false;
+
+export const isGameRoutePreloaded = () => gameRoutePreloaded;
+
+export const preloadGameRoute = () =>
+  GameRoute.preload().then((module) => {
+    gameRoutePreloaded = true;
+    return module;
+  });
