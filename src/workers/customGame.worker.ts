@@ -1,17 +1,25 @@
 import { generateCustomGameAttempt } from "@/services/board";
-import type { CustomGameGenerationRequest } from "@/services/customGameGeneration";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
   type CustomGameGenerationMessage,
+  type CustomGameGenerationRequest,
 } from "@/services/customGameGeneration";
 
 const workerGlobal = self as typeof self & {
   addEventListener: typeof self.addEventListener;
   postMessage: typeof self.postMessage;
+  location: Location;
 };
 
-workerGlobal.addEventListener("message", (event: MessageEvent<CustomGameGenerationRequest>) => {
-  if (event.data.type !== "generate") return;
+function isCustomGameGenerationRequest(data: unknown): data is CustomGameGenerationRequest {
+  if (typeof data !== "object" || data === null) return false;
+  if (!("type" in data) || data.type !== "generate") return false;
+  return "config" in data;
+}
+
+workerGlobal.addEventListener("message", (event: MessageEvent<unknown>) => {
+  if (event.origin !== workerGlobal.location.origin) return;
+  if (!isCustomGameGenerationRequest(event.data)) return;
 
   const { config } = event.data;
   try {

@@ -93,13 +93,13 @@ function CustomGameSetup({
   onBackToMenu,
   onDraftChange,
   onSubmit,
-}: {
+}: Readonly<{
   draft: CustomGameConfig;
   error: string | null;
   onBackToMenu: () => void;
   onDraftChange: (next: CustomGameConfig) => void;
   onSubmit: () => void;
-}) {
+}>) {
   useAppReadinessSignal(true, "custom-setup");
 
   return (
@@ -127,7 +127,7 @@ function CustomGameSetup({
               onInput={(e) =>
                 onDraftChange({
                   ...draft,
-                  givenCount: Number((e.currentTarget as HTMLInputElement).value),
+                  givenCount: Number(e.currentTarget.value),
                 })
               }
               className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
@@ -144,7 +144,7 @@ function CustomGameSetup({
               onInput={(e) =>
                 onDraftChange({
                   ...draft,
-                  inventoryCount: Number((e.currentTarget as HTMLInputElement).value),
+                  inventoryCount: Number(e.currentTarget.value),
                 })
               }
               className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
@@ -161,7 +161,7 @@ function CustomGameSetup({
               onInput={(e) =>
                 onDraftChange({
                   ...draft,
-                  sizeLimit: Number((e.currentTarget as HTMLInputElement).value),
+                  sizeLimit: Number(e.currentTarget.value),
                 })
               }
               className="rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 outline-none focus:border-slate-400"
@@ -176,7 +176,7 @@ function CustomGameSetup({
               onInput={(e) =>
                 onDraftChange({
                   ...draft,
-                  seed: (e.currentTarget as HTMLInputElement).value,
+                  seed: e.currentTarget.value,
                 })
               }
               placeholder="blank or 0 = random"
@@ -193,7 +193,7 @@ function CustomGameSetup({
                 onChange={(e) =>
                   onDraftChange({
                     ...draft,
-                    limitSolutionSize: (e.currentTarget as HTMLInputElement).checked,
+                    limitSolutionSize: e.currentTarget.checked,
                   })
                 }
                 className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-slate-700"
@@ -235,7 +235,10 @@ function CustomGameSetup({
   );
 }
 
-function CustomGameLoading({ retryCount, onCancel }: { retryCount: number; onCancel: () => void }) {
+function CustomGameLoading({
+  retryCount,
+  onCancel,
+}: Readonly<{ retryCount: number; onCancel: () => void }>) {
   useAppReadinessSignal(false, "custom-loading");
 
   return (

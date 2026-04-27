@@ -20,7 +20,7 @@ const getHtmlAsset = (bundle: BundleLike, fileName: string): HtmlAsset => {
 };
 
 const extractSkeletonHtml = (sourceHtml: string) => {
-  const appMatch = sourceHtml.match(/<!--\$s-->([\s\S]*?)<!--\/\$s-->/);
+  const appMatch = new RegExp(/<!--\$s-->([\s\S]*?)<!--\/\$s-->/).exec(sourceHtml);
   const skeletonHtml = appMatch?.[1];
   if (typeof skeletonHtml !== "string") {
     throw new TypeError("Could not find prerendered content in game/easy/index.html");
@@ -56,11 +56,7 @@ export function injectSkeletonPlugin(): Plugin {
       const root404Html = injectSkeleton(nested404Html.source, skeletonHtml);
 
       const existingRoot404 = outputBundle["404.html"];
-      if (
-        existingRoot404 &&
-        existingRoot404.type === "asset" &&
-        typeof existingRoot404.source === "string"
-      ) {
+      if (existingRoot404?.type === "asset" && typeof existingRoot404.source === "string") {
         existingRoot404.source = root404Html;
         return;
       }

@@ -24,7 +24,7 @@ try {
       }
     }
   }
-} catch (_e) {
+} catch {
   // Silently ignore errors during build-time execution
 }
 

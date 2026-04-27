@@ -151,7 +151,7 @@ const analyzeBoard = (board: BoardLike): BoardValidation => {
     if (!hasOperator || relationIndices.length === 0) return "ignore" as const;
 
     const firstRelation = relationIndices[0];
-    const lastRelation = relationIndices[relationIndices.length - 1];
+    const lastRelation = relationIndices.at(-1);
     if (firstRelation === undefined || lastRelation === undefined) return "ignore" as const;
 
     const isAllEquals = relationIndices.every((index) => tokens[index] === REL_EQ);
@@ -579,11 +579,12 @@ export const generateGame = (stage: number, difficulty: Difficulty) => {
     diffPercent = 0.4;
     minInv = 10;
     maxInv = 14;
-  } else if (difficulty === "Hard") {
-    diffPercent = 0.2;
-    minInv = 15;
-    maxInv = 21;
+    // } else if (difficulty === "Hard") {
+    //   diffPercent = 0.2;
+    //   minInv = 15;
+    //   maxInv = 21;
   } else {
+    // uncomment above if we change this fallback params
     diffPercent = 0.2;
     minInv = 15;
     maxInv = 21;

@@ -45,7 +45,7 @@ export function injectLoadingScriptPlugin(): Plugin {
 
       const functionDefinition = `var getNextTrickleProgress = ${logicCode
         .slice(functionStart + exportMarker.length, bodyEnd + 1)
-        .replace(/:\s*number/g, "")};`;
+        .replaceAll(/:\s*number/g, "")};`;
 
       return html.replace("/* __PROGRESS_LOGIC_PLACEHOLDER__ */", functionDefinition);
     },

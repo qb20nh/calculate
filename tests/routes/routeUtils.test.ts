@@ -39,8 +39,8 @@ describe("route utils", () => {
   });
 
   it("should parse custom game mode and custom config", () => {
-    expect(parseDifficultySlug(undefined)).toBe(null);
-    expect(parseGameModeSlug(undefined)).toBe(null);
+    expect(parseDifficultySlug()).toBe(null);
+    expect(parseGameModeSlug()).toBe(null);
     expect(parseGameModeSlug("custom")).toBe("Custom");
     expect(parseGameModeSlug("easy")).toBe("Easy");
 

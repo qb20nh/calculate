@@ -2,7 +2,7 @@ import prerenderApp, { locationStub } from "preact-iso/prerender";
 import { App } from "@/App";
 
 // Mock browser globals for prerendering
-if (typeof globalThis.window === "undefined") {
+if (globalThis.window === undefined) {
   const noop = () => {};
   const mockGlobal = globalThis as unknown as Window & typeof globalThis;
 

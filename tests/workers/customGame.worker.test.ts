@@ -23,6 +23,9 @@ describe("custom game worker", () => {
           mockHandler = listener;
         }
       }),
+      location: {
+        origin: "https://example.test",
+      },
       postMessage: mockPostMessage,
     });
     vi.resetModules();
@@ -32,6 +35,7 @@ describe("custom game worker", () => {
     await import("@/workers/customGame.worker");
 
     mockHandler?.({
+      origin: "https://example.test",
       data: { type: "noop" },
     } as unknown as MessageEvent<{ type: "noop" }>);
 
@@ -60,6 +64,7 @@ describe("custom game worker", () => {
     await import("@/workers/customGame.worker");
 
     mockHandler?.({
+      origin: "https://example.test",
       data: {
         type: "generate",
         config: game.customConfig,
@@ -91,6 +96,7 @@ describe("custom game worker", () => {
     await import("@/workers/customGame.worker");
 
     mockHandler?.({
+      origin: "https://example.test",
       data: {
         type: "generate",
         config,
