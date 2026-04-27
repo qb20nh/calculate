@@ -41,6 +41,9 @@ type Direction = {
   dy: number;
 };
 
+type BoardLikeCell = { val: string };
+type BoardLike = Record<string, BoardLikeCell | undefined>;
+
 const getKey = (r: number, c: number) => `${r},${c}`;
 
 const parseKey = (key: string): [number, number] => {
@@ -118,6 +121,119 @@ const forEachEquation = (
 
   if (scan(minR, maxR, minC, maxC, true) === false) return; // Horizontal
   scan(minC, maxC, minR, maxR, false); // Vertical
+};
+
+type FormulaRun = {
+  keys: string[];
+};
+
+type BoardValidation = { valid: true } | { valid: false; reason: string };
+
+const analyzeBoard = (board: BoardLike): BoardValidation => {
+  const placedKeys = Object.keys(board);
+  if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
+
+  const trueFormulas: FormulaRun[] = [];
+  const coveredKeys = new Set<string>();
+  let invalidFormula: string | null = null;
+
+  forEachEquation(
+    placedKeys,
+    (k) => board[k],
+    (word) => {
+      const tokens = word.map((w) => w.val);
+      const hasRelation = tokens.some((t) => t === REL_EQ || t === REL_LT || t === REL_GT);
+      const hasOperator = tokens.some(
+        (t) => t === OP_PLUS || t === OP_MINUS || t === OP_MULT || t === OP_DIV,
+      );
+      if (!hasRelation || !hasOperator) return;
+
+      let relationStart = -1;
+      let relationEnd = -1;
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token === REL_EQ || token === REL_LT || token === REL_GT) {
+          if (relationStart === -1) relationStart = i;
+          relationEnd = i;
+        }
+      }
+      if (relationStart <= 0 || relationEnd >= tokens.length - 1) return;
+
+      if (!isValidEquation(word)) {
+        invalidFormula = tokens.join("");
+        return false;
+      }
+
+      const keys = word.map((w) => w.key);
+      trueFormulas.push({ keys });
+      for (const key of keys) coveredKeys.add(key);
+    },
+  );
+
+  if (invalidFormula) {
+    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
+  }
+
+  if (trueFormulas.length === 0) {
+    return { valid: false, reason: "No valid mathematical formula found." };
+  }
+
+  if (coveredKeys.size !== placedKeys.length) {
+    return { valid: false, reason: "Every tile must belong to a valid formula." };
+  }
+
+  if (trueFormulas.length < 2) {
+    return { valid: false, reason: "At least two crossing formulas are required." };
+  }
+
+  const parent = trueFormulas.map((_, index) => index);
+  const find = (index: number): number => {
+    const root = parent[index];
+    if (root === undefined || root === index) return index;
+    const next = find(root);
+    parent[index] = next;
+    return next;
+  };
+  const union = (left: number, right: number) => {
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) {
+      parent[rightRoot] = leftRoot;
+    }
+  };
+
+  const formulasByTile = new Map<string, number[]>();
+  for (let i = 0; i < trueFormulas.length; i++) {
+    const formula = trueFormulas[i];
+    if (!formula) continue;
+    for (const key of formula.keys) {
+      const next = formulasByTile.get(key);
+      if (next) {
+        next.push(i);
+      } else {
+        formulasByTile.set(key, [i]);
+      }
+    }
+  }
+
+  for (const indices of formulasByTile.values()) {
+    if (indices.length < 2) continue;
+    const [first, ...rest] = indices;
+    if (first === undefined) continue;
+    for (const index of rest) {
+      if (index === undefined) continue;
+      union(first, index);
+    }
+  }
+
+  const root = find(0);
+  for (let i = 1; i < trueFormulas.length; i++) {
+    if (find(i) !== root) {
+      return { valid: false, reason: "All formulas must be connected by crossings." };
+    }
+  }
+
+  return { valid: true };
 };
 
 const placeEquation = (
@@ -320,9 +436,6 @@ const finalizeGame = (
 };
 
 const buildExactGrid = (prng: () => number, targetTotalTiles: number, maxSideLength: number) => {
-  let bestGrid: Grid | null = null;
-  let bestGridKeys: string[] = [];
-
   for (let attempt = 0; attempt < 30; attempt++) {
     const grid: Grid = {};
     const gridKeys: string[] = [];
@@ -355,19 +468,14 @@ const buildExactGrid = (prng: () => number, targetTotalTiles: number, maxSideLen
       fails += Number(added === 0);
     }
 
-    if (gridKeys.length > bestGridKeys.length) {
-      bestGrid = grid;
-      bestGridKeys = gridKeys;
-    }
-
     if (gridKeys.length === targetTotalTiles) {
-      return { grid, gridKeys };
+      if (analyzeBoard(grid).valid) {
+        return { grid, gridKeys };
+      }
     }
   }
 
-  return bestGrid && bestGridKeys.length === targetTotalTiles
-    ? { grid: bestGrid, gridKeys: bestGridKeys }
-    : null;
+  return null;
 };
 
 const buildGameFromTarget = (
@@ -398,8 +506,8 @@ export const generateCustomGameAttempt = (
   attempt: number,
 ): GameState | null => {
   const targetTotalTiles = config.givenCount + config.inventoryCount;
-  if (config.givenCount <= 0 || config.inventoryCount <= 0 || config.sizeLimit < 1) return null;
-  if (targetTotalTiles < 5) return null;
+  if (config.givenCount <= 0 || config.inventoryCount <= 0 || config.sizeLimit < 5) return null;
+  if (targetTotalTiles < 9) return null;
   if (targetTotalTiles > config.sizeLimit * config.sizeLimit) return null;
 
   const baseSeed = getSeedNumber(config.seed);
@@ -467,81 +575,6 @@ export const generateCustomGame = (config: CustomGameConfig): GameState | null =
 
 type ValidationResult = { valid: true } | { valid: false; reason: string };
 
-export const validateBoard = (board: { [key: string]: TileData }): ValidationResult => {
-  const placedKeys = Object.keys(board);
-  if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
-
-  const visited = new Set<string>();
-  const firstKey = placedKeys[0] as string;
-  const queue = [firstKey];
-  visited.add(firstKey);
-
-  for (const item of queue) {
-    const [r, c] = parseKey(item);
-    const neighbors = [getKey(r + 1, c), getKey(r - 1, c), getKey(r, c + 1), getKey(r, c - 1)];
-
-    for (const nk of neighbors) {
-      if (board[nk] && !visited.has(nk)) {
-        visited.add(nk);
-        queue.push(nk);
-      }
-    }
-  }
-
-  if (visited.size !== placedKeys.length)
-    return { valid: false, reason: "All tiles must be connected together." };
-
-  let invalidFormula: string | null = null;
-  let missingOperator: string | null = null;
-  let nonCrossingSequence: string | null = null;
-  let equationsCount = 0;
-
-  forEachEquation(
-    placedKeys,
-    (k) => board[k],
-    (word) => {
-      if (word.length >= 2) {
-        if (isValidEquation(word)) {
-          equationsCount++;
-        } else {
-          const sequence = word.map((w) => w.val).join("");
-          const hasRel = word.some((t) => t.val === "=" || t.val === "<" || t.val === ">");
-          const hasOp = word.some(
-            (t) => t.val === OP_PLUS || t.val === OP_MINUS || t.val === OP_MULT || t.val === OP_DIV,
-          );
-
-          if (word.length >= 3 && hasRel && !hasOp) {
-            missingOperator = sequence;
-          } else if (word.length >= 3 && hasRel) {
-            invalidFormula = sequence;
-          } else {
-            nonCrossingSequence = sequence;
-          }
-          return false; // Break immediately
-        }
-      }
-    },
-  );
-
-  if (missingOperator) {
-    return {
-      valid: false,
-      reason: `Formulas must include at least one operator. "${missingOperator}"`,
-    };
-  }
-
-  if (invalidFormula) {
-    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
-  }
-
-  if (nonCrossingSequence) {
-    return {
-      valid: false,
-      reason: `All formulas must cross at least once.`,
-    };
-  }
-
-  if (equationsCount === 0) return { valid: false, reason: "No valid mathematical formula found." };
-
-  return { valid: true };
+export const validateBoard = (board: BoardLike): ValidationResult => {
+  return analyzeBoard(board);
 };

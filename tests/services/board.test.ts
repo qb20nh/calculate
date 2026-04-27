@@ -161,8 +161,38 @@ describe("board service", () => {
     return base;
   };
 
+  const createCrossingNetworkBoard = () => ({
+    "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+    "0,1": { id: "2", val: "0", type: "val" as const, isGiven: true },
+    "0,2": { id: "3", val: "−", type: "op" as const, isGiven: true },
+    "0,3": { id: "4", val: "4", type: "val" as const, isGiven: true },
+    "0,4": { id: "5", val: "=", type: "rel" as const, isGiven: true },
+    "0,5": { id: "6", val: "6", type: "val" as const, isGiven: true },
+    "1,3": { id: "7", val: "+", type: "op" as const, isGiven: true },
+    "2,3": { id: "8", val: "1", type: "val" as const, isGiven: true },
+    "3,3": { id: "9", val: "=", type: "rel" as const, isGiven: true },
+    "4,3": { id: "10", val: "5", type: "val" as const, isGiven: true },
+  });
+
+  const createFalseResidualBoard = () => ({
+    "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+    "0,1": { id: "2", val: "0", type: "val" as const, isGiven: true },
+    "0,2": { id: "3", val: "−", type: "op" as const, isGiven: true },
+    "0,3": { id: "4", val: "4", type: "val" as const, isGiven: true },
+    "0,4": { id: "5", val: "=", type: "rel" as const, isGiven: true },
+    "0,5": { id: "6", val: "6", type: "val" as const, isGiven: true },
+    "1,1": { id: "7", val: "+", type: "op" as const, isGiven: true },
+    "2,1": { id: "8", val: "2", type: "val" as const, isGiven: true },
+    "3,1": { id: "9", val: "=", type: "rel" as const, isGiven: true },
+    "4,1": { id: "10", val: "5", type: "val" as const, isGiven: true },
+    "1,3": { id: "11", val: "+", type: "op" as const, isGiven: true },
+    "2,3": { id: "12", val: "1", type: "val" as const, isGiven: true },
+    "3,3": { id: "13", val: "=", type: "rel" as const, isGiven: true },
+    "4,3": { id: "14", val: "5", type: "val" as const, isGiven: true },
+  });
+
   it("should validate a correct board", () => {
-    const board = createTestBoard();
+    const board = createCrossingNetworkBoard();
     expect(validateBoard(board).valid).toBe(true);
   });
 
@@ -183,6 +213,42 @@ describe("board service", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("should validate a crossing formula network with dangling fragments", () => {
+    const result = validateBoard(createCrossingNetworkBoard());
+    expect(result.valid).toBe(true);
+  });
+
+  it("should validate the regression board with crossing formulas and residual fragments", () => {
+    const board = {
+      "0,4": { id: "1", val: "9", type: "val" as const, isGiven: true },
+      "1,3": { id: "2", val: "4", type: "val" as const, isGiven: true },
+      "1,4": { id: "3", val: "−", type: "op" as const, isGiven: true },
+      "2,1": { id: "4", val: "3", type: "val" as const, isGiven: true },
+      "2,2": { id: "5", val: "5", type: "val" as const, isGiven: true },
+      "2,3": { id: "6", val: "÷", type: "op" as const, isGiven: true },
+      "2,4": { id: "7", val: "7", type: "val" as const, isGiven: true },
+      "2,5": { id: "8", val: ">", type: "rel" as const, isGiven: true },
+      "2,6": { id: "9", val: "3", type: "val" as const, isGiven: true },
+      "3,0": { id: "10", val: "1", type: "val" as const, isGiven: true },
+      "3,1": { id: "11", val: "0", type: "val" as const, isGiven: true },
+      "3,2": { id: "12", val: "−", type: "op" as const, isGiven: true },
+      "3,3": { id: "13", val: "4", type: "val" as const, isGiven: true },
+      "3,4": { id: "14", val: "=", type: "rel" as const, isGiven: true },
+      "3,5": { id: "15", val: "6", type: "val" as const, isGiven: true },
+      "4,2": { id: "16", val: "1", type: "val" as const, isGiven: true },
+      "4,3": { id: "17", val: "=", type: "rel" as const, isGiven: true },
+      "4,4": { id: "18", val: "2", type: "val" as const, isGiven: true },
+      "4,5": { id: "19", val: "÷", type: "op" as const, isGiven: true },
+      "4,6": { id: "20", val: "2", type: "val" as const, isGiven: true },
+      "5,2": { id: "21", val: "=", type: "rel" as const, isGiven: true },
+      "5,3": { id: "22", val: "1", type: "val" as const, isGiven: true },
+      "6,2": { id: "23", val: "4", type: "val" as const, isGiven: true },
+    };
+
+    const result = validateBoard(board);
+    expect(result.valid).toBe(true);
+  });
+
   it("should invalidate an incorrect board", () => {
     const board = createTestBoard({ "0,4": "6" });
     const result = validateBoard(board);
@@ -192,19 +258,75 @@ describe("board service", () => {
     }
   });
 
-  it("should invalidate a disconnected board", () => {
+  it("should invalidate a false residual formula even if other formulas are valid", () => {
+    const result = validateBoard(createFalseResidualBoard());
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("invalid formula");
+    }
+  });
+
+  it("should invalidate a single true formula board", () => {
     const board = {
-      "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
-      "0,1": { id: "2", val: REL_EQ, type: "rel" as const, isGiven: true },
-      "0,2": { id: "3", val: "2", type: "val" as const, isGiven: true },
-      "5,5": { id: "4", val: "1", type: "val" as const, isGiven: true },
-      "5,6": { id: "5", val: REL_EQ, type: "rel" as const, isGiven: true },
-      "5,7": { id: "6", val: "1", type: "val" as const, isGiven: true },
+      "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: "0", type: "val" as const, isGiven: true },
+      "0,2": { id: "3", val: "−", type: "op" as const, isGiven: true },
+      "0,3": { id: "4", val: "4", type: "val" as const, isGiven: true },
+      "0,4": { id: "5", val: "=", type: "rel" as const, isGiven: true },
+      "0,5": { id: "6", val: "6", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toContain("connected together");
+      expect(result.reason.toLowerCase()).toContain("crossing formulas");
+    }
+  });
+
+  it("should invalidate an all-given board with a single false statement", () => {
+    const board = {
+      "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "0,2": { id: "3", val: "1", type: "val" as const, isGiven: true },
+      "0,3": { id: "4", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,4": { id: "5", val: "3", type: "val" as const, isGiven: true },
+    };
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("formula");
+    }
+  });
+
+  it("should invalidate an all-given board with a single invalid formula", () => {
+    const board = {
+      "0,0": { id: "1", val: "5", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,2": { id: "3", val: "5", type: "val" as const, isGiven: true },
+    };
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("formula");
+    }
+  });
+
+  it("should invalidate a disconnected board", () => {
+    const board = {
+      "0,0": { id: "1", val: "1", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "0,2": { id: "3", val: "1", type: "val" as const, isGiven: true },
+      "0,3": { id: "4", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "0,4": { id: "5", val: "2", type: "val" as const, isGiven: true },
+      "5,0": { id: "6", val: "2", type: "val" as const, isGiven: true },
+      "5,1": { id: "7", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "5,2": { id: "8", val: "2", type: "val" as const, isGiven: true },
+      "5,3": { id: "9", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "5,4": { id: "10", val: "4", type: "val" as const, isGiven: true },
+    };
+    const result = validateBoard(board);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason.toLowerCase()).toContain("crossing");
     }
   });
 
@@ -261,7 +383,7 @@ describe("board service", () => {
     const result = validateBoard(board);
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("operator");
+      expect(result.reason.toLowerCase()).toContain("formula");
     }
   });
 });

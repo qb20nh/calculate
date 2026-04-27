@@ -59,8 +59,11 @@ const isValidCustomConfig = (config: CustomGameConfig) => {
   if (typeof config.limitSolutionSize !== "boolean") {
     return "Custom option settings are invalid.";
   }
-  if (config.givenCount + config.inventoryCount < 5) {
-    return "Need at least 5 total tiles.";
+  if (config.givenCount + config.inventoryCount < 9) {
+    return "Need at least 9 total tiles.";
+  }
+  if (config.sizeLimit < 5) {
+    return "Board size limit must be at least 5.";
   }
   if (config.givenCount + config.inventoryCount > config.sizeLimit * config.sizeLimit) {
     return "Tile count exceeds board size limit.";

@@ -242,6 +242,46 @@ describe("CustomGameRoute", () => {
     expect(mockCreateCustomGameWorker).not.toHaveBeenCalled();
   });
 
+  it("should reject custom settings that are too small to solve", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "4" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "4" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    expect(screen.getByText("Need at least 9 total tiles.")).toBeDefined();
+    expect(mockCreateCustomGameWorker).not.toHaveBeenCalled();
+  });
+
+  it("should reject custom settings with a too-small board size limit", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "5" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "4" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    expect(screen.getByText("Board size limit must be at least 5.")).toBeDefined();
+    expect(mockCreateCustomGameWorker).not.toHaveBeenCalled();
+  });
+
   it("should show live retry progress while generating", async () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 

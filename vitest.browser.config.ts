@@ -5,10 +5,6 @@ import type { Page } from "playwright";
 import { defineConfig } from "vitest/config";
 import type { BrowserCommand, BrowserInstanceOption } from "vitest/node";
 
-const browserSmokeFile = fileURLToPath(
-  new URL("./tests/browser/console-smoke.test.ts", import.meta.url),
-);
-const browserSmokeEnabled = process.env.ENABLE_BROWSER_SMOKE === "1";
 const browserMatrix: BrowserInstanceOption[] =
   process.env.ENABLE_BROWSER_MATRIX === "1"
     ? [
@@ -31,6 +27,10 @@ const isKnownHydrationMismatch = (text: string) =>
     "this is caused by the SSR'd HTML containing different DOM-nodes compared to the hydrated one.",
   );
 
+const isKnownJsxSourceHint = (text: string) =>
+  text.includes("Add @babel/plugin-transform-react-jsx-source") &&
+  text.includes("detailed component stack");
+
 const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[0]) => {
   const state = browserConsoleState.get(sessionId);
   if (!state) throw new Error("Browser console state not initialized");
@@ -46,6 +46,7 @@ const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[
       ? `${location.url}:${location.lineNumber}:${location.columnNumber}`
       : "";
     if (message.type() === "warning") {
+      if (isKnownJsxSourceHint(text)) return;
       process.stderr.write(`[browser warn] ${prefix ? `${prefix} ` : ""}${text}\n`);
     }
     if (message.type() === "error" && !isKnownHydrationMismatch(text)) {
@@ -79,7 +80,9 @@ const gotoRoute: BrowserCommand<[string]> = async (context, path) => {
   const previewBaseUrl = process.env.VITEST_PREVIEW_URL;
   if (!previewBaseUrl) throw new Error("Missing VITEST_PREVIEW_URL");
   const page = await ensureAppPage(context);
-  await page.goto(`${previewBaseUrl}${path}`, { waitUntil: "domcontentloaded" });
+  await page.goto(new URL(path, previewBaseUrl).toString(), {
+    waitUntil: "domcontentloaded",
+  });
 };
 
 const waitForText: BrowserCommand<[string]> = async (context, text) => {
@@ -108,7 +111,12 @@ export default defineConfig({
   plugins: [preact()],
   test: {
     name: "browser",
-    include: browserSmokeEnabled ? [browserSmokeFile] : [],
+    include: [
+      "tests/browser/**/*.test.ts",
+      "tests/browser/**/*.spec.ts",
+      "tests/browser/**/*.test.tsx",
+      "tests/browser/**/*.spec.tsx",
+    ],
     globalSetup: ["./tests/browser/vitest.globalSetup.ts"],
     browser: {
       enabled: true,
