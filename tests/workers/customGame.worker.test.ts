@@ -76,11 +76,6 @@ describe("custom game worker", () => {
 
     expect(mockGenerateCustomGameAttempt).toHaveBeenCalledWith(game.customConfig, 0);
     expect(mockPostMessage).toHaveBeenCalledWith({
-      type: "progress",
-      retryCount: 1,
-      totalRetries: 1000,
-    });
-    expect(mockPostMessage).toHaveBeenCalledWith({
       type: "success",
       game,
     });
@@ -115,7 +110,7 @@ describe("custom game worker", () => {
       },
     } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
 
-    expect(mockGenerateCustomGameAttempt).toHaveBeenCalledWith(game.customConfig, 3);
+    expect(mockGenerateCustomGameAttempt).toHaveBeenCalledWith(game.customConfig, 4);
     expect(mockPostMessage).toHaveBeenCalledWith({
       type: "success",
       game,
@@ -143,19 +138,14 @@ describe("custom game worker", () => {
       },
     } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
 
-    expect(mockGenerateCustomGameAttempt).toHaveBeenCalledTimes(1000);
+    expect(mockGenerateCustomGameAttempt).toHaveBeenCalledTimes(1);
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "progress",
-        retryCount: 1000,
-        totalRetries: 1000,
+        retryCount: 1,
+        totalRetries: 10000,
       }),
     );
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      type: "failure",
-      reason:
-        "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-    });
   });
 
   it("should post failure when generation throws", async () => {

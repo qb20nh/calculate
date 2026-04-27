@@ -9,6 +9,7 @@ export interface CustomGameConfig {
   sizeLimit: number;
   seed: string;
   limitSolutionSize: boolean;
+  attempt?: number;
 }
 
 export interface GameState {
@@ -52,7 +53,8 @@ const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
   Number.isSafeInteger(value.sizeLimit) &&
   value.sizeLimit >= 1 &&
   typeof value.seed === "string" &&
-  (typeof value.limitSolutionSize === "boolean" || value.limitSolutionSize === undefined);
+  (typeof value.limitSolutionSize === "boolean" || value.limitSolutionSize === undefined) &&
+  (typeof value.attempt === "number" || value.attempt === undefined);
 
 const isProgressEntry = (value: unknown): value is { current: number; max: number } =>
   isRecord(value) &&

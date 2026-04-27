@@ -21,6 +21,7 @@ export const AppChrome: FunctionalComponent = () => {
         className="theme-control-pill"
         aria-label={copy.aria.themeToggle}
         title={copy.aria.themeToggle}
+        data-testid="theme-toggle"
       >
         {themeIcon}
       </button>
@@ -30,6 +31,7 @@ export const AppChrome: FunctionalComponent = () => {
         className="theme-control-pill"
         aria-label={copy.aria.languageToggle}
         title={copy.aria.languageToggle}
+        data-testid="language-toggle"
       >
         <Languages width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
       </button>

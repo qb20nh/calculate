@@ -26,6 +26,6 @@ describe("custom game generation service", () => {
     expect(workerArgs).toHaveLength(1);
     expect(workerArgs[0]?.[0]).toEqual(expect.any(URL));
     expect(workerArgs[0]?.[1]).toEqual(expect.objectContaining({ type: "module" }));
-    expect(CUSTOM_GAME_RETRY_LIMIT).toBe(1000);
+    expect(CUSTOM_GAME_RETRY_LIMIT).toBe(10000);
   });
 });

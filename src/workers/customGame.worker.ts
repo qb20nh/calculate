@@ -23,51 +23,21 @@ workerGlobal.addEventListener("message", (event: MessageEvent<CustomGameGenerati
 
   const { config, retryCount } = event.data;
   try {
-    if (retryCount > 0) {
-      const game = generateCustomGameAttempt(config, retryCount - 1);
-      if (game) {
-        const successMessage: CustomGameGenerationSuccess = {
-          type: "success",
-          game,
-        };
-        workerGlobal.postMessage(successMessage);
-        return;
-      }
-
-      const failureMessage: CustomGameGenerationFailure = {
-        type: "failure",
-        reason:
-          "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    const game = generateCustomGameAttempt(config, retryCount);
+    if (game) {
+      const successMessage: CustomGameGenerationSuccess = {
+        type: "success",
+        game,
       };
-      workerGlobal.postMessage(failureMessage);
-      return;
-    }
-
-    for (let attempt = retryCount; attempt < CUSTOM_GAME_RETRY_LIMIT; attempt++) {
-      const retryMessage: CustomGameGenerationProgress = {
+      workerGlobal.postMessage(successMessage);
+    } else {
+      const progressMessage: CustomGameGenerationProgress = {
         type: "progress",
-        retryCount: attempt + 1,
+        retryCount: retryCount + 1,
         totalRetries: CUSTOM_GAME_RETRY_LIMIT,
       };
-      workerGlobal.postMessage(retryMessage);
-
-      const game = generateCustomGameAttempt(config, attempt);
-      if (game) {
-        const successMessage: CustomGameGenerationSuccess = {
-          type: "success",
-          game,
-        };
-        workerGlobal.postMessage(successMessage);
-        return;
-      }
+      workerGlobal.postMessage(progressMessage);
     }
-
-    const failureMessage: CustomGameGenerationFailure = {
-      type: "failure",
-      reason:
-        "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-    };
-    workerGlobal.postMessage(failureMessage);
   } catch {
     const failureMessage: CustomGameGenerationFailure = {
       type: "failure",

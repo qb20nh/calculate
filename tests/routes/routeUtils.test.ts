@@ -3,6 +3,7 @@ import {
   addBasePath,
   normalizeBasePath,
   parseCustomGameConfig,
+  parseCustomGameRetryCount,
   parseDifficultySlug,
   parseGameModeSlug,
   removeBasePath,
@@ -108,6 +109,7 @@ describe("route utils", () => {
       sizeLimit: 10,
       seed: "123",
       limitSolutionSize: false,
+      attempt: 37,
     });
   });
 
@@ -117,5 +119,37 @@ describe("route utils", () => {
         new URLSearchParams("given=6&inventory=10&size=10&seed=123&limitSolutionSize=2"),
       ),
     ).toBe(null);
+  });
+
+  it("should handle invalid retryCount in searchParams", () => {
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams("given=6&inventory=10&size=10&seed=123&retryCount=abc"),
+      ),
+    ).toEqual({
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
+    });
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams("given=6&inventory=10&size=10&seed=123&retryCount=-1"),
+      ),
+    ).toEqual({
+      givenCount: 6,
+      inventoryCount: 10,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
+    });
+  });
+
+  it("should parse custom game retry count", () => {
+    expect(parseCustomGameRetryCount(new URLSearchParams())).toBe(0);
+    expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=10"))).toBe(10);
+    expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=abc"))).toBe(0);
+    expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=-1"))).toBe(0);
   });
 });

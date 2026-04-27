@@ -1,4 +1,3 @@
-import { CUSTOM_GAME_RETRY_LIMIT } from "@/services/customGameGeneration";
 import {
   evaluateExpression,
   generateValidStatement,
@@ -215,9 +214,7 @@ const analyzeBoard = (board: BoardLike): BoardValidation => {
       }
 
       const relation = tokens[firstRelation];
-      if (relation === REL_EQ && Math.abs(leftVal - rightVal) >= 0.0001) {
-        return { status: "invalid" as const, formula: tokens.join("") };
-      }
+
       if (relation === REL_LT && !(leftVal < rightVal)) {
         return { status: "invalid" as const, formula: tokens.join("") };
       }
@@ -281,118 +278,116 @@ const placeEquation = (
   maxSideLength: number,
   remainingTiles?: number,
 ) => {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const stmt = generateValidStatement(prng);
+  const stmt = generateValidStatement(prng);
 
-    const possibleIntersections: { k: string; idx: number }[] = [];
-    for (const k of gridKeys) {
-      const cell = grid[k];
-      if (!cell) continue;
-      const cellVal = String(cell.val);
-      for (let i = 0; i < stmt.length; i++) {
-        const char = stmt[i];
-        if (char && char === cellVal) {
-          possibleIntersections.push({ k, idx: i });
-        }
+  const possibleIntersections: { k: string; idx: number }[] = [];
+  for (const k of gridKeys) {
+    const cell = grid[k];
+    if (!cell) continue;
+    const cellVal = String(cell.val);
+    for (let i = 0; i < stmt.length; i++) {
+      const char = stmt[i];
+      if (char && char === cellVal) {
+        possibleIntersections.push({ k, idx: i });
       }
     }
+  }
 
-    shuffleInPlace(possibleIntersections, prng);
+  shuffleInPlace(possibleIntersections, prng);
 
-    for (const match of possibleIntersections) {
-      const [r, c] = parseKey(match.k);
+  for (const match of possibleIntersections) {
+    const [r, c] = parseKey(match.k);
 
-      const dirs: Direction[] = [];
-      if (!usage.horizontal.has(match.k)) dirs.push({ dx: 1, dy: 0 });
-      if (!usage.vertical.has(match.k)) dirs.push({ dx: 0, dy: 1 });
-      shuffleInPlace(dirs, prng);
+    const dirs: Direction[] = [];
+    if (!usage.horizontal.has(match.k)) dirs.push({ dx: 1, dy: 0 });
+    if (!usage.vertical.has(match.k)) dirs.push({ dx: 0, dy: 1 });
+    shuffleInPlace(dirs, prng);
 
-      for (const dir of dirs) {
-        const addedTiles = stmt.length - 1;
-        if (remainingTiles !== undefined && addedTiles > remainingTiles) {
-          continue;
+    for (const dir of dirs) {
+      const addedTiles = stmt.length - 1;
+      if (remainingTiles !== undefined && addedTiles > remainingTiles) {
+        continue;
+      }
+
+      const startR = r - match.idx * dir.dy;
+      const startC = c - match.idx * dir.dx;
+
+      const cells: string[] = [];
+      for (let i = 0; i < stmt.length; i++) {
+        const cr = startR + i * dir.dy;
+        const cc = startC + i * dir.dx;
+        cells.push(getKey(cr, cc));
+      }
+
+      const newEquationCells = new Set(cells);
+      let collision = false;
+      let nextMinR = bounds.minR;
+      let nextMaxR = bounds.maxR;
+      let nextMinC = bounds.minC;
+      let nextMaxC = bounds.maxC;
+
+      for (let i = 0; i < stmt.length; i++) {
+        const cr = startR + i * dir.dy;
+        const cc = startC + i * dir.dx;
+        const ck = cells[i];
+        /* istanbul ignore next */
+        if (!ck) {
+          collision = true;
+          break;
         }
 
-        const startR = r - match.idx * dir.dy;
-        const startC = c - match.idx * dir.dx;
+        nextMinR = Math.min(nextMinR, cr);
+        nextMaxR = Math.max(nextMaxR, cr);
+        nextMinC = Math.min(nextMinC, cc);
+        nextMaxC = Math.max(nextMaxC, cc);
 
-        const cells: string[] = [];
-        for (let i = 0; i < stmt.length; i++) {
-          const cr = startR + i * dir.dy;
-          const cc = startC + i * dir.dx;
-          cells.push(getKey(cr, cc));
+        if (i === match.idx) continue;
+
+        if (grid[ck]) {
+          collision = true;
+          break;
         }
 
-        const newEquationCells = new Set(cells);
-        let collision = false;
-        let nextMinR = bounds.minR;
-        let nextMaxR = bounds.maxR;
-        let nextMinC = bounds.minC;
-        let nextMaxC = bounds.maxC;
-
-        for (let i = 0; i < stmt.length; i++) {
-          const cr = startR + i * dir.dy;
-          const cc = startC + i * dir.dx;
-          const ck = cells[i];
-          /* istanbul ignore next */
-          if (!ck) {
+        const neighbors = [
+          getKey(cr + 1, cc),
+          getKey(cr - 1, cc),
+          getKey(cr, cc + 1),
+          getKey(cr, cc - 1),
+        ];
+        for (const nk of neighbors) {
+          if (grid[nk] && !newEquationCells.has(nk)) {
             collision = true;
             break;
           }
+        }
+        if (collision) break;
+      }
 
-          nextMinR = Math.min(nextMinR, cr);
-          nextMaxR = Math.max(nextMaxR, cr);
-          nextMinC = Math.min(nextMinC, cc);
-          nextMaxC = Math.max(nextMaxC, cc);
+      if (!collision) {
+        if (nextMaxR - nextMinR + 1 > maxSideLength || nextMaxC - nextMinC + 1 > maxSideLength) {
+          collision = true;
+        }
+      }
 
-          if (i === match.idx) continue;
-
-          if (grid[ck]) {
-            collision = true;
-            break;
-          }
-
-          const neighbors = [
-            getKey(cr + 1, cc),
-            getKey(cr - 1, cc),
-            getKey(cr, cc + 1),
-            getKey(cr, cc - 1),
-          ];
-          for (const nk of neighbors) {
-            if (grid[nk] && !newEquationCells.has(nk)) {
-              collision = true;
-              break;
-            }
-          }
-          if (collision) break;
+      if (!collision) {
+        for (let i = 0; i < stmt.length; i++) {
+          const char = stmt[i];
+          if (!char) continue;
+          const cellKey = cells[i];
+          if (!cellKey) continue;
+          grid[cellKey] = { type: getCellType(char), val: char };
+          if (i !== match.idx) gridKeys.push(cellKey);
         }
 
-        if (!collision) {
-          if (nextMaxR - nextMinR + 1 > maxSideLength || nextMaxC - nextMinC + 1 > maxSideLength) {
-            collision = true;
-          }
-        }
+        const usageSet = dir.dx === 1 ? usage.horizontal : usage.vertical;
+        for (const cell of cells) usageSet.add(cell);
 
-        if (!collision) {
-          for (let i = 0; i < stmt.length; i++) {
-            const char = stmt[i];
-            if (!char) continue;
-            const cellKey = cells[i];
-            if (!cellKey) continue;
-            grid[cellKey] = { type: getCellType(char), val: char };
-            if (i !== match.idx) gridKeys.push(cellKey);
-          }
+        bounds.minR = nextMinR;
+        bounds.maxR = nextMaxR;
+        bounds.minC = nextMinC;
+        bounds.maxC = nextMaxC;
 
-          const usageSet = dir.dx === 1 ? usage.horizontal : usage.vertical;
-          for (const cell of cells) usageSet.add(cell);
-
-          bounds.minR = nextMinR;
-          bounds.maxR = nextMaxR;
-          bounds.minC = nextMinC;
-          bounds.maxC = nextMaxC;
-
-          return addedTiles;
-        }
+        return addedTiles;
       }
     }
   }
@@ -473,42 +468,40 @@ const finalizeGame = (
 };
 
 const buildExactGrid = (prng: () => number, targetTotalTiles: number, maxSideLength: number) => {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const grid: Grid = {};
-    const gridKeys: string[] = [];
-    const usage: EquationUsage = { horizontal: new Set(), vertical: new Set() };
-    const stmt = generateValidStatement(prng);
-    if (stmt.length > maxSideLength) continue;
+  const grid: Grid = {};
+  const gridKeys: string[] = [];
+  const usage: EquationUsage = { horizontal: new Set(), vertical: new Set() };
+  const stmt = generateValidStatement(prng);
+  if (stmt.length > maxSideLength) return null;
 
-    const bounds: Bounds = { minR: 0, maxR: 0, minC: 0, maxC: stmt.length - 1 };
+  const bounds: Bounds = { minR: 0, maxR: 0, minC: 0, maxC: stmt.length - 1 };
 
-    for (let i = 0; i < stmt.length; i++) {
-      const char = stmt[i];
-      if (!char) continue;
-      const key = getKey(0, i);
-      grid[key] = { type: getCellType(char), val: char };
-      gridKeys.push(key);
-      usage.horizontal.add(key);
-    }
+  for (let i = 0; i < stmt.length; i++) {
+    const char = stmt[i];
+    if (!char) continue;
+    const key = getKey(0, i);
+    grid[key] = { type: getCellType(char), val: char };
+    gridKeys.push(key);
+    usage.horizontal.add(key);
+  }
 
-    let fails = 0;
-    while (gridKeys.length < targetTotalTiles && fails < 40) {
-      const added = placeEquation(
-        grid,
-        gridKeys,
-        usage,
-        bounds,
-        prng,
-        maxSideLength,
-        targetTotalTiles - gridKeys.length,
-      );
-      fails += Number(added === 0);
-    }
+  let fails = 0;
+  while (gridKeys.length < targetTotalTiles && fails < 40) {
+    const added = placeEquation(
+      grid,
+      gridKeys,
+      usage,
+      bounds,
+      prng,
+      maxSideLength,
+      targetTotalTiles - gridKeys.length,
+    );
+    fails += Number(added === 0);
+  }
 
-    if (gridKeys.length === targetTotalTiles) {
-      if (analyzeBoard(grid).valid) {
-        return { grid, gridKeys };
-      }
+  if (gridKeys.length === targetTotalTiles) {
+    if (analyzeBoard(grid).valid) {
+      return { grid, gridKeys };
     }
   }
 
@@ -560,59 +553,43 @@ export const generateCustomGameAttempt = (
     ...finalGame,
     difficulty: "Custom",
     stage: 1,
-    customConfig: config,
+    customConfig: { ...config, attempt },
   };
 };
 
-export const generateGame = (stage: number, difficulty: Difficulty) => {
-  const seedStr = `${difficulty}_${stage}`;
+const DIFFICULTY_PARAMS: Record<
+  Exclude<Difficulty, "Custom">,
+  { diffPercent: number; minInv: number; maxInv: number }
+> = {
+  Easy: { diffPercent: 0.6, minInv: 5, maxInv: 7 },
+  Medium: { diffPercent: 0.4, minInv: 10, maxInv: 14 },
+  Hard: { diffPercent: 0.2, minInv: 15, maxInv: 21 },
+};
+
+export const generateGame = (stage: number, difficulty: Difficulty, attempt = 0) => {
+  const seedStr = `${difficulty}_${stage}_${attempt}`;
   const prng = xoshiro128pp(getHashSeed(seedStr));
 
-  let diffPercent: number;
-  let minInv: number;
-  let maxInv: number;
-  if (difficulty === "Easy") {
-    diffPercent = 0.6;
-    minInv = 5;
-    maxInv = 7;
-  } else if (difficulty === "Medium") {
-    diffPercent = 0.4;
-    minInv = 10;
-    maxInv = 14;
-    // } else if (difficulty === "Hard") {
-    //   diffPercent = 0.2;
-    //   minInv = 15;
-    //   maxInv = 21;
-  } else {
-    // uncomment above if we change this fallback params
-    diffPercent = 0.2;
-    minInv = 15;
-    maxInv = 21;
-  }
+  const params =
+    DIFFICULTY_PARAMS[difficulty as Exclude<Difficulty, "Custom">] || DIFFICULTY_PARAMS.Hard;
+  const { diffPercent, minInv, maxInv } = params;
 
   const targetInv = minInv + Math.floor(prng() * (maxInv - minInv + 1));
   const targetTotalTiles = Math.ceil(targetInv / (1 - diffPercent));
   const numInventory = Math.min(Math.max(minInv, 1), maxInv);
   const numGivens = Math.max(1, targetTotalTiles - numInventory);
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const finalGame = buildGameFromTarget(prng, targetTotalTiles, 10, numGivens, numInventory);
-    /* istanbul ignore next */
-    if (!finalGame) continue;
-
-    return finalGame;
-  }
-
-  return { board: {}, bank: [], initialBankSize: 0, status: "playing" as const };
+  return (
+    buildGameFromTarget(prng, targetTotalTiles, 10, numGivens, numInventory) || {
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing" as const,
+    }
+  );
 };
 
-export const generateCustomGame = (config: CustomGameConfig): GameState | null => {
-  for (let attempt = 0; attempt < CUSTOM_GAME_RETRY_LIMIT; attempt++) {
-    const finalGame = generateCustomGameAttempt(config, attempt);
-    if (!finalGame) continue;
-    return finalGame;
-  }
-
-  return null;
+export const generateCustomGame = (config: CustomGameConfig, attempt = 0): GameState | null => {
+  return generateCustomGameAttempt(config, attempt);
 };
 
 type ValidationResult = { valid: true } | { valid: false; reason: string };

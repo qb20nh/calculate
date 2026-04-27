@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
 import { useAppSettings } from "@/lib/appSettings";
@@ -89,58 +89,73 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
 
   if (!difficulty || !stage) return <NotFoundRoute />;
 
-  const updateProgress = (nextStage: number, includeMax: boolean) => {
-    setProgress((prev) => {
-      const currentProgress = prev[difficulty];
-      const nextProgress = {
-        ...prev,
-        [difficulty]: {
-          current: nextStage,
-          max: includeMax ? Math.max(currentProgress.max, nextStage) : currentProgress.max,
-        },
-      };
-      saveProgress(nextProgress);
-      return nextProgress;
-    });
-  };
+  const updateProgress = useCallback(
+    (nextStage: number, includeMax: boolean) => {
+      setProgress((prev) => {
+        const currentProgress = prev[difficulty];
+        const nextProgress = {
+          ...prev,
+          [difficulty]: {
+            current: nextStage,
+            max: includeMax ? Math.max(currentProgress.max, nextStage) : currentProgress.max,
+          },
+        };
+        saveProgress(nextProgress);
+        return nextProgress;
+      });
+    },
+    [difficulty],
+  );
 
-  const updateMaxProgress = (newMax: number) => {
-    setProgress((prev) => {
-      const currentProgress = prev[difficulty];
-      if (newMax <= currentProgress.max) return prev;
-      const nextProgress = {
-        ...prev,
-        [difficulty]: {
-          ...currentProgress,
-          max: newMax,
-        },
-      };
-      saveProgress(nextProgress);
-      return nextProgress;
-    });
-  };
+  const updateMaxProgress = useCallback(
+    (newMax: number) => {
+      setProgress((prev) => {
+        const currentProgress = prev[difficulty];
+        if (newMax <= currentProgress.max) return prev;
+        const nextProgress = {
+          ...prev,
+          [difficulty]: {
+            ...currentProgress,
+            max: newMax,
+          },
+        };
+        saveProgress(nextProgress);
+        return nextProgress;
+      });
+    },
+    [difficulty],
+  );
 
-  const handleWin = (nextStage: number) => {
-    updateProgress(nextStage, true);
-    location.route(toGamePath(difficulty, nextStage));
-  };
+  const handleWin = useCallback(
+    (nextStage: number) => {
+      updateProgress(nextStage, true);
+      location.route(toGamePath(difficulty, nextStage));
+    },
+    [difficulty, location, updateProgress],
+  );
 
-  const handleStageChange = (nextStage: number) => {
-    updateProgress(nextStage, false);
-    location.route(toGamePath(difficulty, nextStage));
-  };
+  const handleStageChange = useCallback(
+    (nextStage: number) => {
+      updateProgress(nextStage, false);
+      location.route(toGamePath(difficulty, nextStage));
+    },
+    [difficulty, location, updateProgress],
+  );
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     saveGameState(null);
     location.route("/");
-  };
+  }, [location]);
 
-  const handleStateChange = (state: GameState) => {
-    saveGameState(state);
-    if (state.status === "won") {
-      updateMaxProgress(state.stage + 1);
-    }
-  };
+  const handleStateChange = useCallback(
+    (state: GameState) => {
+      saveGameState(state);
+      if (state.status === "won") {
+        updateMaxProgress(state.stage + 1);
+      }
+    },
+    [updateMaxProgress],
+  );
 
   if (!isClient) {
     return (

@@ -1,4 +1,4 @@
-import { ChevronRight, Languages, Sun } from "lucide-preact";
+import { ChevronRight } from "lucide-preact";
 import type { FunctionalComponent } from "preact";
 import { useAppSettings } from "@/lib/appSettings";
 import type { Difficulty, GameMode, Progress } from "@/services/storage";
@@ -14,7 +14,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
   onStartIntent,
   progress,
 }) => {
-  const { copy, t, cycleThemePreference, toggleLocale } = useAppSettings();
+  const { copy, t } = useAppSettings();
   const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
 
   return (
@@ -26,27 +26,6 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
             <span className="text-[var(--theme-primary)]">{copy.menuTitleAccent}</span>
           </h1>
           <p className="theme-muted-text font-medium">{copy.menuSubtitle}</p>
-        </div>
-
-        <div className="flex gap-2 justify-center mb-6">
-          <button
-            type="button"
-            onClick={cycleThemePreference}
-            aria-label={copy.aria.themeToggle}
-            data-testid="theme-toggle"
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 hover:scale-105 active:scale-95 group"
-          >
-            <Sun className="w-6 h-6 text-[var(--theme-primary)] group-hover:rotate-12 transition-transform" />
-          </button>
-          <button
-            type="button"
-            onClick={toggleLocale}
-            aria-label={copy.aria.languageToggle}
-            data-testid="language-toggle"
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 hover:scale-105 active:scale-95 group"
-          >
-            <Languages className="w-6 h-6 text-[var(--theme-primary)] group-hover:-rotate-12 transition-transform" />
-          </button>
         </div>
 
         <div className="space-y-4">

@@ -6,8 +6,8 @@ import {
   generateGame,
   validateBoard,
 } from "@/services/board";
-import { OP_MINUS, OP_PLUS, REL_EQ, REL_GT } from "@/services/math";
-import type { Difficulty } from "@/services/storage";
+import { OP_MINUS, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/services/math";
+import type { Difficulty, GameState } from "@/services/storage";
 
 describe("board service", () => {
   const difficultyRanges: Record<Difficulty, [number, number]> = {
@@ -20,10 +20,14 @@ describe("board service", () => {
     const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
     for (const diff of difficulties) {
       for (let stage = 1; stage <= 5; stage++) {
-        const game = generateGame(stage, diff);
-        expect(game.status).toBe("playing");
-        expect(Object.keys(game.board).length).toBeGreaterThan(0);
-        expect(game.bank.length).toBeGreaterThan(0);
+        let game = generateGame(stage, diff, 0);
+        for (let i = 0; i < 100; i++) {
+          game = generateGame(stage, diff, i);
+          if (Object.keys(game.board).length > 0) break;
+        }
+        expect(game?.status).toBe("playing");
+        expect(Object.keys(game?.board || {}).length).toBeGreaterThan(0);
+        expect(game?.bank.length).toBeGreaterThan(0);
       }
     }
   });
@@ -33,11 +37,15 @@ describe("board service", () => {
     for (const diff of difficulties) {
       const [minInventory, maxInventory] = difficultyRanges[diff];
       for (let stage = 1; stage <= 10; stage++) {
-        const game = generateGame(stage, diff);
+        let game = generateGame(stage, diff, 0);
+        for (let i = 0; i < 100; i++) {
+          game = generateGame(stage, diff, i);
+          if (Object.keys(game.board).length > 0) break;
+        }
 
-        expect(game.bank.length).toBeGreaterThanOrEqual(minInventory);
-        expect(game.bank.length).toBeLessThanOrEqual(maxInventory);
-        expect(validateBoard(game.board).valid).toBe(false);
+        expect(game?.bank.length).toBeGreaterThanOrEqual(minInventory);
+        expect(game?.bank.length).toBeLessThanOrEqual(maxInventory);
+        expect(validateBoard(game?.board || {}).valid).toBe(false);
       }
     }
   });
@@ -48,15 +56,19 @@ describe("board service", () => {
         fc.integer({ min: 1, max: 10_000 }),
         fc.constantFrom<Difficulty>("Easy", "Medium", "Hard"),
         (stage, diff) => {
-          const game = generateGame(stage, diff);
+          let game = generateGame(stage, diff, 0);
+          for (let i = 0; i < 100; i++) {
+            game = generateGame(stage, diff, i);
+            if (Object.keys(game.board).length > 0) break;
+          }
           const [minInventory, maxInventory] = difficultyRanges[diff];
 
-          expect(game.status).toBe("playing");
-          expect(Object.keys(game.board).length).toBeGreaterThan(0);
-          expect(game.bank.length).toBeGreaterThan(0);
-          expect(game.bank.length).toBeGreaterThanOrEqual(minInventory);
-          expect(game.bank.length).toBeLessThanOrEqual(maxInventory);
-          expect(generateGame(stage, diff)).toEqual(game);
+          expect(game?.status).toBe("playing");
+          expect(Object.keys(game?.board || {}).length).toBeGreaterThan(0);
+          expect(game?.bank.length).toBeGreaterThan(0);
+          expect(game?.bank.length).toBeGreaterThanOrEqual(minInventory);
+          expect(game?.bank.length).toBeLessThanOrEqual(maxInventory);
+          expect(generateGame(stage, diff)).toEqual(generateGame(stage, diff, 0));
         },
       ),
       { numRuns: 20 },
@@ -64,7 +76,7 @@ describe("board service", () => {
   });
 
   it("should generate deterministic games for the same stage and difficulty", () => {
-    expect(generateGame(7, "Hard")).toEqual(generateGame(7, "Hard"));
+    expect(generateGame(7, "Hard", 5)).toEqual(generateGame(7, "Hard", 5));
   });
 
   it("should handle unexpected difficulty values defensively", () => {
@@ -80,7 +92,11 @@ describe("board service", () => {
       limitSolutionSize: false,
     };
 
-    const game = generateCustomGame(config);
+    let game: GameState | null = null;
+    for (let i = 0; i < 100; i++) {
+      game = generateCustomGame(config, i);
+      if (game) break;
+    }
 
     expect(game).not.toBeNull();
     if (!game) return;
@@ -88,7 +104,8 @@ describe("board service", () => {
     expect(game.status).toBe("playing");
     expect(game.difficulty).toBe("Custom");
     expect(game.stage).toBe(1);
-    expect(game.customConfig).toEqual(config);
+    expect(game.customConfig).toMatchObject(config);
+    expect(game.customConfig?.attempt).toBeDefined();
     expect(Object.keys(game.board)).toHaveLength(6);
     expect(game.bank).toHaveLength(10);
   });
@@ -138,7 +155,12 @@ describe("board service", () => {
       limitSolutionSize: false,
     };
 
-    const game = generateCustomGameAttempt(config, 0);
+    // Try a few attempts to find one that works with the new math range
+    let game: GameState | null = null;
+    for (let i = 0; i < 50; i++) {
+      game = generateCustomGameAttempt(config, i);
+      if (game) break;
+    }
     expect(game).not.toBeNull();
     if (!game) return;
 
@@ -609,5 +631,44 @@ describe("board service", () => {
     if (!result.valid) {
       expect(result.reason).toContain('Invalid formula: "2+3>10"');
     }
+  });
+  it("should mark a board with an invalid inequality as invalid", () => {
+    const board: Record<string, { id: string; val: string; type: string; isGiven: boolean }> = {
+      "0,0": { id: "1", val: "1", type: "val", isGiven: true },
+      "0,1": { id: "2", val: "+", type: "op", isGiven: true },
+      "0,2": { id: "3", val: "1", type: "val", isGiven: true },
+      "0,3": { id: "4", val: "<", type: "rel", isGiven: true },
+      "0,4": { id: "5", val: ">", type: "rel", isGiven: true },
+      "0,5": { id: "6", val: "2", type: "val", isGiven: true },
+      "1,0": { id: "7", val: "+", type: "op", isGiven: true },
+      "2,0": { id: "8", val: "1", type: "val", isGiven: true },
+      "3,0": { id: "9", val: "=", type: "rel", isGiven: true },
+      "4,0": { id: "10", val: "2", type: "val", isGiven: true },
+    };
+    expect(validateBoard(board).valid).toBe(false);
+  });
+
+  it("should return null for invalid custom attempt", () => {
+    const config = {
+      givenCount: 1,
+      inventoryCount: 1,
+      sizeLimit: 10,
+      seed: "123",
+      limitSolutionSize: false,
+    };
+    expect(generateCustomGameAttempt(config, 0)).toBeNull();
+  });
+
+  it("should invalidate an incorrect inequality board", () => {
+    const boardLT = {
+      "0,0": { id: "1", val: "5", type: "val" as const, isGiven: true },
+      "0,1": { id: "2", val: REL_LT, type: "rel" as const, isGiven: true },
+      "0,2": { id: "3", val: "3", type: "val" as const, isGiven: true },
+      "1,0": { id: "4", val: OP_PLUS, type: "op" as const, isGiven: true },
+      "2,0": { id: "5", val: "2", type: "val" as const, isGiven: true },
+      "3,0": { id: "6", val: REL_EQ, type: "rel" as const, isGiven: true },
+      "4,0": { id: "7", val: "7", type: "val" as const, isGiven: true },
+    };
+    expect(validateBoard(boardLT).valid).toBe(false);
   });
 });

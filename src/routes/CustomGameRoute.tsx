@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { Game } from "@/components/Game";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
@@ -51,7 +51,8 @@ const sameCustomConfig = (left: CustomGameConfig | null | undefined, right: Cust
   left.inventoryCount === right.inventoryCount &&
   left.sizeLimit === right.sizeLimit &&
   left.seed === right.seed &&
-  (left.limitSolutionSize ?? false) === right.limitSolutionSize;
+  (left.limitSolutionSize ?? false) === right.limitSolutionSize &&
+  left.attempt === right.attempt;
 
 const isValidCustomConfig = (
   config: CustomGameConfig,
@@ -295,21 +296,50 @@ export default function CustomGameRoute() {
   );
   const parsedConfig = useMemo(() => parseCustomGameConfig(searchParams), [searchParams]);
   const parsedRetryCount = useMemo(() => parseCustomGameRetryCount(searchParams), [searchParams]);
+  const hasRetryCountInUrl = useMemo(() => searchParams.has("retryCount"), [searchParams]);
+
   const savedState = useMemo(() => loadGameState(), []);
   const savedCustomConfig = savedState?.difficulty === "Custom" ? savedState.customConfig : null;
-  const resumeSavedGame =
-    parsedConfig && sameCustomConfig(savedCustomConfig, parsedConfig) ? savedState : null;
+
+  // We only resume from storage if the URL does NOT have an explicit retryCount,
+  // or if the storage matches the URL's specific attempt.
+  const resumeSavedGame = useMemo(() => {
+    if (!parsedConfig) return null;
+    if (hasRetryCountInUrl) {
+      return savedState && sameCustomConfig(savedCustomConfig, parsedConfig) ? savedState : null;
+    }
+    // If no retryCount in URL, we can resume any saved game that matches the basic settings
+    if (
+      savedState &&
+      savedCustomConfig &&
+      savedCustomConfig.seed === parsedConfig.seed &&
+      savedCustomConfig.givenCount === parsedConfig.givenCount &&
+      savedCustomConfig.inventoryCount === parsedConfig.inventoryCount
+    ) {
+      return savedState;
+    }
+    return null;
+  }, [savedState, savedCustomConfig, parsedConfig, hasRetryCountInUrl]);
 
   const [draft, setDraft] = useState<CustomGameConfig>(parsedConfig ?? DEFAULT_CUSTOM_CONFIG);
-  const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(
-    parsedConfig && resumeSavedGame ? parsedConfig : null,
-  );
-  const [gameState, setGameState] = useState<GameState | null>(
-    parsedConfig && resumeSavedGame ? savedState : null,
-  );
-  const [isGenerating, setIsGenerating] = useState(
-    parsedConfig !== null && parsedRetryCount > 0 && resumeSavedGame === null,
-  );
+  const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(() => {
+    if (parsedConfig) return parsedConfig;
+    return null;
+  });
+
+  const [gameState, setGameState] = useState<GameState | null>(() => {
+    if (resumeSavedGame) return resumeSavedGame;
+    // INSTANT GENERATION: Try synchronous generation if specific retryCount is in URL
+    if (parsedConfig && hasRetryCountInUrl) {
+      return generateCustomGame(parsedConfig, parsedRetryCount);
+    }
+    return null;
+  });
+
+  const [isGenerating, setIsGenerating] = useState(() => {
+    if (gameState) return false;
+    return parsedConfig !== null && hasRetryCountInUrl;
+  });
   const [retryCount, setRetryCount] = useState(parsedRetryCount);
   const [error, setError] = useState<string | null>(
     parsedConfig === null && searchParams.toString().length > 0 ? copy.custom.invalidUrl : null,
@@ -318,80 +348,113 @@ export default function CustomGameRoute() {
   const workerRef = useRef<CustomGameWorkerHandle | null>(null);
   const resumeStartedRef = useRef(false);
 
-  const syncCustomUrl = (config: CustomGameConfig, nextRetryCount: number) => {
+  const syncCustomUrl = useCallback((config: CustomGameConfig, nextRetryCount: number) => {
     if (typeof window === "undefined") return;
 
     const nextPath = addBasePath(toCustomGamePath(config, nextRetryCount));
-    if (window.location.pathname + window.location.search !== nextPath) {
+    const currentPath = window.location.pathname + window.location.search;
+
+    // Use URL objects to normalize comparison if needed, but for now simple string check
+    if (currentPath !== nextPath) {
       window.history.replaceState(null, "", nextPath);
     }
-  };
+  }, []);
 
-  const terminateWorker = () => {
+  const terminateWorker = useCallback(() => {
     workerRef.current?.terminate();
     workerRef.current = null;
-  };
+  }, []);
 
-  useEffect(() => () => terminateWorker(), []);
+  useEffect(() => () => terminateWorker(), [terminateWorker]);
 
-  const startGeneration = (config: CustomGameConfig, startRetryCount: number, syncUrl: boolean) => {
-    if (syncUrl) {
-      syncCustomUrl(config, startRetryCount);
-    }
-
-    terminateWorker();
-    setError(null);
-    setIsGenerating(true);
-    setRetryCount(startRetryCount);
-
-    try {
-      const worker = createCustomGameWorker();
-      workerRef.current = worker;
-
-      worker.onmessage = (event: MessageEvent<CustomGameGenerationMessage>) => {
-        const message = event.data;
-        if (message.type === "progress") {
-          setRetryCount(message.retryCount);
-          syncCustomUrl(config, message.retryCount);
-          return;
-        }
-
-        terminateWorker();
-        setIsGenerating(false);
-        setRetryCount(0);
-
-        if (message.type === "failure") {
-          setError(copy.custom.generationError);
-          return;
-        }
-
-        saveGameState(message.game);
-        setActiveConfig(config);
-        setGameState(message.game);
-        setDraft(config);
-      };
-
-      worker.onerror = () => {
-        terminateWorker();
-        setIsGenerating(false);
-        setRetryCount(0);
-        setError(copy.custom.generationError);
-      };
-
-      worker.postMessage({
-        type: "generate",
-        config,
-        retryCount: startRetryCount,
-      });
-    } catch {
+  const startGeneration = useCallback(
+    (config: CustomGameConfig, startRetryCount: number) => {
       terminateWorker();
-      setIsGenerating(false);
+      setError(null);
+      setIsGenerating(true);
       setRetryCount(startRetryCount);
-      setError(copy.custom.generationError);
-    }
-  };
 
-  const handleSubmit = () => {
+      try {
+        const worker = createCustomGameWorker();
+        workerRef.current = worker;
+
+        worker.onmessage = (event: MessageEvent<CustomGameGenerationMessage>) => {
+          const message = event.data;
+          if (message.type === "progress") {
+            if (message.retryCount >= CUSTOM_GAME_RETRY_LIMIT) {
+              terminateWorker();
+              setIsGenerating(false);
+              setRetryCount(0);
+              setError(copy.custom.generationError);
+              return;
+            }
+
+            setRetryCount(message.retryCount);
+
+            // Trigger next attempt explicitly
+            worker.postMessage({
+              type: "generate",
+              config,
+              retryCount: message.retryCount,
+            });
+            return;
+          }
+
+          if (message.type === "success") {
+            terminateWorker();
+            setIsGenerating(false);
+
+            // Persist the specific attempt that worked for instant regeneration later
+            const finalAttempt = message.game.customConfig?.attempt ?? 0;
+            const finalGame: GameState = {
+              ...message.game,
+              customConfig: {
+                ...config,
+                attempt: finalAttempt,
+              },
+            };
+
+            setRetryCount(finalAttempt);
+            saveGameState(finalGame);
+            setActiveConfig(finalGame.customConfig ?? config);
+            setGameState(finalGame);
+            setDraft(finalGame.customConfig ?? config);
+            syncCustomUrl(finalGame.customConfig ?? config, finalGame.customConfig?.attempt ?? 0);
+            return;
+          }
+
+          if (message.type === "failure") {
+            terminateWorker();
+            setIsGenerating(false);
+            setRetryCount(0);
+            setError(copy.custom.generationError);
+            return;
+          }
+        };
+
+        worker.onerror = () => {
+          terminateWorker();
+          setIsGenerating(false);
+          setRetryCount(0);
+          setError(copy.custom.generationError);
+        };
+
+        worker.postMessage({
+          type: "generate",
+          config,
+          retryCount: startRetryCount,
+        });
+      } catch {
+        terminateWorker();
+        setIsGenerating(false);
+        setRetryCount(startRetryCount);
+        setError(copy.custom.generationError);
+      }
+    },
+    [copy.custom.generationError, syncCustomUrl, terminateWorker],
+  );
+
+  const handleSubmit = useCallback(() => {
     const normalized: CustomGameConfig = {
       givenCount: Number(draft.givenCount),
       inventoryCount: Number(draft.inventoryCount),
@@ -407,29 +470,48 @@ export default function CustomGameRoute() {
     }
 
     setDraft(normalized);
-    setRetryCount(0);
-    startGeneration(normalized, 0, true);
-  };
+    startGeneration(normalized, 0);
+  }, [draft, copy.custom.validation, startGeneration]);
 
-  const handleBackToMenu = () => {
+  const handleBackToMenu = useCallback(() => {
     terminateWorker();
     saveGameState(null);
     location.route("/");
-  };
+  }, [location, terminateWorker]);
 
-  const handleCancelGeneration = () => {
+  const handleCancelGeneration = useCallback(() => {
     terminateWorker();
     setIsGenerating(false);
     setRetryCount(0);
-  };
+  }, [terminateWorker]);
+
+  const handleCreateNewGame = useCallback(() => {
+    if (!activeConfig) throw new Error("No active config");
+    for (let i = 0; i < 100; i++) {
+      const nextGame = generateCustomGame(activeConfig, i);
+      if (nextGame) return nextGame;
+    }
+    throw new Error(copy.custom.couldNotRegenerate);
+  }, [activeConfig, copy.custom.couldNotRegenerate]);
+
+  const handleStateChange = useCallback((state: GameState) => {
+    saveGameState(state);
+    setGameState(state);
+  }, []);
+
+  useEffect(() => {
+    if (gameState?.customConfig) {
+      syncCustomUrl(gameState.customConfig, gameState.customConfig.attempt ?? 0);
+    }
+  }, [gameState, syncCustomUrl]);
 
   const activeGame = gameState ?? null;
   useLayoutEffect(() => {
-    if (parsedConfig === null || parsedRetryCount <= 0 || resumeSavedGame !== null) return;
+    if (parsedConfig === null || !hasRetryCountInUrl || gameState !== null) return;
     if (resumeStartedRef.current) return;
     resumeStartedRef.current = true;
-    startGeneration(parsedConfig, parsedRetryCount, false);
-  }, [parsedConfig, parsedRetryCount, resumeSavedGame]);
+    startGeneration(parsedConfig, parsedRetryCount);
+  }, [parsedConfig, parsedRetryCount, gameState, hasRetryCountInUrl]);
 
   if (activeGame && activeConfig) {
     return (
@@ -438,21 +520,12 @@ export default function CustomGameRoute() {
         stage={1}
         maxStage={1}
         initialState={activeGame}
-        createNewGame={() => {
-          const nextGame = generateCustomGame(activeConfig);
-          if (!nextGame) {
-            throw new Error(copy.custom.couldNotRegenerate);
-          }
-          return nextGame;
-        }}
+        createNewGame={handleCreateNewGame}
         showNextLevelButton={false}
         onWin={() => {}}
         onBack={handleBackToMenu}
         onStageChange={() => {}}
-        onStateChange={(state) => {
-          saveGameState(state);
-          setGameState(state);
-        }}
+        onStateChange={handleStateChange}
       />
     );
   }

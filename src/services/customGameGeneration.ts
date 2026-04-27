@@ -1,6 +1,6 @@
 import type { CustomGameConfig, GameState } from "@/services/storage";
 
-export const CUSTOM_GAME_RETRY_LIMIT = 1000;
+export const CUSTOM_GAME_RETRY_LIMIT = 10000;
 
 export type CustomGameGenerationRequest = {
   type: "generate";

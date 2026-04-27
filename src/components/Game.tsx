@@ -439,8 +439,26 @@ export const Game: FunctionalComponent<GameProps> = ({
   useEffect(() => {
     if (!initialState) {
       if (difficulty === "Custom") return;
-      const newGame = generateGame(stage, difficulty);
-      setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
+      // Compensate for one-shot buildExactGrid by trying more attempts on main thread
+      let newGame: GameState | null = null;
+      for (let i = 0; i < 3000; i++) {
+        const attempt = generateGame(stage, difficulty as Difficulty, i);
+        if (Object.keys(attempt.board).length > 0) {
+          newGame = { ...attempt, difficulty, stage, solvedAcknowledged: false };
+          break;
+        }
+      }
+      setGameState(
+        newGame || {
+          board: {},
+          bank: [],
+          initialBankSize: 0,
+          status: "playing",
+          difficulty,
+          stage,
+          solvedAcknowledged: false,
+        },
+      );
       prevGridMetrics.current.initialized = false;
     }
   }, [stage, difficulty, initialState]);
@@ -743,8 +761,31 @@ export const Game: FunctionalComponent<GameProps> = ({
   };
 
   const confirmResetLevel = () => {
-    const newGame = createNewGame ? createNewGame() : generateGame(stage, difficulty as Difficulty);
-    setGameState({ ...newGame, difficulty, stage, solvedAcknowledged: false });
+    let newGame: GameState | null = null;
+    if (createNewGame) {
+      newGame = createNewGame();
+    } else {
+      // Compensate for one-shot buildExactGrid
+      for (let i = 0; i < 3000; i++) {
+        const attempt = generateGame(stage, difficulty as Difficulty, i);
+        if (Object.keys(attempt.board).length > 0) {
+          newGame = { ...attempt, difficulty, stage, solvedAcknowledged: false };
+          break;
+        }
+      }
+    }
+
+    setGameState(
+      newGame || {
+        board: {},
+        bank: [],
+        initialBankSize: 0,
+        status: "playing",
+        difficulty,
+        stage,
+        solvedAcknowledged: false,
+      },
+    );
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);
     setIsResetDialogOpen(false);

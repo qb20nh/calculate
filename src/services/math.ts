@@ -69,10 +69,19 @@ const applyRelation = (base: number, rel: string, prng: () => number): number =>
     : rel === REL_LT
       ? base + randInt(prng, 1, 9)
       : rel === REL_GT
-        ? Math.max(0, base - randInt(prng, 1, Math.max(1, base - 1)))
-        : prng() > 0.5
-          ? base + randInt(prng, 1, 9)
-          : Math.max(0, base - randInt(prng, 1, Math.max(1, base)));
+        ? base > 0
+          ? base - randInt(prng, 1, base)
+          : base + randInt(prng, 1, 9) // Fallback if base is 0: change to LT-like logic or re-roll
+        : (() => {
+            let res = base;
+            while (res === base) {
+              res =
+                prng() > 0.5
+                  ? base + randInt(prng, 1, 9)
+                  : Math.max(0, base - randInt(prng, 1, Math.max(1, base + 9)));
+            }
+            return res;
+          })();
 
 export const generateValidStatement = (prng: () => number) => {
   const opIndex = Math.floor(prng() * 4);
@@ -86,30 +95,44 @@ export const generateValidStatement = (prng: () => number) => {
     else rel = REL_LT;
   }
 
+  let left: number;
+  let op: string;
+  let right: number;
+  let result: number;
+
   if (opIndex === 0) {
-    const left = randInt(prng, 1, 9);
-    const right = randInt(prng, 1, 9);
-    return buildStatement(left, OP_PLUS, right, rel, applyRelation(left + right, rel, prng));
+    op = OP_PLUS;
+    left = randInt(prng, 0, 20);
+    right = randInt(prng, 0, 20);
+    result = left + right;
+  } else if (opIndex === 1) {
+    op = OP_MINUS;
+    right = randInt(prng, 0, 20);
+    result = randInt(prng, 0, 20);
+    left = result + right;
+  } else if (opIndex === 2) {
+    op = OP_MULT;
+    left = randInt(prng, 0, 20);
+    // Limit right to keep product < 100
+    const maxRight = left === 0 ? 20 : Math.min(20, Math.floor(90 / left));
+    right = randInt(prng, 0, maxRight);
+    result = left * right;
+  } else {
+    op = OP_DIV;
+    right = randInt(prng, 1, 20);
+    // Limit result to keep left (divisor * result) < 100
+    const maxResult = Math.min(20, Math.floor(99 / right));
+    result = randInt(prng, 0, maxResult);
+    left = right * result;
   }
 
-  if (opIndex === 1) {
-    const right = randInt(prng, 1, 9);
-    const result = randInt(prng, 1, 9);
-    const left = result + right;
-    return buildStatement(left, OP_MINUS, right, rel, applyRelation(result, rel, prng));
+  const baseValue = result;
+  if (rel === REL_GT && baseValue === 0) {
+    rel = REL_LT;
   }
+  const finalResult = applyRelation(baseValue, rel, prng);
 
-  if (opIndex === 2) {
-    const left = randInt(prng, 2, 9);
-    const right = randInt(prng, 2, 9);
-    const result = left * right;
-    return buildStatement(left, OP_MULT, right, rel, applyRelation(result, rel, prng));
-  }
-
-  const right = randInt(prng, 2, 9);
-  const result = randInt(prng, 2, 9);
-  const left = right * result;
-  return buildStatement(left, OP_DIV, right, rel, applyRelation(result, rel, prng));
+  return buildStatement(left, op, right, rel, finalResult);
 };
 
 export const evaluateExpression = (str: string) => {
@@ -174,10 +197,7 @@ export const evaluateExpression = (str: string) => {
       tokens.push(ch);
       expectNumber = true;
       i++;
-      continue;
     }
-
-    return null;
   }
 
   if (expectNumber) return null;

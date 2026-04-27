@@ -59,7 +59,7 @@ vi.mock("@/services/storage", () => ({
 }));
 
 vi.mock("@/services/customGameGeneration", () => ({
-  CUSTOM_GAME_RETRY_LIMIT: 1000,
+  CUSTOM_GAME_RETRY_LIMIT: 10000,
   createCustomGameWorker: () => mockCreateCustomGameWorker(),
 }));
 
@@ -202,6 +202,35 @@ describe("CustomGameRoute", () => {
     expect(screen.getByText("next-hidden")).toBeDefined();
   });
 
+  it("should resume a saved custom game with the attempt index", async () => {
+    const savedState: GameState = {
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Custom",
+      stage: 1,
+      customConfig: {
+        givenCount: 8,
+        inventoryCount: 12,
+        sizeLimit: 10,
+        seed: "123",
+        limitSolutionSize: true,
+        attempt: 42,
+      },
+    };
+    mockLocationUrl =
+      "/game/custom?given=8&inventory=12&size=10&seed=123&limitSolutionSize=1&retryCount=42";
+    mockLoadGameState.mockReturnValue(savedState);
+
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    expect(screen.getByText("Mock Game")).toBeDefined();
+    expect(screen.getByText("next-hidden")).toBeDefined();
+  });
+
   it("should resume older saved custom games without the limit flag", async () => {
     const savedState = {
       board: {},
@@ -308,22 +337,27 @@ describe("CustomGameRoute", () => {
         retryCount: 0,
       }),
     );
-    expect(screen.getByText("Retry 0 / 1000")).toBeDefined();
+    expect(screen.getByText("Retry 0 / 10000")).toBeDefined();
 
     const worker = mockWorkers[0];
     expect(worker).toBeDefined();
     worker?.onmessage?.({
       data: {
         type: "progress",
-        retryCount: 37,
-        totalRetries: 1000,
+        retryCount: 1,
+        totalRetries: 10000,
       },
     } as unknown as MessageEvent<WorkerMessage>);
 
-    await screen.findByText("Retry 37 / 1000");
-    expect(window.location.pathname + window.location.search).toBe(
-      "/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=37",
+    await screen.findByText("Retry 1 / 10000");
+    expect(worker?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "generate",
+        retryCount: 1,
+      }),
     );
+    // URL should NOT have updated yet
+    expect(window.location.pathname + window.location.search).not.toContain("retryCount=1");
 
     worker?.onmessage?.({
       data: {
@@ -341,6 +375,7 @@ describe("CustomGameRoute", () => {
             sizeLimit: 10,
             seed: "123",
             limitSolutionSize: false,
+            attempt: 1,
           },
         },
       },
@@ -348,6 +383,8 @@ describe("CustomGameRoute", () => {
 
     await screen.findByText("Mock Game");
     expect(mockSaveGameState).toHaveBeenCalled();
+    // URL should update ONLY ON SUCCESS
+    expect(window.location.pathname + window.location.search).toContain("retryCount=1");
   });
 
   it("should resume custom generation from the retry count in the url", async () => {
@@ -355,38 +392,10 @@ describe("CustomGameRoute", () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 
     render(<CustomGameRoute />);
-
-    const worker = mockWorkers[0];
-    expect(worker).toBeDefined();
-    expect(worker?.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "generate",
-        retryCount: 37,
-      }),
-    );
-
-    worker?.onmessage?.({
-      data: {
-        type: "success",
-        game: {
-          board: {},
-          bank: [],
-          initialBankSize: 0,
-          status: "playing",
-          difficulty: "Custom",
-          stage: 1,
-          customConfig: {
-            givenCount: 6,
-            inventoryCount: 10,
-            sizeLimit: 10,
-            seed: "123",
-            limitSolutionSize: false,
-          },
-        },
-      },
-    } as unknown as MessageEvent<WorkerMessage>);
-
     await screen.findByText("Mock Game");
+
+    // Should not need a worker if generated synchronously
+    expect(mockCreateCustomGameWorker).not.toHaveBeenCalled();
   });
 
   it("should show a worker failure reason", async () => {
@@ -487,7 +496,6 @@ describe("CustomGameRoute", () => {
       target: { value: "123" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
-
     const worker = mockWorkers[0];
     expect(worker).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -542,5 +550,19 @@ describe("CustomGameRoute", () => {
         }),
       }),
     );
+  });
+  it("should start generation automatically if retryCount is in URL and no saved state", async () => {
+    mockLocationUrl = "/game/custom?given=6&inventory=10&size=10&seed=123&retryCount=10";
+    mockLoadGameState.mockReturnValue(null);
+
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    await screen.findByText("Mock Game");
+    // Synchronous generation should have been tried first
+    expect(mockGenerateCustomGame).toHaveBeenCalled();
+    // Worker should NOT have been started if synchronous generation succeeded
+    expect(mockCreateCustomGameWorker).not.toHaveBeenCalled();
   });
 });
