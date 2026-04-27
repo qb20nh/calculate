@@ -522,23 +522,18 @@ const buildGameFromTarget = (
   givenCount: number,
   inventoryCount: number,
 ) => {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const candidate = buildExactGrid(prng, targetTotalTiles, maxSideLength);
-    /* istanbul ignore next */
-    if (!candidate) continue;
-
-    const finalGame = finalizeGame(candidate.grid, candidate.gridKeys, prng, {
-      givenCount,
-      inventoryCount,
-    });
-    /* istanbul ignore next */
-    if (!finalGame) continue;
-
-    return finalGame;
-  }
-
+  const candidate = buildExactGrid(prng, targetTotalTiles, maxSideLength);
   /* istanbul ignore next */
-  return null;
+  if (!candidate) return null;
+
+  const finalGame = finalizeGame(candidate.grid, candidate.gridKeys, prng, {
+    givenCount,
+    inventoryCount,
+  });
+  /* istanbul ignore next */
+  if (!finalGame) return null;
+
+  return finalGame;
 };
 
 export const generateCustomGameAttempt = (
@@ -598,9 +593,15 @@ export const generateGame = (stage: number, difficulty: Difficulty) => {
   const targetTotalTiles = Math.ceil(targetInv / (1 - diffPercent));
   const numInventory = Math.min(Math.max(minInv, 1), maxInv);
   const numGivens = Math.max(1, targetTotalTiles - numInventory);
-  const finalGame = buildGameFromTarget(prng, targetTotalTiles, 10, numGivens, numInventory);
-  if (!finalGame) return { board: {}, bank: [], initialBankSize: 0, status: "playing" as const };
-  return finalGame;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const finalGame = buildGameFromTarget(prng, targetTotalTiles, 10, numGivens, numInventory);
+    /* istanbul ignore next */
+    if (!finalGame) continue;
+
+    return finalGame;
+  }
+
+  return { board: {}, bank: [], initialBankSize: 0, status: "playing" as const };
 };
 
 export const generateCustomGame = (config: CustomGameConfig): GameState | null => {

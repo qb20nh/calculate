@@ -145,6 +145,24 @@ const startPreview = (previewPort: number) => {
   return child;
 };
 
+const stopPreview = async (previewProcess: ReturnType<typeof startPreview>) => {
+  if (previewProcess.exitCode !== null || previewProcess.signalCode !== null) return;
+
+  await new Promise<void>((resolve) => {
+    const cleanup = () => resolve();
+
+    previewProcess.once("exit", cleanup);
+    previewProcess.once("close", cleanup);
+
+    const stopNow = previewProcess.kill("SIGTERM");
+    if (!stopNow) {
+      previewProcess.off("exit", cleanup);
+      previewProcess.off("close", cleanup);
+      resolve();
+    }
+  });
+};
+
 const waitForPreview = async (
   previewProcess: ReturnType<typeof startPreview>,
   previewBaseUrl: string,
@@ -183,9 +201,7 @@ export default async function globalSetup() {
     await waitForPreview(preview, previewBaseUrl);
 
     return async () => {
-      if (!preview.killed) {
-        preview.kill("SIGTERM");
-      }
+      await stopPreview(preview);
     };
   })().catch((error) => {
     setupPromise = undefined;

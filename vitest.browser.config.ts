@@ -32,13 +32,21 @@ const isKnownJsxSourceHint = (text: string) =>
   text.includes("Add @babel/plugin-transform-react-jsx-source") &&
   text.includes("detailed component stack");
 
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: string) =>
-  Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(message)), timeoutMs);
-    }),
-  ]);
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: string) => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(message)), timeoutMs);
+        timeoutHandle.unref?.();
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+};
 
 const waitForTwoFrames = async (page: Page) => {
   await withTimeout(
