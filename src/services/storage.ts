@@ -1,3 +1,8 @@
+import {
+  CUSTOM_GAME_LIMITS,
+  isValidRetryCount,
+  validateCustomGameConfig,
+} from "@/services/customGameConfig";
 import type { TileData } from "@/services/math";
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
@@ -44,24 +49,21 @@ const isGameMode = (value: unknown): value is GameMode => isDifficulty(value) ||
 const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
   isRecord(value) &&
   typeof value.givenCount === "number" &&
-  Number.isSafeInteger(value.givenCount) &&
-  value.givenCount >= 0 &&
   typeof value.inventoryCount === "number" &&
-  Number.isSafeInteger(value.inventoryCount) &&
-  value.inventoryCount >= 0 &&
   typeof value.sizeLimit === "number" &&
-  Number.isSafeInteger(value.sizeLimit) &&
-  value.sizeLimit >= 1 &&
   typeof value.seed === "string" &&
-  (typeof value.limitSolutionSize === "boolean" || value.limitSolutionSize === undefined) &&
-  (typeof value.attempt === "number" || value.attempt === undefined);
+  typeof value.limitSolutionSize === "boolean" &&
+  (value.attempt === undefined || isValidRetryCount(value.attempt)) &&
+  validateCustomGameConfig(value) === null;
 
 const isProgressEntry = (value: unknown): value is { current: number; max: number } =>
   isRecord(value) &&
   typeof value.current === "number" &&
-  Number.isFinite(value.current) &&
+  Number.isSafeInteger(value.current) &&
+  value.current >= 1 &&
   typeof value.max === "number" &&
-  Number.isFinite(value.max);
+  Number.isSafeInteger(value.max) &&
+  value.max >= 1;
 
 const normalizeProgress = (value: unknown): Progress | null => {
   if (!isRecord(value)) return null;
@@ -78,18 +80,81 @@ const normalizeProgress = (value: unknown): Progress | null => {
   };
 };
 
-const isGameState = (value: unknown): value is GameState =>
+const isTileType = (value: unknown): value is TileData["type"] =>
+  value === "val" || value === "op" || value === "rel";
+
+const isTileValue = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  value.length <= 2 &&
+  /^[0-9+−×÷=<>]$/.test(value);
+
+const isTileData = (value: unknown): value is TileData =>
   isRecord(value) &&
-  isRecord(value.board) &&
-  Array.isArray(value.bank) &&
-  typeof value.initialBankSize === "number" &&
-  Number.isFinite(value.initialBankSize) &&
-  (value.status === "playing" || value.status === "won") &&
-  isGameMode(value.difficulty) &&
-  typeof value.stage === "number" &&
-  Number.isSafeInteger(value.stage) &&
-  value.stage >= 1 &&
-  (value.difficulty !== "Custom" || isCustomGameConfig(value.customConfig));
+  typeof value.id === "string" &&
+  value.id.length > 0 &&
+  value.id.length <= 80 &&
+  isTileValue(value.val) &&
+  isTileType(value.type) &&
+  (value.isGiven === undefined || typeof value.isGiven === "boolean");
+
+const isBoardKey = (key: string) => {
+  const match = /^-?\d+,-?\d+$/.exec(key);
+  if (!match) return false;
+  const [rowRaw, colRaw] = key.split(",");
+  const row = Number(rowRaw);
+  const col = Number(colRaw);
+  const maxCoordinate = CUSTOM_GAME_LIMITS.maxSizeLimit * 5;
+  return (
+    Number.isSafeInteger(row) &&
+    Number.isSafeInteger(col) &&
+    Math.abs(row) <= maxCoordinate &&
+    Math.abs(col) <= maxCoordinate
+  );
+};
+
+const isBoard = (value: unknown): value is GameState["board"] => {
+  if (!isRecord(value)) return false;
+  const entries = Object.entries(value);
+  if (entries.length > CUSTOM_GAME_LIMITS.maxTotalTiles) return false;
+  return entries.every(([key, tile]) => isBoardKey(key) && isTileData(tile));
+};
+
+const isGameState = (value: unknown): value is GameState => {
+  if (!isRecord(value)) return false;
+  if (!isBoard(value.board)) return false;
+  if (!Array.isArray(value.bank) || value.bank.length > CUSTOM_GAME_LIMITS.maxTotalTiles) {
+    return false;
+  }
+  if (!value.bank.every(isTileData)) return false;
+  if (
+    typeof value.initialBankSize !== "number" ||
+    !Number.isSafeInteger(value.initialBankSize) ||
+    value.initialBankSize < 0 ||
+    value.initialBankSize > CUSTOM_GAME_LIMITS.maxTotalTiles
+  ) {
+    return false;
+  }
+  if (value.status !== "playing" && value.status !== "won") return false;
+  if (!isGameMode(value.difficulty)) return false;
+  if (
+    typeof value.stage !== "number" ||
+    !Number.isSafeInteger(value.stage) ||
+    value.stage < 1 ||
+    value.stage > CUSTOM_GAME_LIMITS.maxRetryCount
+  ) {
+    return false;
+  }
+  if (value.difficulty === "Custom" && !isCustomGameConfig(value.customConfig)) return false;
+  if (value.difficulty !== "Custom" && value.customConfig !== undefined) return false;
+  if (value.solvedAcknowledged !== undefined && typeof value.solvedAcknowledged !== "boolean") {
+    return false;
+  }
+  return true;
+};
+
+export const sanitizeStoredGameState = (value: unknown): GameState | null =>
+  isGameState(value) ? value : null;
 
 const parseJson = <T>(raw: string | null): T | null => {
   if (!raw) return null;
@@ -148,5 +213,5 @@ export const loadGameState = (): GameState | null => {
   if (!storage) return null;
 
   const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_STATE));
-  return isGameState(saved) ? saved : null;
+  return sanitizeStoredGameState(saved);
 };

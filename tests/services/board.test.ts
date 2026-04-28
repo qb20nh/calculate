@@ -4,6 +4,7 @@ import {
   generateCustomGame,
   generateCustomGameAttempt,
   generateGame,
+  generateStandardGame,
   validateBoard,
 } from "@/services/board";
 import { OP_MINUS, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/services/math";
@@ -77,6 +78,15 @@ describe("board service", () => {
 
   it("should generate deterministic games for the same stage and difficulty", () => {
     expect(generateGame(7, "Hard", 5)).toEqual(generateGame(7, "Hard", 5));
+  });
+
+  it("should generate a standard game state with difficulty and stage metadata", () => {
+    const game = generateStandardGame(3, "Easy", 100);
+
+    expect(game.difficulty).toBe("Easy");
+    expect(game.stage).toBe(3);
+    expect(game.solvedAcknowledged).toBe(false);
+    expect(Object.keys(game.board).length).toBeGreaterThan(0);
   });
 
   it("should handle unexpected difficulty values defensively", () => {

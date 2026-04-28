@@ -199,7 +199,7 @@ describe("math service", () => {
     );
   });
 
-  it("should not generate division with two double-digit operands", () => {
+  it("should allow only special two-digit division cases", () => {
     // Check 1000 generated statements to ensure the constraint is respected
     for (let i = 0; i < 1000; i++) {
       const prng = xoshiro128pp(i);
@@ -214,10 +214,11 @@ describe("math service", () => {
         const right = Number(rightStr);
 
         if (left >= 10 && right >= 10) {
-          // The constraint allows double-digit operands only if the division evaluates to 2.
-          if (left / right !== 2) {
+          // The constraint allows double-digit operands only for N/N=1 or 2N/N=2.
+          const quotient = left / right;
+          if (quotient !== 1 && quotient !== 2) {
             throw new Error(
-              `Division with two double-digit operands found (result is not 2): ${tokens.join("")} (${left} / ${right} = ${left / right})`,
+              `Division with two double-digit operands found (result is not 1 or 2): ${tokens.join("")} (${left} / ${right} = ${quotient})`,
             );
           }
         }
@@ -345,8 +346,12 @@ describe("math service", () => {
     it("should cover applyRelation branches", () => {
       // Coverage for applyRelation branch with small base
       // Force REL_GT but with baseValue = 0 to trigger the REL_LT fallback in division
-      // opIndex = 3 (Division), relRoll = 0.85 (REL_GT), right = 18 (0.85*20), result = 0
-      const tokens = generateValidStatement(() => 0.85);
+      // Sequence: opIndex=3 (Division), relRoll=0.85 (REL_GT), right=3, result=0.
+      const values = [0.99, 0.85, 0.1, 0.01];
+      const tokens = generateValidStatement(() => {
+        const value = values.shift();
+        return value === undefined ? 0 : value;
+      });
       expect(tokens).toContain(REL_LT); // Fallback from GT to LT
     });
   });

@@ -16,9 +16,10 @@ describe("injectLoadingScriptPlugin", () => {
     ) as TransformIndexHtmlHook;
     const output = await handler(html, { filename: "index.html" });
 
-    expect(output).toContain("var getNextTrickleProgress = (prev) => {");
-    expect(output).toContain("const remaining = Math.max(0, 90 - prev);");
-    expect(output).toContain("return prev + (remaining / 10) * Math.random();");
+    expect(output).toContain("var getNextTrickleProgress = function getNextTrickleProgress(prev)");
+    expect(output).toContain("var remaining = Math.max(0, 90 - prev);");
+    expect(output).toContain("return prev + remaining / 10 * Math.random();");
+    expect(output).not.toContain("const remaining");
     expect(output).not.toContain("Unexpected token");
   });
 });

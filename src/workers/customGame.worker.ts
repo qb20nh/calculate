@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { generateCustomGameAttempt } from "@/services/board";
+import { isValidRetryCount, validateCustomGameConfig } from "@/services/customGameConfig";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
   type CustomGameGenerationFailure,
@@ -14,7 +15,9 @@ const workerGlobal = self as DedicatedWorkerGlobalScope;
 function isCustomGameGenerationRequest(data: unknown): data is CustomGameGenerationRequest {
   if (typeof data !== "object" || data === null) return false;
   if (!("type" in data) || data.type !== "generate") return false;
-  return "config" in data;
+  if (!("config" in data) || !("retryCount" in data)) return false;
+  const request = data as CustomGameGenerationRequest;
+  return isValidRetryCount(request.retryCount) && validateCustomGameConfig(request.config) === null;
 }
 
 workerGlobal.addEventListener("message", (event: MessageEvent<CustomGameGenerationRequest>) => {

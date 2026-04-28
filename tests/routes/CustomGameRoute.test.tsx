@@ -257,6 +257,32 @@ describe("CustomGameRoute", () => {
     expect(screen.getByText("next-hidden")).toBeDefined();
   });
 
+  it("should not resume saved custom games with different size settings", async () => {
+    mockLoadGameState.mockReturnValue({
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Custom",
+      stage: 1,
+      customConfig: {
+        givenCount: 8,
+        inventoryCount: 12,
+        sizeLimit: 11,
+        seed: "123",
+        limitSolutionSize: false,
+      },
+    });
+    mockLocationUrl = "/game/custom?given=8&inventory=12&size=10&seed=123";
+
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    expect(screen.queryByText("Mock Game")).toBeNull();
+    expect(screen.getByText("Custom Game")).toBeDefined();
+  });
+
   it("should reject invalid custom settings on submit", async () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 

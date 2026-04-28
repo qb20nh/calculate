@@ -403,6 +403,16 @@
     background-color: color-mix(in srgb, var(--theme-danger) 88%, black);
   }
 
+  .theme-btn-danger-soft {
+    background-color: color-mix(in srgb, var(--theme-danger) 72%, var(--theme-bg));
+    color: var(--theme-ink);
+    border: 1px solid var(--theme-danger-border);
+  }
+
+  .theme-btn-danger-soft:hover {
+    background-color: color-mix(in srgb, var(--theme-danger) 82%, var(--theme-surface));
+  }
+
   .theme-number-bg-soft {
     background-color: var(--theme-number-soft);
   }

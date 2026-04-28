@@ -1,15 +1,18 @@
-# `create-preact`
+# Calculate
 
-<h2 align="center">
-  <img height="256" width="256" src="./src/assets/preact.svg">
-</h2>
+Math crossword game built with Preact and Vite.
 
-<h3 align="center">Get started using Preact and Vite!</h3>
+## Commands
 
-## Getting Started
+- `pnpm dev` - start local Vite dev server.
+- `pnpm build` - build and prerender production output into `dist/`.
+- `pnpm preview` - serve built production output.
+- `pnpm test` - run unit tests with coverage.
+- `pnpm e2e` - run browser smoke tests against preview output.
+- `pnpm quality` - run knip, typecheck, duplicate check, tests, and lint.
+- `pnpm audit --prod` - check production dependency advisories.
 
--   `npm run dev` - Starts a dev server at http://localhost:5173/
+## Notes
 
--   `npm run build` - Builds for production, emitting to `dist/`. Prerenders all found routes in app to static HTML
-
--   `npm run preview` - Starts a server at http://localhost:4173/ to test production build locally
+Custom game URLs preserve puzzle settings. Input is capped to keep generation and rendering bounded:
+board size `5..20`, total tiles `9..120`, seed length `64`, retry count `0..9999`.

@@ -1,12 +1,26 @@
-import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-preact";
-import type { ComponentChildren, FunctionalComponent } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { FunctionalComponent } from "preact";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { BoardGrid } from "@/components/game/BoardGrid";
+import { CompletionDialog, ResetDialog } from "@/components/game/GameDialogs";
+import { GameLoadingShell } from "@/components/game/GameShells";
+import { getBoardLayout, groupBankTiles, sortTiles } from "@/components/game/gameUtils";
+import { InventoryBank } from "@/components/game/InventoryBank";
+import { StageHeader } from "@/components/game/StageHeader";
+import { useBoardPan } from "@/components/game/useBoardPan";
+import { useDialogFocus } from "@/components/game/useDialogFocus";
+import { useGameValidation } from "@/components/game/useGameValidation";
+import { useInventoryScroll } from "@/components/game/useInventoryScroll";
+import {
+  createStandardGameState,
+  useStandardGameState,
+} from "@/components/game/useStandardGameState";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { useAppSettings } from "@/lib/appSettings";
 import { cn } from "@/lib/utils";
-import { generateGame, getGridBounds, validateBoard } from "@/services/board";
 import type { TileData } from "@/services/math";
 import type { Difficulty, GameMode, GameState } from "@/services/storage";
+
+export { GameLoadingShell, UnavailableLevelShell } from "@/components/game/GameShells";
 
 interface GameProps {
   difficulty: GameMode;
@@ -21,269 +35,6 @@ interface GameProps {
   onStateChange: (state: GameState) => void;
 }
 
-const headerButtonClass =
-  "p-2 theme-muted-text transition-colors rounded-full disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-current";
-
-const headerPillClass =
-  "flex items-center theme-primary-bg-soft rounded-full shadow-inner theme-primary-border overflow-hidden";
-
-const HeaderShell: FunctionalComponent<{
-  left: ComponentChildren;
-  centerDesktop: ComponentChildren;
-  centerMobile: ComponentChildren;
-  right: ComponentChildren;
-}> = ({ left, centerDesktop, centerMobile, right }) => (
-  <div className="flex justify-between items-center border-b border-[var(--theme-border)] bg-[var(--theme-surface)] p-3 text-[var(--theme-ink)] sm:p-4 shadow-sm z-20 shrink-0 relative">
-    <div className="flex items-center gap-2 sm:gap-3">
-      {left}
-      <div className="hidden sm:block h-8 w-[1px] theme-border-line mx-1" />
-      <div className="hidden sm:block">{centerDesktop}</div>
-    </div>
-
-    <div className="sm:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-      {centerMobile}
-    </div>
-
-    {right}
-  </div>
-);
-
-const BoardCell: FunctionalComponent<{
-  cellKey: string;
-  cell: (TileData & { isGiven?: boolean }) | undefined;
-  isFringe: boolean;
-  selectedTileId: string | null;
-  selectedTileType: TileData["type"] | null;
-  onClick: (key: string) => void;
-}> = ({ cellKey, cell, isFringe, selectedTileId, selectedTileType, onClick }) => {
-  const { copy } = useAppSettings();
-  if (!cell && !isFringe) {
-    return <div className="w-full h-full pointer-events-none" />;
-  }
-
-  const handleAction = () => onClick(cellKey);
-  const handleKeyDown = (e: KeyboardEvent) => e.key === "Enter" && handleAction();
-
-  if (!cell && isFringe) {
-    return (
-      <button
-        type="button"
-        onClick={handleAction}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        className={cn(
-          "fringe-slot m-[1px]",
-          selectedTileId && selectedTileType && "highlight",
-          selectedTileType && `highlight-${selectedTileType}`,
-        )}
-        aria-label={copy.game.placeTileHere}
-      />
-    );
-  }
-
-  if (!cell) return null;
-
-  const content = cell.val;
-  const typeClass = cell.isGiven ? "tile-given" : `tile-${cell.type}`;
-
-  return (
-    <button
-      type="button"
-      onClick={handleAction}
-      onKeyDown={handleKeyDown}
-      tabIndex={cell.isGiven ? -1 : 0}
-      className={cn(
-        "tile m-[1px] text-xl md:text-2xl select-none",
-        typeClass,
-        selectedTileId === cell.id && `selected selected-${cell.type}`,
-      )}
-    >
-      {content}
-    </button>
-  );
-};
-
-const StageHeader: FunctionalComponent<{
-  difficulty: GameMode;
-  stage: number;
-  maxStage: number;
-  status?: GameState["status"];
-  onBack: () => void;
-  onStageChange: (newStage: number) => void;
-  onReset?: () => void;
-}> = ({ difficulty, stage, maxStage, status, onBack, onStageChange, onReset }) => {
-  const { copy, t } = useAppSettings();
-  const stageBar = (
-    <div className={headerPillClass}>
-      <button
-        type="button"
-        onClick={() => onStageChange(stage - 1)}
-        disabled={stage <= 1}
-        className={cn(
-          headerButtonClass,
-          "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
-          "transition-colors",
-        )}
-        aria-label={copy.game.previousStage}
-        data-skeleton-button="previous"
-      >
-        <ChevronLeft width={16} height={16} strokeWidth={3} />
-      </button>
-      <span className="px-2 py-1 theme-primary-text text-sm font-bold whitespace-nowrap text-center min-w-[120px]">
-        {t("game.stageLabel", {
-          difficulty: copy.difficulty[difficulty],
-          stage,
-        })}
-      </span>
-      <button
-        type="button"
-        onClick={() => onStageChange(stage + 1)}
-        disabled={stage >= maxStage && status !== "won"}
-        className={cn(
-          headerButtonClass,
-          "px-2 py-1 theme-primary-hover-text theme-primary-hover-bg",
-          "transition-colors",
-        )}
-        aria-label={copy.game.nextStage}
-        data-skeleton-button="next"
-      >
-        <ChevronRight width={16} height={16} strokeWidth={3} />
-      </button>
-    </div>
-  );
-
-  return (
-    <HeaderShell
-      left={
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label={copy.game.back}
-          className={cn(headerButtonClass, "theme-primary-hover-text theme-primary-hover-bg")}
-          data-skeleton-button="back"
-        >
-          <ChevronLeft width={20} height={20} strokeWidth={2.5} />
-        </button>
-      }
-      centerDesktop={stageBar}
-      centerMobile={stageBar}
-      right={
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!onReset}
-          className={cn(headerButtonClass, "theme-danger-text theme-danger-hover-bg")}
-          aria-label={copy.game.resetStage}
-          data-skeleton-button="reset"
-        >
-          <RotateCcw width={20} height={20} strokeWidth={2.5} />
-        </button>
-      }
-    />
-  );
-};
-
-export const UnavailableLevelShell: FunctionalComponent<{
-  difficulty: Difficulty;
-  requestedStage: number;
-  availableStage: number;
-  notice: string;
-  onBack: () => void;
-  onStageChange: (newStage: number) => void;
-  onReset: () => void;
-  onLatestAvailable: () => void;
-}> = ({
-  difficulty,
-  requestedStage,
-  availableStage,
-  notice,
-  onBack,
-  onStageChange,
-  onReset,
-  onLatestAvailable,
-}) => {
-  const { copy, t } = useAppSettings();
-
-  return (
-    <div className="h-dvh w-full flex flex-col overflow-hidden bg-transparent">
-      <StageHeader
-        difficulty={difficulty}
-        stage={requestedStage}
-        maxStage={Math.max(requestedStage, availableStage)}
-        status="won"
-        onBack={onBack}
-        onStageChange={onStageChange}
-        onReset={onReset}
-      />
-
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="theme-panel max-w-md w-full rounded-3xl p-8 text-center shadow-xl">
-          <h1 className="text-3xl font-black tracking-tight">
-            {t("game.stageLockedTitle", { stage: requestedStage })}
-          </h1>
-          <p className="mt-3 theme-muted-text font-normal">{notice}</p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex-1 rounded-2xl border theme-border px-5 py-3 font-bold theme-muted-text transition hover:bg-black/5 active:scale-95"
-            >
-              {copy.game.backToMenu}
-            </button>
-            <button
-              type="button"
-              onClick={onLatestAvailable}
-              className="flex-1 rounded-2xl theme-primary-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
-            >
-              {t("game.goToStage", { stage: availableStage })}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const GameLoadingShell: FunctionalComponent<{
-  difficulty: GameMode;
-  stage: number;
-  maxStage: number;
-  notice?: string | undefined;
-  onBack: () => void;
-  onStageChange: (newStage: number) => void;
-}> = ({ difficulty, stage, maxStage, notice, onBack, onStageChange }) => {
-  const { copy } = useAppSettings();
-
-  return (
-    <div className="theme-page-bg h-dvh w-full flex flex-col overflow-hidden">
-      <div id="skeleton-progress" className="route-progress">
-        <div className="route-progress-bar" style={{ width: "0%" }} />
-      </div>
-      <StageHeader
-        difficulty={difficulty}
-        stage={stage}
-        maxStage={maxStage}
-        onBack={onBack}
-        onStageChange={onStageChange}
-      />
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center font-bold theme-muted-text">
-        <div id="skeleton-spinner" className="flex items-center justify-center">
-          <div className="size-16 animate-spin rounded-full border-4 theme-spinner" />
-        </div>
-        {notice && (
-          <p className="max-w-xs rounded-2xl theme-operator-bg-soft theme-operator-text px-5 py-3 text-sm border theme-operator-border">
-            {notice}
-          </p>
-        )}
-        <p data-skeleton-loading-text>{copy.game.generatingPuzzle}</p>
-      </div>
-    </div>
-  );
-};
-
-const TILE_SIZE = 44;
-
 export const Game: FunctionalComponent<GameProps> = ({
   difficulty,
   stage,
@@ -297,29 +48,51 @@ export const Game: FunctionalComponent<GameProps> = ({
   onStateChange,
 }) => {
   const { copy, t } = useAppSettings();
-  const [gameState, setGameState] = useState<GameState | null>(initialState || null);
+  const resetGridMetricsRef = useRef<() => void>(() => {});
+  const handleGenerated = useCallback(() => resetGridMetricsRef.current(), []);
+  const { gameState, setGameState, showLoadingShell, isLoadingVisible } = useStandardGameState({
+    difficulty,
+    stage,
+    initialState,
+    onGenerated: handleGenerated,
+  });
+  const boardPan = useBoardPan(gameState);
+  resetGridMetricsRef.current = boardPan.resetGridMetrics;
+
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [showLoadingShell, setShowLoadingShell] = useState(initialState === null);
-  const [isLoadingVisible, setIsLoadingVisible] = useState(initialState === null);
 
   const gameContentRef = useRef<HTMLDivElement>(null);
-  const boardContainerRef = useRef<HTMLDivElement>(null);
   const inventoryRef = useRef<HTMLDivElement>(null);
   const resetDialogRef = useRef<HTMLDialogElement>(null);
   const resetCancelRef = useRef<HTMLButtonElement>(null);
   const completionDialogRef = useRef<HTMLDialogElement>(null);
   const completionDismissRef = useRef<HTMLButtonElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const supportsModalDialog =
     typeof HTMLDialogElement !== "undefined" &&
     typeof HTMLDialogElement.prototype.showModal === "function";
 
   const isDialogOpen = isResetDialogOpen || isCompletionDialogOpen;
+  const { canScrollLeft, canScrollRight, checkScroll } = useInventoryScroll(
+    inventoryRef,
+    gameState?.bank,
+  );
+
+  const dismissCompletionDialog = useCallback(() => {
+    setIsCompletionDialogOpen(false);
+    setGameState((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "playing",
+            solvedAcknowledged: true,
+          }
+        : prev,
+    );
+  }, [setGameState]);
+
   useAppReadinessSignal(gameState !== null, "game");
 
   useEffect(() => {
@@ -342,12 +115,19 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   useEffect(() => {
     const dialog = resetDialogRef.current;
-    if (!dialog) return;
-    if (!supportsModalDialog) return;
+    if (!dialog || !supportsModalDialog) return;
     if (isResetDialogOpen && !dialog.hasAttribute("open")) {
       dialog.showModal();
     }
   }, [isResetDialogOpen, supportsModalDialog]);
+
+  useEffect(() => {
+    const dialog = completionDialogRef.current;
+    if (!dialog || !supportsModalDialog) return;
+    if (isCompletionDialogOpen && !dialog.hasAttribute("open")) {
+      dialog.showModal();
+    }
+  }, [isCompletionDialogOpen, supportsModalDialog]);
 
   useEffect(() => {
     const dialog = resetDialogRef.current;
@@ -364,15 +144,6 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   useEffect(() => {
     const dialog = completionDialogRef.current;
-    if (!dialog) return;
-    if (!supportsModalDialog) return;
-    if (isCompletionDialogOpen && !dialog.hasAttribute("open")) {
-      dialog.showModal();
-    }
-  }, [isCompletionDialogOpen, supportsModalDialog]);
-
-  useEffect(() => {
-    const dialog = completionDialogRef.current;
     if (!dialog || !isCompletionDialogOpen) return;
 
     const handleCancel = (event: Event) => {
@@ -382,336 +153,38 @@ export const Game: FunctionalComponent<GameProps> = ({
 
     dialog.addEventListener("cancel", handleCancel);
     return () => dialog.removeEventListener("cancel", handleCancel);
-  }, [isCompletionDialogOpen]);
+  }, [dismissCompletionDialog, isCompletionDialogOpen]);
 
-  useEffect(() => {
-    if (!isDialogOpen) {
-      restoreFocusRef.current?.focus();
-      restoreFocusRef.current = null;
-      return;
-    }
-
-    restoreFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const initialFocus = isResetDialogOpen ? resetCancelRef.current : completionDismissRef.current;
-    initialFocus?.focus();
-  }, [isDialogOpen, isResetDialogOpen, isCompletionDialogOpen]);
-
-  const checkScroll = () => {
-    if (inventoryRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = inventoryRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth);
-    }
-  };
-
-  useEffect(() => {
-    checkScroll();
-    window.addEventListener("resize", checkScroll);
-    return () => window.removeEventListener("resize", checkScroll);
-  }, [gameState?.bank]);
-
-  useEffect(() => {
-    if (!gameState) {
-      setShowLoadingShell(initialState === null);
-      setIsLoadingVisible(initialState === null);
-      return;
-    }
-
-    if (initialState !== null) {
-      setShowLoadingShell(false);
-      setIsLoadingVisible(false);
-      return;
-    }
-
-    setShowLoadingShell(true);
-    setIsLoadingVisible(false);
-    const timeout = window.setTimeout(() => {
-      setShowLoadingShell(false);
-    }, 200);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [gameState, initialState]);
-
-  // Initialize game
-  useEffect(() => {
-    if (!initialState) {
-      if (difficulty === "Custom") return;
-      // Compensate for one-shot buildExactGrid by trying more attempts on main thread
-      let newGame: GameState | null = null;
-      for (let i = 0; i < 3000; i++) {
-        const attempt = generateGame(stage, difficulty as Difficulty, i);
-        if (Object.keys(attempt.board).length > 0) {
-          newGame = { ...attempt, difficulty, stage, solvedAcknowledged: false };
-          break;
-        }
-      }
-      setGameState(
-        newGame || {
-          board: {},
-          bank: [],
-          initialBankSize: 0,
-          status: "playing",
-          difficulty,
-          stage,
-          solvedAcknowledged: false,
-        },
-      );
-      prevGridMetrics.current.initialized = false;
-    }
-  }, [stage, difficulty, initialState]);
-
-  const panOffset = useRef({ x: 0, y: 0 });
-  const isPanning = useRef(false);
-  const lastPointer = useRef({ x: 0, y: 0 });
-  const initialPointer = useRef({ x: 0, y: 0 });
-  const panContainerRef = useRef<HTMLDivElement>(null);
-  const boundsRef = useRef({ minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 });
-  const hasDragged = useRef(false);
-  const prevGridMetrics = useRef({
-    minC: 0,
-    minR: 0,
-    cols: 0,
-    rows: 0,
-    viewportWidth: 0,
-    viewportHeight: 0,
-    initialized: false,
+  useDialogFocus({
+    isDialogOpen,
+    isResetDialogOpen,
+    resetCancelRef,
+    completionDismissRef,
   });
 
-  const clampPan = (x: number, y: number) => {
-    const { minX, maxX, minY, maxY } = boundsRef.current;
-    const cx = minX <= maxX ? Math.max(minX, Math.min(maxX, x)) : 0;
-    const cy = minY <= maxY ? Math.max(minY, Math.min(maxY, y)) : 0;
-    return { x: cx, y: cy };
-  };
-
-  const updatePan = (x: number, y: number) => {
-    const clamped = clampPan(x, y);
-    panOffset.current = clamped;
-    if (panContainerRef.current) {
-      // Round to nearest pixel to prevent blurriness
-      const rx = Math.round(clamped.x);
-      const ry = Math.round(clamped.y);
-      panContainerRef.current.style.transform = `translate(${rx}px, ${ry}px)`;
-    }
-  };
-
-  const handlePointerDown = (e: PointerEvent) => {
-    if (e.pointerType === "mouse") return;
-    isPanning.current = true;
-    hasDragged.current = false;
-    lastPointer.current = { x: e.clientX, y: e.clientY };
-    initialPointer.current = { x: e.clientX, y: e.clientY };
-    if (boardContainerRef.current?.setPointerCapture) {
-      boardContainerRef.current.setPointerCapture(e.pointerId);
-    }
-  };
-
-  const handlePointerMove = (e: PointerEvent) => {
-    if (!isPanning.current) return;
-
-    if (!hasDragged.current) {
-      const totalDx = e.clientX - initialPointer.current.x;
-      const totalDy = e.clientY - initialPointer.current.y;
-      // 4px touch slop
-      if (Math.abs(totalDx) > 4 || Math.abs(totalDy) > 4) {
-        hasDragged.current = true;
-      }
-    }
-
-    if (hasDragged.current) {
-      const dx = e.clientX - lastPointer.current.x;
-      const dy = e.clientY - lastPointer.current.y;
-      updatePan(panOffset.current.x + dx, panOffset.current.y + dy);
-    }
-
-    lastPointer.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handlePointerUp = (e: PointerEvent) => {
-    isPanning.current = false;
-    if (boardContainerRef.current?.hasPointerCapture?.(e.pointerId)) {
-      boardContainerRef.current.releasePointerCapture(e.pointerId);
-    }
-  };
-
-  const handleCaptureClick = (e: MouseEvent) => {
-    if (hasDragged.current) {
-      e.stopPropagation();
-      e.preventDefault();
-      hasDragged.current = false;
-    }
-  };
-
-  // Update pan bounds when board changes or window resizes
-  useLayoutEffect(() => {
-    const calc = () => {
-      if (!boardContainerRef.current || gameState?.status !== "playing") return;
-
-      const placedAndGivenKeys = Object.keys(gameState.board);
-      if (placedAndGivenKeys.length === 0) return;
-
-      const fringe = new Set<string>();
-      for (const k of placedAndGivenKeys) {
-        const [rStr, cStr] = k.split(",");
-        const r = Number(rStr);
-        const c = Number(cStr);
-        const neighbors = [`${r + 1},${c}`, `${r - 1},${c}`, `${r},${c + 1}`, `${r},${c - 1}`];
-        for (const nk of neighbors) {
-          if (!gameState.board[nk]) fringe.add(nk);
-        }
-      }
-
-      const allRelevantKeys = [...placedAndGivenKeys, ...Array.from(fringe)];
-      let minR = Infinity,
-        maxR = -Infinity,
-        minC = Infinity,
-        maxC = -Infinity;
-      for (const k of allRelevantKeys) {
-        const [rStr, cStr] = k.split(",");
-        const r = Number(rStr),
-          c = Number(cStr);
-        minR = Math.min(minR, r);
-        maxR = Math.max(maxR, r);
-        minC = Math.min(minC, c);
-        maxC = Math.max(maxC, c);
-      }
-
-      minR -= 1;
-      maxR += 1;
-      minC -= 1;
-      maxC += 1;
-
-      const cols = maxC - minC + 1;
-      const rows = maxR - minR + 1;
-
-      let pMinR = Infinity,
-        pMaxR = -Infinity,
-        pMinC = Infinity,
-        pMaxC = -Infinity;
-      for (const k of placedAndGivenKeys) {
-        const [rStr, cStr] = k.split(",");
-        const r = Number(rStr),
-          c = Number(cStr);
-        pMinR = Math.min(pMinR, r);
-        pMaxR = Math.max(pMaxR, r);
-        pMinC = Math.min(pMinC, c);
-        pMaxC = Math.max(pMaxC, c);
-      }
-      const viewportWidth = boardContainerRef.current.clientWidth || 300;
-      const viewportHeight = boardContainerRef.current.clientHeight || 300;
-
-      let curPanX = panOffset.current.x;
-      let curPanY = panOffset.current.y;
-
-      if (prevGridMetrics.current.initialized) {
-        curPanX += (minC - prevGridMetrics.current.minC) * TILE_SIZE;
-        curPanY += (minR - prevGridMetrics.current.minR) * TILE_SIZE;
-
-        const dw = viewportWidth - prevGridMetrics.current.viewportWidth;
-        const dh = viewportHeight - prevGridMetrics.current.viewportHeight;
-        curPanX += dw / 2;
-        curPanY += dh / 2;
-      } else {
-        curPanX = viewportWidth / 2 - (cols * TILE_SIZE) / 2;
-        curPanY = viewportHeight / 2 - (rows * TILE_SIZE) / 2;
-      }
-
-      prevGridMetrics.current = {
-        minC,
-        minR,
-        cols,
-        rows,
-        viewportWidth,
-        viewportHeight,
-        initialized: true,
-      };
-
-      const pMinX = (pMinC - minC) * TILE_SIZE;
-      const pMaxX = (pMaxC - minC + 1) * TILE_SIZE;
-      const pMinY = (pMinR - minR) * TILE_SIZE;
-      const pMaxY = (pMaxR - minR + 1) * TILE_SIZE;
-
-      const minX = TILE_SIZE - pMaxX;
-      const maxX = viewportWidth - TILE_SIZE - pMinX;
-      const minY = TILE_SIZE - pMaxY;
-      const maxY = viewportHeight - TILE_SIZE - pMinY;
-
-      boundsRef.current = { minX, maxX, minY, maxY };
-      updatePan(curPanX, curPanY);
-    };
-
-    calc();
-    window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
-  }, [gameState?.board]);
-
-  // Persist state
   useEffect(() => {
     if (gameState) {
       onStateChange({ ...gameState, difficulty, stage });
     }
   }, [gameState, difficulty, stage, onStateChange]);
 
-  // Validation logic
-  useEffect(() => {
-    if (gameState?.status !== "playing") return;
+  useGameValidation({
+    gameState,
+    difficulty,
+    copy,
+    t,
+    setGameState,
+    setSelectedTileId,
+    setToast,
+    setIsCompletionDialogOpen,
+  });
 
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    if (gameState.bank.length === 0 && !gameState.solvedAcknowledged) {
-      const validation = validateBoard(gameState.board);
-      if (validation.valid) {
-        const customConfig = gameState.customConfig;
-        if (difficulty === "Custom" && customConfig?.limitSolutionSize) {
-          const bounds = getGridBounds(Object.keys(gameState.board));
-          const width = bounds.maxC - bounds.minC + 1;
-          const height = bounds.maxR - bounds.minR + 1;
-          if (width > customConfig.sizeLimit || height > customConfig.sizeLimit) {
-            setToast(copy.game.solutionTooLarge);
-            timer = setTimeout(() => setToast(null), 3500);
-            return () => {
-              if (timer) clearTimeout(timer);
-            };
-          }
-        }
+  const groupedBank = useMemo(() => (gameState ? groupBankTiles(gameState.bank) : []), [gameState]);
 
-        setGameState((prev) => (prev ? { ...prev, status: "won" } : null));
-        setSelectedTileId(null);
-        setToast(null);
-        setIsCompletionDialogOpen(true);
-      } else {
-        const getValidationKey = (reason: string) => {
-          if (reason === "Board is empty.") return "game.validation.boardEmpty";
-          if (reason === "No valid mathematical formula found.") return "game.validation.noFormula";
-          if (reason === "At least two crossing formulas are required.")
-            return "game.validation.noCrossing";
-          if (reason.startsWith('Invalid formula: "')) return "game.validation.invalidFormula";
-          return null;
-        };
-
-        const vKey = getValidationKey(validation.reason);
-        if (vKey) {
-          if (vKey === "game.validation.invalidFormula") {
-            const formula = validation.reason.slice('Invalid formula: "'.length, -1);
-            setToast(t(vKey, { formula }));
-          } else {
-            setToast(t(vKey));
-          }
-        } else {
-          setToast(validation.reason);
-        }
-        timer = setTimeout(() => setToast(null), 3500);
-      }
-    } else {
-      setToast(null);
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [copy, gameState, stage, onWin]);
+  const selectedTileType = useMemo<TileData["type"] | null>(() => {
+    if (!gameState || !selectedTileId) return null;
+    return gameState.bank.find((tile) => tile.id === selectedTileId)?.type ?? null;
+  }, [gameState, selectedTileId]);
 
   const handleBoardClick = (key: string) => {
     if (gameState?.status !== "playing") return;
@@ -729,7 +202,7 @@ export const Game: FunctionalComponent<GameProps> = ({
       };
 
       if (selectedTileId) {
-        const bankIdx = next.bank.findIndex((t) => t.id === selectedTileId);
+        const bankIdx = next.bank.findIndex((tile) => tile.id === selectedTileId);
         if (bankIdx === -1) return prev;
         const tile = next.bank[bankIdx] as TileData;
 
@@ -744,92 +217,25 @@ export const Game: FunctionalComponent<GameProps> = ({
       } else if (cell) {
         next.bank.push({ id: cell.id, val: cell.val, type: cell.type });
         delete next.board[key];
-
-        next.bank.sort((a, b) => {
-          const w = (t: TileData) => (t.type === "val" ? 1 : t.type === "op" ? 2 : 3);
-          if (w(a) !== w(b)) return w(a) - w(b);
-          return String(a.val).localeCompare(String(b.val));
-        });
+        sortTiles(next.bank);
       }
 
       return next;
     });
   };
 
-  const resetLevel = () => {
-    setIsResetDialogOpen(true);
-  };
-
   const confirmResetLevel = () => {
-    let newGame: GameState | null = null;
-    if (createNewGame) {
-      newGame = createNewGame();
-    } else {
-      // Compensate for one-shot buildExactGrid
-      for (let i = 0; i < 3000; i++) {
-        const attempt = generateGame(stage, difficulty as Difficulty, i);
-        if (Object.keys(attempt.board).length > 0) {
-          newGame = { ...attempt, difficulty, stage, solvedAcknowledged: false };
-          break;
-        }
-      }
-    }
-
-    setGameState(
-      newGame || {
-        board: {},
-        bank: [],
-        initialBankSize: 0,
-        status: "playing",
-        difficulty,
-        stage,
-        solvedAcknowledged: false,
-      },
-    );
+    const newGame = createNewGame
+      ? createNewGame()
+      : createStandardGameState(stage, difficulty as Difficulty);
+    setGameState(newGame);
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);
     setIsResetDialogOpen(false);
-    prevGridMetrics.current.initialized = false;
+    boardPan.resetGridMetrics();
   };
 
-  /* istanbul ignore next */
-  const dismissCompletionDialog = () => {
-    setIsCompletionDialogOpen(false);
-    setGameState((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: "playing",
-            solvedAcknowledged: true,
-          }
-        : prev,
-    );
-  };
-
-  const groupedBank = useMemo(() => {
-    if (!gameState) return [];
-    const groups: { val: string; type: string; tiles: TileData[] }[] = [];
-    const groupMap: Record<string, { val: string; type: string; tiles: TileData[] }> = {};
-    for (const tile of gameState.bank) {
-      const group = groupMap[tile.val];
-      if (group) {
-        group.tiles.push(tile);
-      } else {
-        const nextGroup = { val: tile.val, type: tile.type, tiles: [tile] };
-        groupMap[tile.val] = nextGroup;
-        groups.push(nextGroup);
-      }
-    }
-    return groups;
-  }, [gameState]);
-
-  const selectedTileType = useMemo<TileData["type"] | null>(() => {
-    if (!gameState || !selectedTileId) return null;
-    /* istanbul ignore next */
-    return gameState.bank.find((tile) => tile.id === selectedTileId)?.type ?? null;
-  }, [gameState, selectedTileId]);
-
-  if (!gameState)
+  if (!gameState) {
     return (
       <GameLoadingShell
         difficulty={difficulty}
@@ -839,37 +245,10 @@ export const Game: FunctionalComponent<GameProps> = ({
         onStageChange={onStageChange}
       />
     );
-
-  const { board, status } = gameState;
-
-  // Calculate bounds
-  const fringe = new Set<string>();
-  for (const k of Object.keys(board)) {
-    const [rStr, cStr] = k.split(",");
-    const r = Number(rStr);
-    const c = Number(cStr);
-    const neighbors = [
-      [r + 1, c],
-      [r - 1, c],
-      [r, c + 1],
-      [r, c - 1],
-    ];
-    for (const [nr, nc] of neighbors) {
-      const nk = `${nr},${nc}`;
-      if (!board[nk]) fringe.add(nk);
-    }
   }
 
-  const allRelevantKeys = [...Object.keys(board), ...Array.from(fringe)];
-  const bounds = getGridBounds(allRelevantKeys);
-
-  const minR = bounds.minR - 1;
-  const maxR = bounds.maxR + 1;
-  const minC = bounds.minC - 1;
-  const maxC = bounds.maxC + 1;
-
-  const cols = maxC - minC + 1;
-  const rows = maxR - minR + 1;
+  const { board, status } = gameState;
+  const boardLayout = getBoardLayout(board);
 
   return (
     <div className="theme-page-bg relative h-dvh w-full overflow-hidden">
@@ -889,6 +268,7 @@ export const Game: FunctionalComponent<GameProps> = ({
           />
         </div>
       )}
+
       <div
         className={cn("absolute inset-0 flex flex-col", isLoadingVisible && "pointer-events-none")}
       >
@@ -900,229 +280,62 @@ export const Game: FunctionalComponent<GameProps> = ({
             status={status}
             onBack={onBack}
             onStageChange={onStageChange}
-            onReset={resetLevel}
+            onReset={() => setIsResetDialogOpen(true)}
           />
 
           <div className="flex min-h-0 flex-1 flex-col animate-fade-in-soft">
-            <div
-              className="flex-1 relative overflow-hidden touch-none select-none"
-              ref={boardContainerRef}
-              data-testid="game-board-container"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              onClickCapture={handleCaptureClick}
-            >
-              <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div
-                  ref={panContainerRef}
-                  className="absolute top-0 left-0 pointer-events-auto transition-none"
-                  style={{
-                    display: "grid",
-                    gap: 0,
-                    gridTemplateColumns: `repeat(${cols}, ${TILE_SIZE}px)`,
-                    gridTemplateRows: `repeat(${rows}, ${TILE_SIZE}px)`,
-                    transform: `translate(${Math.round(panOffset.current.x)}px, ${Math.round(panOffset.current.y)}px)`,
-                    willChange: "transform",
-                  }}
-                >
-                  {Array.from({ length: rows * cols }).map((_, i) => {
-                    const r = Math.floor(i / cols) + minR;
-                    const c = (i % cols) + minC;
-                    const key = `${r},${c}`;
-                    return (
-                      <BoardCell
-                        key={key}
-                        cellKey={key}
-                        cell={board[key]}
-                        isFringe={fringe.has(key)}
-                        selectedTileId={selectedTileId}
-                        selectedTileType={selectedTileType}
-                        onClick={handleBoardClick}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
+            <BoardGrid
+              board={board}
+              boardContainerRef={boardPan.boardContainerRef}
+              panContainerRef={boardPan.panContainerRef}
+              panOffset={boardPan.panOffset}
+              rows={boardLayout.rows}
+              cols={boardLayout.cols}
+              minR={boardLayout.minR}
+              minC={boardLayout.minC}
+              fringe={boardLayout.fringe}
+              toast={toast}
+              selectedTileId={selectedTileId}
+              selectedTileType={selectedTileType}
+              onBoardClick={handleBoardClick}
+              onPointerDown={boardPan.handlePointerDown}
+              onPointerMove={boardPan.handlePointerMove}
+              onPointerUp={boardPan.handlePointerUp}
+              onClickCapture={boardPan.handleCaptureClick}
+            />
 
-              {toast && (
-                <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 theme-panel-strong px-6 py-3 rounded-full shadow-2xl z-[60] animate-fade-in font-medium text-sm md:text-base whitespace-nowrap">
-                  {toast}
-                </div>
-              )}
-            </div>
-
-            <div className="theme-panel border-t shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
-              <div className="max-w-4xl mx-auto relative">
-                {canScrollLeft && (
-                  <div className="absolute left-0 top-0 bottom-0 w-8 theme-edge-fade-left pointer-events-none z-30" />
-                )}
-                {canScrollRight && (
-                  <div className="absolute right-0 top-0 bottom-0 w-8 theme-edge-fade-right pointer-events-none z-30" />
-                )}
-                <div
-                  ref={inventoryRef}
-                  onScroll={checkScroll}
-                  className="pt-4 px-8 pb-6 md:pt-6 md:pb-8 overflow-x-auto board-container flex flex-nowrap md:flex-wrap md:justify-center gap-3 md:gap-4"
-                  style={{ justifyContent: "safe center" }}
-                >
-                  {groupedBank.map((group) => {
-                    const content = group.val;
-                    const isSelected =
-                      selectedTileId !== null &&
-                      group.tiles.some((t: TileData) => t.id === selectedTileId);
-                    const count = group.tiles.length;
-                    const firstTile = group.tiles[0];
-                    /* istanbul ignore next */
-                    if (!firstTile) return null;
-
-                    return (
-                      <div key={group.val} className="relative m-1 inline-block">
-                        {count > 1 && (
-                          <div
-                            className={cn(
-                              "absolute top-1 left-1 w-full h-full rounded-[2px] pointer-events-none opacity-50",
-                              `tile-${group.type}`,
-                            )}
-                          />
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (gameState?.status !== "playing") return;
-                            if (isSelected) {
-                              setSelectedTileId(null);
-                            } else {
-                              setSelectedTileId(firstTile.id);
-                            }
-                          }}
-                          className={cn(
-                            "tile w-11 h-11 text-xl md:text-2xl flex-shrink-0 relative z-10",
-                            `tile-${group.type}`,
-                            isSelected && "selected",
-                          )}
-                        >
-                          {content}
-                        </button>
-
-                        {count > 1 && (
-                          <div
-                            className={cn(
-                              "absolute -top-2.5 -right-2.5 text-white text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full z-20 shadow-md border-2 border-white pointer-events-none",
-                              group.type === "val"
-                                ? "theme-number-bg"
-                                : group.type === "op"
-                                  ? "theme-operator-bg"
-                                  : "theme-relation-bg",
-                            )}
-                          >
-                            {count}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {groupedBank.length === 0 && (
-                    <div className="theme-muted-text font-medium italic py-3 px-4">
-                      {copy.game.bankEmpty}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <InventoryBank
+              groups={groupedBank}
+              selectedTileId={selectedTileId}
+              status={status}
+              inventoryRef={inventoryRef}
+              canScrollLeft={canScrollLeft}
+              canScrollRight={canScrollRight}
+              onScroll={checkScroll}
+              onSelectTile={setSelectedTileId}
+            />
           </div>
         </div>
       </div>
 
-      {isResetDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <dialog
-            ref={resetDialogRef}
-            open={!supportsModalDialog && isResetDialogOpen}
-            className="m-auto rounded-3xl theme-panel p-0 shadow-2xl animate-fade-in block"
-            aria-labelledby="reset-dialog-title"
-            aria-describedby="reset-dialog-desc"
-          >
-            <div className="max-w-sm p-8 text-center">
-              <h2 id="reset-dialog-title" className="text-2xl font-black tracking-tight">
-                {copy.game.resetDialogTitle}
-              </h2>
-              <p id="reset-dialog-desc" className="mt-3 theme-muted-text font-medium">
-                {copy.game.resetDialogDescription}
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  ref={resetCancelRef}
-                  type="button"
-                  onClick={() => setIsResetDialogOpen(false)}
-                  className="flex-1 rounded-2xl border theme-border px-5 py-3 font-bold theme-muted-text transition hover:bg-black/5 active:scale-95"
-                >
-                  {copy.game.cancel}
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmResetLevel}
-                  className="flex-1 rounded-2xl theme-danger-bg px-5 py-3 font-bold text-white shadow-xl transition active:scale-95"
-                >
-                  {copy.game.reset}
-                </button>
-              </div>
-            </div>
-          </dialog>
-        </div>
-      )}
+      <ResetDialog
+        dialogRef={resetDialogRef}
+        cancelRef={resetCancelRef}
+        supportsModalDialog={supportsModalDialog}
+        isOpen={isResetDialogOpen}
+        onCancel={() => setIsResetDialogOpen(false)}
+        onConfirm={confirmResetLevel}
+      />
 
-      {isCompletionDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <dialog
-            ref={completionDialogRef}
-            open={!supportsModalDialog && isCompletionDialogOpen}
-            className="m-auto rounded-[2rem] theme-panel p-0 shadow-2xl animate-fade-in block"
-            aria-labelledby="completion-dialog-title"
-            aria-describedby="completion-dialog-desc"
-          >
-            <div className="max-w-xs w-full p-10 text-center">
-              <div className="mx-auto w-20 h-20 theme-number-bg-soft rounded-full flex items-center justify-center mb-6">
-                <Check
-                  width={40}
-                  height={40}
-                  strokeWidth={3}
-                  className="theme-number-text"
-                  aria-label={copy.game.successLabel}
-                />
-              </div>
-              <h2 id="completion-dialog-title" className="text-3xl font-black mb-2 tracking-tight">
-                {copy.game.perfect}
-              </h2>
-              <p id="completion-dialog-desc" className="theme-muted-text mb-8 font-medium">
-                {copy.game.clearedBoard}
-              </p>
-              <div className="w-full flex flex-col gap-3">
-                <button
-                  ref={completionDismissRef}
-                  type="button"
-                  onClick={dismissCompletionDialog}
-                  className="w-full border theme-border hover:bg-black/5 theme-muted-text font-bold py-4 px-8 rounded-2xl shadow-sm transform transition active:scale-95 text-lg"
-                >
-                  {copy.game.dismiss}
-                </button>
-                {showNextLevelButton && (
-                  <button
-                    type="button"
-                    onClick={() => onWin(stage + 1)}
-                    className="w-full theme-primary-bg text-white font-bold py-4 px-8 rounded-2xl shadow-xl transform transition active:scale-95 text-lg"
-                  >
-                    {copy.game.nextLevel}
-                  </button>
-                )}
-              </div>
-            </div>
-          </dialog>
-        </div>
-      )}
+      <CompletionDialog
+        dialogRef={completionDialogRef}
+        dismissRef={completionDismissRef}
+        supportsModalDialog={supportsModalDialog}
+        isOpen={isCompletionDialogOpen}
+        showNextLevelButton={showNextLevelButton}
+        onDismiss={dismissCompletionDialog}
+        onNextLevel={() => onWin(stage + 1)}
+      />
     </div>
   );
 };

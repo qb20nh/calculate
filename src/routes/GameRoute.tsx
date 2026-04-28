@@ -87,10 +87,9 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     return savedState;
   }, [difficulty, savedState, stage]);
 
-  if (!difficulty || !stage) return <NotFoundRoute />;
-
   const updateProgress = useCallback(
     (nextStage: number, includeMax: boolean) => {
+      if (!difficulty) return;
       setProgress((prev) => {
         const currentProgress = prev[difficulty];
         const nextProgress = {
@@ -109,6 +108,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
 
   const updateMaxProgress = useCallback(
     (newMax: number) => {
+      if (!difficulty) return;
       setProgress((prev) => {
         const currentProgress = prev[difficulty];
         if (newMax <= currentProgress.max) return prev;
@@ -128,6 +128,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
 
   const handleWin = useCallback(
     (nextStage: number) => {
+      if (!difficulty) return;
       updateProgress(nextStage, true);
       location.route(toGamePath(difficulty, nextStage));
     },
@@ -136,6 +137,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
 
   const handleStageChange = useCallback(
     (nextStage: number) => {
+      if (!difficulty) return;
       updateProgress(nextStage, false);
       location.route(toGamePath(difficulty, nextStage));
     },
@@ -156,6 +158,8 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     },
     [updateMaxProgress],
   );
+
+  if (!difficulty || !stage) return <NotFoundRoute />;
 
   if (!isClient) {
     return (

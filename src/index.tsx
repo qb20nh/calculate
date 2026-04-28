@@ -27,9 +27,13 @@ try {
 
       if (isGameRoute && !isGameRoutePreloaded()) {
         loadingService.start("init");
-        preloadGameRoute().then(() => {
-          hydrate(<App />, appElement);
-        });
+        preloadGameRoute()
+          .catch(() => {
+            loadingService.stop("init");
+          })
+          .then(() => {
+            hydrate(<App />, appElement);
+          });
       } else {
         hydrate(<App />, appElement);
       }

@@ -6,7 +6,6 @@ import { injectLoadingScriptPlugin } from "./build/injectLoadingScriptPlugin";
 import { injectSkeletonPlugin } from "./build/injectSkeletonPlugin";
 import { injectTranslationsPlugin } from "./build/injectTranslationsPlugin";
 import { legacyPrerenderPlugin } from "./build/legacyPrerenderPlugin";
-import { stripCommentsPlugin } from "./build/stripCommentsPlugin";
 
 const isLegacyBuild = process.env.CALCULATE_LEGACY_BUILD === "1";
 
@@ -39,7 +38,6 @@ export default defineConfig(({ command }) => {
       !isLegacyBuild && injectSkeletonPlugin(),
       !isLegacyBuild && injectTranslationsPlugin(),
       !isLegacyBuild && injectLoadingScriptPlugin(),
-      stripCommentsPlugin(),
     ].filter((p): p is Plugin => !!p),
     resolve: {
       alias: {

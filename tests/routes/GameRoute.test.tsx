@@ -145,6 +145,20 @@ describe("GameRoute", () => {
     expect(screen.getByText("Page not found")).toBeDefined();
   });
 
+  it("should keep hook order stable when route changes from invalid to valid", async () => {
+    mockLocationUrl = "/game/easy?stage=1";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender } = render(<GameRoute difficulty="invalid" />);
+
+    rerender(<GameRoute difficulty="easy" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Mock Win")).toBeDefined();
+    });
+    expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining("change in the order"));
+    consoleError.mockRestore();
+  });
+
   it("should handle redirect when stage is not specified", () => {
     mockLocationUrl = "/game/easy";
     render(<GameRoute difficulty="easy" />);

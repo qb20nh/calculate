@@ -45,6 +45,43 @@ describe("custom game worker", () => {
     expect(mockPostMessage).not.toHaveBeenCalled();
   });
 
+  it("should ignore invalid generate requests", async () => {
+    await import("@/workers/customGame.worker");
+
+    mockHandler?.({
+      origin: "https://example.test",
+      data: {
+        type: "generate",
+        config: {
+          givenCount: 6,
+          inventoryCount: 10,
+          sizeLimit: 21,
+          seed: "123",
+          limitSolutionSize: false,
+        },
+        retryCount: 0,
+      },
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
+
+    mockHandler?.({
+      origin: "https://example.test",
+      data: {
+        type: "generate",
+        config: {
+          givenCount: 6,
+          inventoryCount: 10,
+          sizeLimit: 10,
+          seed: "123",
+          limitSolutionSize: false,
+        },
+        retryCount: 10000,
+      },
+    } as MessageEvent<{ type: "generate"; config: CustomGameConfig; retryCount: number }>);
+
+    expect(mockGenerateCustomGameAttempt).not.toHaveBeenCalled();
+    expect(mockPostMessage).not.toHaveBeenCalled();
+  });
+
   it("should post progress and success for a generated game", async () => {
     const game = {
       board: {},

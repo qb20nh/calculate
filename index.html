@@ -8,13 +8,17 @@
 		<title>Vite + Preact</title>
 		<script>
 			(() => {
-					var raw = localStorage.getItem("math_scrabble_prefs");
-					var prefs = raw ? JSON.parse(raw) : {};
-					var theme = prefs && (prefs.theme === "light" || prefs.theme === "dark" ? prefs.theme : "system");
-					var locale = prefs && prefs.locale === "ko" ? "ko" : "en";
-					var resolved;
-					var appTitles;
+				var raw;
+				var prefs;
+				var theme;
+				var locale;
+				var resolved;
+				var appTitles;
 				try {
+					raw = localStorage.getItem("math_scrabble_prefs");
+					prefs = raw ? JSON.parse(raw) : {};
+					theme = prefs && (prefs.theme === "light" || prefs.theme === "dark" ? prefs.theme : "system");
+					locale = prefs && prefs.locale === "ko" ? "ko" : "en";
 					resolved =
 						theme === "system"
 							? window.matchMedia?.("(prefers-color-scheme: dark)").matches

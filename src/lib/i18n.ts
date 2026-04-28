@@ -90,7 +90,9 @@ export const MESSAGES = {
         settingsInvalid: "사용자 지정 옵션 설정이 올바르지 않습니다.",
         totalTiles: "최소 9개의 타일이 필요합니다.",
         sizeLimitMin: "보드 크기 제한은 최소 5여야 합니다.",
+        sizeLimitMax: "보드 크기 제한은 최대 20입니다.",
         tileCountExceeds: "타일 수가 보드 크기 제한을 초과합니다.",
+        seedTooLong: "시드는 64자 이하여야 합니다.",
       },
     },
     notFound: {
@@ -191,7 +193,9 @@ export const MESSAGES = {
         settingsInvalid: "Custom option settings are invalid.",
         totalTiles: "Need at least 9 total tiles.",
         sizeLimitMin: "Board size limit must be at least 5.",
+        sizeLimitMax: "Board size limit must be at most 20.",
         tileCountExceeds: "Tile count exceeds board size limit.",
+        seedTooLong: "Seed must be 64 characters or fewer.",
       },
     },
     notFound: {

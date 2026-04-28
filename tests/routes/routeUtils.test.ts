@@ -126,24 +126,12 @@ describe("route utils", () => {
       parseCustomGameConfig(
         new URLSearchParams("given=6&inventory=10&size=10&seed=123&retryCount=abc"),
       ),
-    ).toEqual({
-      givenCount: 6,
-      inventoryCount: 10,
-      sizeLimit: 10,
-      seed: "123",
-      limitSolutionSize: false,
-    });
+    ).toBe(null);
     expect(
       parseCustomGameConfig(
         new URLSearchParams("given=6&inventory=10&size=10&seed=123&retryCount=-1"),
       ),
-    ).toEqual({
-      givenCount: 6,
-      inventoryCount: 10,
-      sizeLimit: 10,
-      seed: "123",
-      limitSolutionSize: false,
-    });
+    ).toBe(null);
   });
 
   it("should parse custom game retry count", () => {
@@ -151,5 +139,20 @@ describe("route utils", () => {
     expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=10"))).toBe(10);
     expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=abc"))).toBe(0);
     expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=-1"))).toBe(0);
+    expect(parseCustomGameRetryCount(new URLSearchParams("retryCount=10000"))).toBe(0);
+  });
+
+  it("should reject custom game configs outside sane caps", () => {
+    expect(
+      parseCustomGameConfig(new URLSearchParams("given=60&inventory=61&size=20&seed=123")),
+    ).toBe(null);
+    expect(
+      parseCustomGameConfig(new URLSearchParams("given=6&inventory=10&size=21&seed=123")),
+    ).toBe(null);
+    expect(
+      parseCustomGameConfig(
+        new URLSearchParams(`given=6&inventory=10&size=10&seed=${"x".repeat(65)}`),
+      ),
+    ).toBe(null);
   });
 });

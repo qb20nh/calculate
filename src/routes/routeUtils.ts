@@ -1,3 +1,8 @@
+import {
+  CUSTOM_GAME_LIMITS,
+  isValidRetryCount,
+  validateCustomGameConfig,
+} from "@/services/customGameConfig";
 import type { CustomGameConfig, Difficulty, GameMode } from "@/services/storage";
 
 const DIFFICULTY_BY_SLUG = {
@@ -94,7 +99,8 @@ export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGame
     inventoryCount < 0 ||
     !Number.isSafeInteger(sizeLimit) ||
     sizeLimit < 1 ||
-    seedRaw === null
+    seedRaw === null ||
+    seedRaw.length > CUSTOM_GAME_LIMITS.maxSeedLength
   ) {
     return null;
   }
@@ -120,12 +126,11 @@ export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGame
   const retryCountRaw = searchParams.get("retryCount");
   if (retryCountRaw !== null) {
     const attempt = Number(retryCountRaw);
-    if (Number.isSafeInteger(attempt) && attempt >= 0) {
-      config.attempt = attempt;
-    }
+    if (!isValidRetryCount(attempt)) return null;
+    config.attempt = attempt;
   }
 
-  return config;
+  return validateCustomGameConfig(config) === null ? config : null;
 };
 
 export const parseCustomGameRetryCount = (searchParams: URLSearchParams): number => {
@@ -133,7 +138,7 @@ export const parseCustomGameRetryCount = (searchParams: URLSearchParams): number
   if (retryCountRaw === null) return 0;
 
   const retryCount = Number(retryCountRaw);
-  return Number.isSafeInteger(retryCount) && retryCount >= 0 ? retryCount : 0;
+  return isValidRetryCount(retryCount) ? retryCount : 0;
 };
 
 export const parseStageParam = (stageParam?: string | null): number | null => {
