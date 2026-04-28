@@ -15,7 +15,7 @@ export function CustomGameLoading({
         <div className="flex items-center gap-4">
           <div
             id="custom-generation-spinner"
-            className="size-14 animate-spin rounded-full border-4 theme-spinner"
+            className="size-14 shrink-0 animate-spin rounded-full border-4 theme-spinner"
           />
           <div className="grid gap-1">
             <h1 className="text-2xl font-black tracking-tight">{copy.custom.loadingTitle}</h1>

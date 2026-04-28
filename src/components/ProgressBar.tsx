@@ -2,7 +2,6 @@ import type { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import { type ProgressBarProps, useProgressBar } from "@/hooks/useProgressBar";
 import { useAppSettings } from "@/lib/appSettings";
-import { cn } from "@/lib/utils";
 
 /**
  * ProgressBar Component
@@ -27,11 +26,13 @@ export const ProgressBar: FunctionalComponent<ProgressBarProps> = (props) => {
     <div
       role="progressbar"
       aria-label={copy.aria.loading}
-      className={cn(
+      className={[
         "route-progress fixed inset-x-0 top-0 z-[100] h-1 w-full overflow-hidden",
         isFading ? "opacity-0 transition-opacity" : "opacity-100 transition-none",
-        isResetting ? "route-progress-resetting" : undefined,
-      )}
+        isResetting ? "route-progress-resetting" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div
         className="route-progress-bar"

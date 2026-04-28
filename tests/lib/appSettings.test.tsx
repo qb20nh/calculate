@@ -148,21 +148,21 @@ describe("AppSettingsProvider", () => {
     expect(screen.getByTestId("title").textContent).toBe("Math Crossword");
     expect(screen.getByTestId("menu").textContent).toBe("Math");
     expect(screen.getByTestId("difficulty").textContent).toBe("Custom");
-    expect(screen.getByTestId("stage").textContent).toBe("Easy — Stage 3");
+    expect(screen.getByTestId("stage").textContent).toBe("Easy - Stage 3");
     expect(screen.getByTestId("validation").textContent).toBe("Need at least 9 total tiles.");
 
     fireEvent.click(screen.getByText("Set Korean"));
     await waitFor(() => {
       expect(document.documentElement.lang).toBe("ko");
       expect(screen.getByTestId("title").textContent).toBe("수학 크로스워드");
-      expect(screen.getByTestId("stage").textContent).toBe("쉬움 — 3단계");
+      expect(screen.getByTestId("stage").textContent).toBe("쉬움 - 3단계");
     });
 
     fireEvent.click(screen.getByText("Toggle Locale"));
     await waitFor(() => {
       expect(document.documentElement.lang).toBe("en");
       expect(screen.getByTestId("title").textContent).toBe("Math Crossword");
-      expect(screen.getByTestId("stage").textContent).toBe("Easy — Stage 3");
+      expect(screen.getByTestId("stage").textContent).toBe("Easy - Stage 3");
     });
 
     fireEvent.click(screen.getByText("Set Dark"));

@@ -20,6 +20,14 @@ describe("MainMenu", () => {
     expect(screen.getByText("Custom")).toBeDefined();
   });
 
+  it("should keep headings in sequential order", () => {
+    render(<MainMenu onStart={vi.fn()} progress={mockProgress} />);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(4);
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+  });
+
   it("should show max stage progress", () => {
     render(<MainMenu onStart={vi.fn()} progress={mockProgress} />);
 

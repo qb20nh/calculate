@@ -2,6 +2,8 @@ type Listener = (isLoading: boolean) => void;
 const listeners = new Set<Listener>();
 const activeKeys = new Set<string>();
 
+export const ROUTE_TRANSITION_LOADING_KEY = "route-transition";
+
 const notify = () => {
   const isLoading = activeKeys.size > 0;
   for (const listener of listeners) {

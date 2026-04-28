@@ -33,7 +33,7 @@ export const MESSAGES = {
       en: "English",
     },
     game: {
-      stageLabel: "{{difficulty}} — {{stage}}단계",
+      stageLabel: "{{difficulty}} - {{stage}}단계",
       previousStage: "이전 단계",
       nextStage: "다음 단계",
       back: "뒤로",
@@ -135,7 +135,7 @@ export const MESSAGES = {
       en: "English",
     },
     game: {
-      stageLabel: "{{difficulty}} — Stage {{stage}}",
+      stageLabel: "{{difficulty}} - Stage {{stage}}",
       previousStage: "Previous Stage",
       nextStage: "Next Stage",
       back: "Back",

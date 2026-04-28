@@ -35,6 +35,12 @@ const injectSkeleton = (html: string, skeletonHtml: string) =>
     `<template id="game-skeleton">${skeletonHtml}</template>`,
   );
 
+const injectSkeletonIntoAsset = (bundle: BundleLike, fileName: string, skeletonHtml: string) => {
+  const asset = bundle[fileName];
+  if (!isHtmlAsset(asset)) return;
+  asset.source = injectSkeleton(asset.source, skeletonHtml);
+};
+
 export function injectSkeletonPlugin(): Plugin {
   return {
     name: "calculate:inject-skeleton",
@@ -49,8 +55,8 @@ export function injectSkeletonPlugin(): Plugin {
         getHtmlAsset(outputBundle, "game/easy/index.html").source,
       );
 
-      const indexHtml = getHtmlAsset(outputBundle, "index.html");
-      indexHtml.source = injectSkeleton(indexHtml.source, skeletonHtml);
+      injectSkeletonIntoAsset(outputBundle, "index.html", skeletonHtml);
+      injectSkeletonIntoAsset(outputBundle, "game/custom/index.html", skeletonHtml);
 
       const nested404Html = getHtmlAsset(outputBundle, "404/index.html");
       const root404Html = injectSkeleton(nested404Html.source, skeletonHtml);

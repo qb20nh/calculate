@@ -1,4 +1,5 @@
 import { useEffect } from "preact/hooks";
+import { loadingService, ROUTE_TRANSITION_LOADING_KEY } from "@/services/loading";
 
 declare global {
   interface Window {
@@ -11,15 +12,20 @@ declare global {
 export const useAppReadinessSignal = (ready: boolean, routeName: string) => {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let loadingStopTimeout: ReturnType<typeof setTimeout> | undefined;
 
     window.__APP_READY__ = ready;
     window.__APP_READY_ROUTE__ = routeName;
 
     if (ready) {
       delete window.__APP_RENDER_ERROR__;
+      loadingStopTimeout = setTimeout(() => {
+        loadingService.stop(ROUTE_TRANSITION_LOADING_KEY);
+      }, 120);
     }
 
     return () => {
+      if (loadingStopTimeout !== undefined) clearTimeout(loadingStopTimeout);
       if (window.__APP_READY_ROUTE__ === routeName) {
         window.__APP_READY__ = false;
       }

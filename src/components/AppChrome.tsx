@@ -1,20 +1,26 @@
 import { Languages, Monitor, Moon, SunMedium } from "lucide-preact";
 import type { FunctionalComponent } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import { useAppSettings } from "@/lib/appSettings";
 
 export const AppChrome: FunctionalComponent = () => {
   const { path } = useLocation();
   const { copy, preferences, cycleThemePreference, toggleLocale } = useAppSettings();
+  const [hasHydrated, setHasHydrated] = useState(false);
 
-  if (path !== "/") return null;
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  if (!hasHydrated || path !== "/") return null;
   const themeIcon =
-    preferences.theme === "dark" ? (
-      <Moon width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
-    ) : preferences.theme === "light" ? (
-      <SunMedium width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
-    ) : (
+    preferences.theme === "system" ? (
       <Monitor width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
+    ) : preferences.theme === "dark" ? (
+      <Moon width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
+    ) : (
+      <SunMedium width={16} height={16} strokeWidth={2.5} aria-hidden="true" />
     );
 
   return (

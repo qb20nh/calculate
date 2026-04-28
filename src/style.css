@@ -7,23 +7,28 @@
     --theme-surface: #ffffff;
     --theme-surface-strong: #eef2ff;
     --theme-ink: #0f172a;
-    --theme-muted: color-mix(in srgb, var(--theme-ink) 35%, var(--theme-bg));
+    --theme-muted: color-mix(in srgb, var(--theme-ink) 65%, var(--theme-bg));
     --theme-border: color-mix(in srgb, var(--theme-ink) 12%, var(--theme-bg));
     --theme-relation: #2563eb;
     --theme-primary: #7c3aed;
-    --theme-number: #22c55e;
-    --theme-operator: #ff6a00;
-    --theme-danger: #ef4444;
+    --theme-primary-bg: #7c3aed;
+    --theme-relation-bg: #2563eb;
+    --theme-number: #15803d;
+    --theme-number-bg: #15803d;
+    --theme-operator: #c2410c;
+    --theme-operator-bg: #c2410c;
+    --theme-danger: #b91c1c;
+    --theme-danger-bg: #dc2626;
     --theme-primary-soft: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-bg));
     --theme-primary-softer: color-mix(in srgb, var(--theme-primary) 5%, var(--theme-bg));
     --theme-primary-border: color-mix(in srgb, var(--theme-primary) 30%, var(--theme-bg));
     --theme-primary-text: color-mix(in srgb, var(--theme-primary) 88%, var(--theme-ink));
-    --theme-primary-muted-text: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-bg));
+    --theme-primary-muted-text: color-mix(in srgb, var(--theme-primary) 70%, var(--theme-ink));
     --theme-relation-soft: color-mix(in srgb, var(--theme-relation) 8%, var(--theme-bg));
     --theme-relation-softer: color-mix(in srgb, var(--theme-relation) 5%, var(--theme-bg));
     --theme-relation-border: color-mix(in srgb, var(--theme-relation) 30%, var(--theme-bg));
     --theme-relation-text: color-mix(in srgb, var(--theme-relation) 88%, var(--theme-ink));
-    --theme-relation-muted-text: color-mix(in srgb, var(--theme-relation) 55%, var(--theme-bg));
+    --theme-relation-muted-text: color-mix(in srgb, var(--theme-relation) 70%, var(--theme-ink));
     --theme-danger-soft: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-bg));
     --theme-danger-border: color-mix(in srgb, var(--theme-danger) 30%, var(--theme-bg));
     --theme-number-soft: color-mix(in srgb, var(--theme-number) 8%, var(--theme-bg));
@@ -40,9 +45,14 @@
     --theme-border: color-mix(in srgb, var(--theme-ink) 16%, var(--theme-bg));
     --theme-relation: #60a5fa;
     --theme-primary: #a855f7;
+    --theme-primary-bg: #7e22ce;
+    --theme-relation-bg: #2563eb;
     --theme-number: #4ade80;
+    --theme-number-bg: #15803d;
     --theme-operator: #fb923c;
+    --theme-operator-bg: #c2410c;
     --theme-danger: #f87171;
+    --theme-danger-bg: #dc2626;
     --theme-primary-soft: color-mix(in srgb, var(--theme-primary) 16%, var(--theme-bg));
     --theme-primary-softer: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-bg));
     --theme-primary-border: color-mix(in srgb, var(--theme-primary) 45%, var(--theme-bg));
@@ -192,15 +202,15 @@
   }
 
   .theme-primary-text:hover {
-    color: var(--theme-primary);
+    color: var(--theme-primary-text);
   }
 
   .theme-primary-bg {
-    background-color: var(--theme-primary);
+    background-color: var(--theme-primary-bg);
   }
 
   .theme-primary-bg:hover {
-    background-color: color-mix(in srgb, var(--theme-primary) 88%, black);
+    background-color: color-mix(in srgb, var(--theme-primary-bg) 88%, black);
   }
 
   .theme-primary-bg-soft {
@@ -216,11 +226,11 @@
   }
 
   .theme-relation-bg {
-    background-color: var(--theme-relation);
+    background-color: var(--theme-relation-bg);
   }
 
   .theme-primary-hover-text:hover {
-    color: var(--theme-primary);
+    color: var(--theme-primary-text);
   }
 
   .theme-primary-hover-bg:hover {
@@ -244,7 +254,7 @@
   }
 
   .group:hover .group-hover-theme-primary-bg {
-    background-color: var(--theme-primary);
+    background-color: var(--theme-primary-bg);
   }
 
   .theme-danger-text:hover {
@@ -252,11 +262,11 @@
   }
 
   .theme-danger-bg {
-    background-color: var(--theme-danger);
+    background-color: var(--theme-danger-bg);
   }
 
   .theme-danger-bg:hover {
-    background-color: color-mix(in srgb, var(--theme-danger) 88%, black);
+    background-color: color-mix(in srgb, var(--theme-danger-bg) 88%, black);
   }
 
   .theme-danger-hover-bg:hover {
@@ -268,13 +278,13 @@
   }
 
   .theme-btn-primary {
-    background-color: var(--theme-primary);
+    background-color: var(--theme-primary-bg);
     color: white;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-primary) 28%, transparent);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-primary-bg) 28%, transparent);
   }
 
   .theme-btn-primary:hover {
-    background-color: color-mix(in srgb, var(--theme-primary) 88%, black);
+    background-color: color-mix(in srgb, var(--theme-primary-bg) 88%, black);
   }
 
   .theme-btn-primary-soft {
@@ -367,7 +377,7 @@
   }
 
   .theme-input::placeholder {
-    color: color-mix(in srgb, var(--theme-muted) 85%, transparent);
+    color: var(--theme-muted);
   }
 
   .theme-input:focus {
@@ -394,23 +404,23 @@
   }
 
   .theme-btn-danger {
-    background-color: var(--theme-danger);
+    background-color: var(--theme-danger-bg);
     color: white;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-danger) 28%, transparent);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--theme-danger-bg) 28%, transparent);
   }
 
   .theme-btn-danger:hover {
-    background-color: color-mix(in srgb, var(--theme-danger) 88%, black);
+    background-color: color-mix(in srgb, var(--theme-danger-bg) 88%, black);
   }
 
   .theme-btn-danger-soft {
-    background-color: color-mix(in srgb, var(--theme-danger) 72%, var(--theme-bg));
+    background-color: var(--theme-danger-soft);
     color: var(--theme-ink);
     border: 1px solid var(--theme-danger-border);
   }
 
   .theme-btn-danger-soft:hover {
-    background-color: color-mix(in srgb, var(--theme-danger) 82%, var(--theme-surface));
+    background-color: color-mix(in srgb, var(--theme-danger) 24%, var(--theme-bg));
   }
 
   .theme-number-bg-soft {
@@ -418,7 +428,7 @@
   }
 
   .theme-number-bg {
-    background-color: var(--theme-number);
+    background-color: var(--theme-number-bg);
   }
 
   .theme-number-text {
@@ -434,7 +444,7 @@
   }
 
   .theme-operator-bg {
-    background-color: var(--theme-operator);
+    background-color: var(--theme-operator-bg);
   }
 
   .theme-operator-text {
@@ -448,6 +458,26 @@
   .theme-spinner {
     border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
     border-top-color: var(--theme-primary);
+  }
+
+  .loading-screen {
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.24s ease;
+  }
+
+  .loading-screen-fading {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .menu-panel-intro {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  :root[data-app-ready="true"] .menu-panel-intro {
+    animation: fadeIn 0.3s ease-out forwards;
   }
 
   .route-progress {

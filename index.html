@@ -5,6 +5,10 @@
 		<link rel="icon" type="image/svg+xml" href="/vite.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="color-scheme" content="light dark" />
+		<meta
+			name="description"
+			content="Play Math Crossword, a number puzzle game with standard difficulty stages and custom puzzle setup."
+		/>
 		<title>Vite + Preact</title>
 		<script>
 			(() => {
@@ -43,17 +47,20 @@
 			// biome-ignore lint/complexity/useArrowFunction: This inline fallback runs before legacy bundles.
 			(function () {
 				var url = new URL(window.location.href);
-				var match = url.pathname.match(/(?:^|\/)game\/(easy|medium|hard)\/?$/);
+				var match = url.pathname.match(/(?:^|\/)game\/(easy|medium|hard|custom)\/?$/);
+				var isCustomGameUrl = match && match[1] === "custom";
 				var stage = url.searchParams.get("stage");
 				var app = document.getElementById("app");
 				var template = document.getElementById("game-skeleton");
 				var clone;
-				var titleElem;
+				var titleText;
+				var skeletonStyle;
+				var skeletonRoot;
 				var progressBar;
 				var currentProgress = 0;
 				var interval;
 
-				if (!match || !stage || !app || !template) return;
+				if (!match || (!stage && !isCustomGameUrl) || (isCustomGameUrl && url.search.length <= 1) || !app || !template) return;
 
 				// biome-ignore lint/correctness/noUnusedVariables: the usage will be populated by build plugin
 				var lang = document.documentElement.lang || "en";
@@ -61,27 +68,31 @@
 
 
 				clone = template.content.cloneNode(true);
-				titleElem = clone.getElementById("skeleton-title");
-
-				if (titleElem) {
-					titleElem.textContent = messages.stageLabel
+				titleText = isCustomGameUrl
+					? difficultyText
+					: messages.stageLabel
 						.replace("{{difficulty}}", difficultyText)
 						.replace("{{stage}}", stage);
-				}
 
-				clone
-					.querySelectorAll("[data-skeleton-button]")
-					.forEach((button) => {
+				var syncSkeleton = (root) => {
+					root.querySelectorAll("[data-skeleton-title]").forEach((titleElem) => {
+						titleElem.textContent = titleText;
+					});
+
+					root.querySelectorAll("[data-skeleton-button]").forEach((button) => {
 						var key = button.dataset.skeletonButton;
 						if (!key) return;
 						if (buttonLabels[key]) {
 							button.setAttribute("aria-label", buttonLabels[key]);
 						}
 					});
-				var loadingTextNode = clone.querySelector("[data-skeleton-loading-text]");
-				if (loadingTextNode) {
-					loadingTextNode.textContent = loadingText;
-				}
+					var loadingTextNode = root.querySelector("[data-skeleton-loading-text]");
+					if (loadingTextNode) {
+						loadingTextNode.textContent = loadingText;
+					}
+				};
+
+				syncSkeleton(clone);
 
 				// If app already has content (like the main menu from a SPA fallback), clear it
 				// unless it looks like it's already a skeleton or prerendered game UI.
@@ -91,23 +102,31 @@
 
 				// Only append if app is now empty
 				if (app.children.length === 0) {
-					progressBar = clone
-						.getElementById("skeleton-progress")
-						?.querySelector(".route-progress-bar");
-
-					if (progressBar) {
-						/* __PROGRESS_LOGIC_PLACEHOLDER__ */
-						interval = setInterval(() => {
-							if (currentProgress < 88) {
-								currentProgress = getNextTrickleProgress(currentProgress);
-								progressBar.style.width = `${currentProgress}%`;
-								window.__INITIAL_PROGRESS__ = currentProgress;
-							}
-						}, 100);
-						window.__PROGRESS_INTERVAL__ = interval;
+					if (!document.getElementById("game-skeleton-runtime-style")) {
+						skeletonStyle = document.createElement("style");
+						skeletonStyle.id = "game-skeleton-runtime-style";
+						skeletonStyle.textContent = "#skeleton-progress{position:fixed;top:0;z-index:100;height:3px;width:100%;overflow:hidden;background:transparent}#skeleton-progress .route-progress-bar{height:100%;background:var(--theme-primary);transition:width 200ms ease-out}#skeleton-spinner{display:flex;align-items:center;justify-content:center}#skeleton-spinner>.theme-spinner{width:4rem;height:4rem;flex-shrink:0;border:4px solid var(--theme-primary);border-color:color-mix(in srgb,var(--theme-primary) 20%,transparent);border-top-color:var(--theme-primary);border-radius:9999px;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}";
+						document.head.appendChild(skeletonStyle);
 					}
-
 					app.appendChild(clone);
+				}
+
+				if (app.querySelector(".route-progress-bar")) {
+					skeletonRoot = app;
+					syncSkeleton(skeletonRoot);
+				}
+
+				progressBar = skeletonRoot?.querySelector("#skeleton-progress .route-progress-bar");
+				if (progressBar && !window.__PROGRESS_INTERVAL__) {
+					/* __PROGRESS_LOGIC_PLACEHOLDER__ */
+					interval = setInterval(() => {
+						if (currentProgress < 88) {
+							currentProgress = getNextTrickleProgress(currentProgress);
+							progressBar.style.width = `${currentProgress}%`;
+							window.__INITIAL_PROGRESS__ = currentProgress;
+						}
+					}, 100);
+					window.__PROGRESS_INTERVAL__ = interval;
 				}
 			})();
 		</script>

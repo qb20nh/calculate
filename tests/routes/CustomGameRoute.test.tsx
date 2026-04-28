@@ -157,6 +157,18 @@ describe("CustomGameRoute", () => {
     expect(screen.getByLabelText("Given count")).toBeDefined();
   });
 
+  it("should allow the custom setup panel to scroll vertically", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    const shell = screen.getByText("Custom Game").closest(".theme-page-bg");
+    expect(shell).toBeTruthy();
+    expect(shell?.className).toContain("h-dvh");
+    expect(shell?.className).toContain("overflow-y-auto");
+    expect(shell?.className).toContain("touch-pan-y");
+  });
+
   it("should route back to menu from setup", async () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 
@@ -364,6 +376,7 @@ describe("CustomGameRoute", () => {
       }),
     );
     expect(screen.getByText("Retry 0 / 10000")).toBeDefined();
+    expect(document.getElementById("custom-generation-spinner")?.className).toContain("shrink-0");
 
     const worker = mockWorkers[0];
     expect(worker).toBeDefined();

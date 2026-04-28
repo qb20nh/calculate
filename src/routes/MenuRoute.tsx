@@ -1,8 +1,11 @@
 import { useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
+import { AppChrome } from "@/components/AppChrome";
 import { MainMenu } from "@/components/MainMenu";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
+import { ensureDeferredStylesheets } from "@/lib/deferredStylesheet";
 import { toGamePath } from "@/routes/routeUtils";
+import { loadingService } from "@/services/loading";
 import type { GameMode } from "@/services/storage";
 import { loadProgress } from "@/services/storage";
 
@@ -16,16 +19,38 @@ export default function MenuRoute({ onGameRoutePreload }: Readonly<MenuRouteProp
   useAppReadinessSignal(true, "menu");
 
   const handleStart = (mode: GameMode) => {
-    if (mode === "Custom") {
-      location.route("/game/custom");
+    const routeToGame = () => {
+      if (mode === "Custom") {
+        location.route("/game/custom");
+        return;
+      }
+      location.route(toGamePath(mode, progress[mode].max));
+    };
+
+    const readyPromises = [ensureDeferredStylesheets(), onGameRoutePreload?.()].filter(
+      (promise): promise is Promise<unknown> => promise !== undefined,
+    );
+    if (readyPromises.length === 0) {
+      routeToGame();
       return;
     }
-    location.route(toGamePath(mode, progress[mode].current));
+
+    loadingService.start("route-styles");
+    void Promise.allSettled(readyPromises).then(() => {
+      routeToGame();
+      loadingService.stop("route-styles");
+    });
   };
 
   const handleStartIntent = (_mode: GameMode) => {
+    void ensureDeferredStylesheets();
     void onGameRoutePreload?.();
   };
 
-  return <MainMenu onStart={handleStart} onStartIntent={handleStartIntent} progress={progress} />;
+  return (
+    <>
+      <AppChrome />
+      <MainMenu onStart={handleStart} onStartIntent={handleStartIntent} progress={progress} />
+    </>
+  );
 }

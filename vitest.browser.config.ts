@@ -95,9 +95,12 @@ const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[
       : "";
     if (message.type() === "warning") {
       if (isKnownJsxSourceHint(text)) return;
+      if (isKnownHydrationMismatch(text)) {
+        state.errors.push(text);
+      }
       process.stderr.write(`[browser warn] ${prefix ? `${prefix} ` : ""}${text}\n`);
     }
-    if (message.type() === "error" && !isKnownHydrationMismatch(text)) {
+    if (message.type() === "error") {
       state.errors.push(text);
       process.stderr.write(`[browser error] ${prefix ? `${prefix} ` : ""}${text}\n`);
     }
@@ -105,7 +108,6 @@ const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[
 
   appPage.on("pageerror", (error) => {
     const text = error.stack || error.message;
-    if (isKnownHydrationMismatch(text)) return;
     state.errors.push(text);
     process.stderr.write(`[page error] ${text}\n`);
   });
@@ -288,9 +290,97 @@ const clickButton: BrowserCommand<[string]> = async (context, name) => {
   await page.getByRole("button", { name }).click();
 };
 
+const clickButtonAndWaitForLoading: BrowserCommand<[string]> = async (context, name) => {
+  const page = await ensureAppPage(context);
+  const loadingPromise = page.waitForFunction(
+    () =>
+      document.querySelector('[aria-label="Loading screen"]') !== null &&
+      document.querySelector('[role="progressbar"]') !== null,
+    undefined,
+    { timeout: 1000 },
+  );
+
+  await page.getByRole("button", { name }).click();
+  await loadingPromise;
+};
+
 const clickTestId: BrowserCommand<[string]> = async (context, testId) => {
   const page = await ensureAppPage(context);
   await page.getByTestId(testId).click();
+};
+
+const getComputedStyleValue: BrowserCommand<[string, string]> = async (
+  context,
+  selector,
+  property,
+) => {
+  const page = await ensureAppPage(context);
+  return page
+    .locator(selector)
+    .first()
+    .evaluate((element, propertyName) => {
+      return getComputedStyle(element).getPropertyValue(propertyName);
+    }, property);
+};
+
+const fetchRouteHtmlSummary: BrowserCommand<[string]> = async (_context, path) => {
+  const previewBaseUrl = process.env.VITEST_PREVIEW_URL;
+  if (!previewBaseUrl) throw new Error("Missing VITEST_PREVIEW_URL");
+
+  const response = await fetch(new URL(path, previewBaseUrl).toString());
+  const html = await response.text();
+  const appHtml = /<div id="app">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
+  const firstAppClass = /class="([^"]+)"/.exec(appHtml)?.[1] ?? "";
+  const bodyText = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    bodyText,
+    firstAppClass,
+    hasCriticalCss: html.includes("data-critical-root"),
+  };
+};
+
+const getLayoutShiftScore: BrowserCommand = async (context) => {
+  const page = await ensureAppPage(context);
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        if (!("PerformanceObserver" in window)) {
+          resolve(0);
+          return;
+        }
+
+        let score = 0;
+        let observer: PerformanceObserver | undefined;
+        try {
+          observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              const layoutShift = entry as PerformanceEntry & {
+                hadRecentInput?: boolean;
+                value?: number;
+              };
+              if (!layoutShift.hadRecentInput) score += layoutShift.value ?? 0;
+            }
+          });
+          observer.observe({ type: "layout-shift", buffered: true });
+        } catch {
+          resolve(0);
+          return;
+        }
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            observer?.disconnect();
+            resolve(Number(score.toFixed(6)));
+          });
+        });
+      }),
+  );
 };
 
 const resetAppState: BrowserCommand = async (context) => {
@@ -346,7 +436,11 @@ export default defineConfig({
         waitForRouteSettled,
         waitForText,
         clickButton,
+        clickButtonAndWaitForLoading,
         clickTestId,
+        getComputedStyleValue,
+        fetchRouteHtmlSummary,
+        getLayoutShiftScore,
         resetAppState,
         drainBrowserConsoleErrors,
       },

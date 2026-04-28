@@ -19,7 +19,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
 
   return (
     <div className="theme-page-bg h-dvh w-full flex flex-col items-center justify-center p-6">
-      <div className="theme-panel max-w-md w-full rounded-3xl shadow-2xl p-8 md:p-12 animate-fade-in">
+      <div className="theme-panel menu-panel-intro max-w-md w-full rounded-3xl shadow-2xl p-8 md:p-12">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black text-balance tracking-tight mb-2">
             {copy.menuTitleMain}{" "}
@@ -42,7 +42,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
               className="menu-difficulty-card group w-full flex items-center justify-between p-4 rounded-2xl border-2 theme-panel transition-all active:scale-95 text-left"
             >
               <div>
-                <h3 className="text-lg font-bold">{copy.difficulty[diff]}</h3>
+                <h2 className="text-lg font-bold">{copy.difficulty[diff]}</h2>
                 <p className="text-sm theme-muted-text">
                   {t("difficultyDescription.Standard", { maxStage: progress[diff].max })}
                 </p>
@@ -60,7 +60,7 @@ export const MainMenu: FunctionalComponent<MainMenuProps> = ({
             className="menu-difficulty-card group w-full flex items-center justify-between p-4 rounded-2xl border-2 border-dashed theme-panel transition-all active:scale-95 text-left"
           >
             <div>
-              <h3 className="text-lg font-bold">{copy.difficulty.Custom}</h3>
+              <h2 className="text-lg font-bold">{copy.difficulty.Custom}</h2>
               <p className="text-sm theme-muted-text">{copy.difficultyDescription.Custom}</p>
             </div>
             <div className="theme-btn-primary group-hover-theme-primary-bg p-2 rounded-full transition-colors">

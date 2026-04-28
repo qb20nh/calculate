@@ -110,7 +110,7 @@ describe("Game", () => {
 
     await waitForGameLoaded();
 
-    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
   });
 
   it("should not show a progress bar while generating a level", async () => {
@@ -130,7 +130,7 @@ describe("Game", () => {
 
     await waitForGameLoaded();
 
-    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
     const boardContainer = screen.getByTestId("game-board-container");
     expect(boardContainer.querySelector(".animate-fade-in")).toBeNull();
   });
@@ -289,7 +289,7 @@ describe("Game", () => {
     await waitForGameLoaded();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
     });
 
     const resetButton = screen.getByLabelText("Reset Stage");
@@ -300,7 +300,7 @@ describe("Game", () => {
 
     fireEvent.click(screen.getByText("Reset"));
 
-    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
     expect(generateGameSpy).toHaveBeenCalledTimes(2);
   });
 
@@ -326,7 +326,7 @@ describe("Game", () => {
     fireEvent.click(screen.getByText("Reset"));
 
     expect(createNewGame).toHaveBeenCalledTimes(1);
-    expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
   });
 
   it("should cancel reset when dialog is dismissed", async () => {
@@ -523,6 +523,9 @@ describe("Game", () => {
         onStateChange={vi.fn()}
       />,
     );
+
+    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Custom - Stage 1")).toBeNull();
 
     await waitFor(() => {
       expect(

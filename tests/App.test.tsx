@@ -82,7 +82,7 @@ describe("App", () => {
     vi.useRealTimers();
     render(<App />);
 
-    fireEvent.click(screen.getByText("Easy"));
+    fireEvent.click(await screen.findByText("Easy"));
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/game/easy");
@@ -90,7 +90,7 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText("Easy — Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
     });
     await waitFor(() => {
       expect(screen.queryByText("Generating Puzzle...")).toBeNull();
@@ -127,12 +127,14 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByText("Delayed game route")).toBeDefined();
     });
+    await vi.advanceTimersByTimeAsync(360);
     await waitFor(() => {
       expect(screen.queryByLabelText("Loading screen")).toBeNull();
     });
   });
 
   it("should render a direct game stage URL", async () => {
+    vi.useRealTimers();
     setProgress({
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
@@ -142,8 +144,13 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitForGameLoaded("Hard — Stage 3");
-    expect(screen.queryByLabelText("Loading screen")).toBeNull();
+    await waitFor(() => {
+      expect(screen.getAllByText("Hard - Stage 3").length).toBeGreaterThan(0);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Generating Puzzle...")).toBeNull();
+      expect(screen.queryByLabelText("Loading screen")).toBeNull();
+    });
   });
 
   it("should redirect a difficulty route to saved progress", async () => {
@@ -160,7 +167,7 @@ describe("App", () => {
       expect(window.location.pathname).toBe("/game/easy");
       expect(window.location.search).toBe("?stage=3");
     });
-    expect(screen.getAllByText("Easy — Stage 3").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Easy - Stage 3").length).toBeGreaterThan(0);
   });
 
   it("should redirect a difficulty route without progress to stage one", async () => {
@@ -173,7 +180,7 @@ describe("App", () => {
       expect(window.location.search).toBe("?stage=1");
     });
     await waitFor(() => {
-      expect(screen.getAllByText("Medium — Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Medium - Stage 1").length).toBeGreaterThan(0);
     });
   });
 
@@ -187,7 +194,7 @@ describe("App", () => {
       expect(window.location.search).toBe("?stage=1");
     });
     await waitFor(() => {
-      expect(screen.getAllByText("Medium — Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Medium - Stage 1").length).toBeGreaterThan(0);
     });
   });
 
@@ -223,18 +230,26 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.click(await screen.findByText("Easy"));
-    await waitForGameLoaded("Easy — Stage 1");
+    await waitForGameLoaded("Easy - Stage 1");
+    vi.useRealTimers();
 
     await waitFor(() => {
       expect(screen.getByLabelText("Back")).toBeDefined();
     });
 
     fireEvent.click(screen.getByLabelText("Back"));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Loading")).toBeDefined();
+      expect(screen.getByLabelText("Loading screen")).toBeDefined();
+    });
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/");
     });
     expect(screen.getByText("Math")).toBeDefined();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Loading screen")).toBeNull();
+    });
   });
 
   it("should render 404 for invalid game route params", async () => {

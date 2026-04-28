@@ -30,12 +30,12 @@ vi.mock("preact-iso/router", () => ({
 }));
 
 describe("AppChrome", () => {
-  it("renders on home route for all theme preferences", () => {
+  it("renders on home route for all theme preferences", async () => {
     const { rerender } = render(<AppChrome />);
 
     mockTheme = "dark";
     rerender(<AppChrome />);
-    expect(screen.getByLabelText("Theme")).toBeDefined();
+    expect(await screen.findByLabelText("Theme")).toBeDefined();
     expect(screen.getByLabelText("Language")).toBeDefined();
 
     mockTheme = "light";

@@ -41,6 +41,13 @@ export const StageHeader: FunctionalComponent<{
   onReset?: () => void;
 }> = ({ difficulty, stage, maxStage, status, onBack, onStageChange, onReset }) => {
   const { copy, t } = useAppSettings();
+  const stageLabel =
+    difficulty === "Custom"
+      ? copy.difficulty.Custom
+      : t("game.stageLabel", {
+          difficulty: copy.difficulty[difficulty],
+          stage,
+        });
   const stageBar = (
     <div className={headerPillClass}>
       <button
@@ -57,11 +64,11 @@ export const StageHeader: FunctionalComponent<{
       >
         <ChevronLeft width={16} height={16} strokeWidth={3} />
       </button>
-      <span className="px-2 py-1 theme-primary-text text-sm font-bold whitespace-nowrap text-center min-w-[120px]">
-        {t("game.stageLabel", {
-          difficulty: copy.difficulty[difficulty],
-          stage,
-        })}
+      <span
+        className="px-2 py-1 theme-primary-text text-sm font-bold whitespace-nowrap text-center min-w-[120px]"
+        data-skeleton-title
+      >
+        {stageLabel}
       </span>
       <button
         type="button"
