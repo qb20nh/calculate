@@ -4,12 +4,9 @@ import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game
 import { useAppSettings } from "@/lib/appSettings";
 import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
-import {
-  parseDifficultySlug,
-  parseGameModeSlug,
-  parseStageParam,
-  toGamePath,
-} from "@/routes/routeUtils";
+import { resolveNormalGameRouteState } from "@/routes/normalGameRouteState";
+import { parseDifficultySlug, parseGameModeSlug, toGamePath } from "@/routes/routeUtils";
+import { advanceProgress, unlockStage } from "@/services/progress";
 import {
   DEFAULT_PROGRESS,
   type GameState,
@@ -40,8 +37,6 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const { copy } = useAppSettings();
   const location = useLocation();
   const difficulty = parseDifficultySlug(difficultySlug);
-  const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
-  const parsedStage = parseStageParam(stageParam);
 
   const [isClient, setIsClient] = useState(false);
   const [progress, setProgress] = useState(DEFAULT_PROGRESS);
@@ -56,25 +51,19 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     return loadGameState();
   }, [difficulty, isClient]);
 
-  const difficultyProgress = difficulty ? progress[difficulty] : null;
-  const requestedStage =
-    difficulty && stageParam === null
-      ? ((savedState?.difficulty === difficulty ? savedState.stage : null) ??
-        difficultyProgress?.current ??
-        1)
-      : parsedStage;
-  const latestAvailableStage = difficultyProgress?.max ?? null;
-  const isStageLocked =
-    difficulty !== null &&
-    requestedStage !== null &&
-    difficultyProgress !== null &&
-    requestedStage > difficultyProgress.max;
+  const { requestedStage, latestUnlockedStage, stageLocked, targetPath, shouldRedirect } =
+    resolveNormalGameRouteState({
+      difficulty,
+      isClient,
+      locationUrl: location.url,
+      savedStateDifficulty:
+        savedState?.difficulty === "Custom" ? null : (savedState?.difficulty ?? null),
+      savedStateStage: savedState?.difficulty === difficulty ? savedState.stage : null,
+      progress,
+    });
   const stage = requestedStage;
-  const targetPath = difficulty && stage ? toGamePath(difficulty, stage) : null;
-  const shouldRedirect =
-    isClient && targetPath !== null && location.url !== targetPath && !isStageLocked;
   const lockedNotice =
-    difficulty && requestedStage && latestAvailableStage ? copy.game.stageLockedNotice : undefined;
+    difficulty && requestedStage && latestUnlockedStage ? copy.game.stageLockedNotice : undefined;
 
   useEffect(() => {
     if (!shouldRedirect || !targetPath) return;
@@ -91,14 +80,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     (nextStage: number, includeMax: boolean) => {
       if (!difficulty) return;
       setProgress((prev) => {
-        const currentProgress = prev[difficulty];
-        const nextProgress = {
-          ...prev,
-          [difficulty]: {
-            current: nextStage,
-            max: includeMax ? Math.max(currentProgress.max, nextStage) : currentProgress.max,
-          },
-        };
+        const nextProgress = advanceProgress(prev, difficulty, nextStage, includeMax);
         saveProgress(nextProgress);
         return nextProgress;
       });
@@ -110,15 +92,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     (newMax: number) => {
       if (!difficulty) return;
       setProgress((prev) => {
-        const currentProgress = prev[difficulty];
-        if (newMax <= currentProgress.max) return prev;
-        const nextProgress = {
-          ...prev,
-          [difficulty]: {
-            ...currentProgress,
-            max: newMax,
-          },
-        };
+        const nextProgress = unlockStage(prev, difficulty, newMax);
         saveProgress(nextProgress);
         return nextProgress;
       });
@@ -173,17 +147,17 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     );
   }
 
-  if (isStageLocked && latestAvailableStage) {
+  if (stageLocked && latestUnlockedStage) {
     return (
       <UnavailableLevelShell
         difficulty={difficulty}
         requestedStage={stage}
-        availableStage={latestAvailableStage}
+        availableStage={latestUnlockedStage}
         notice={lockedNotice || ""}
         onBack={handleBack}
         onStageChange={handleStageChange}
-        onReset={() => location.route(toGamePath(difficulty, latestAvailableStage))}
-        onLatestAvailable={() => location.route(toGamePath(difficulty, latestAvailableStage))}
+        onReset={() => location.route(toGamePath(difficulty, latestUnlockedStage))}
+        onLatestAvailable={() => location.route(toGamePath(difficulty, latestUnlockedStage))}
       />
     );
   }

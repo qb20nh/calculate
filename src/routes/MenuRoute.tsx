@@ -4,7 +4,7 @@ import { AppChrome } from "@/components/AppChrome";
 import { MainMenu } from "@/components/MainMenu";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { ensureDeferredStylesheets } from "@/lib/deferredStylesheet";
-import { toGamePath } from "@/routes/routeUtils";
+import { resolveMenuRoute } from "@/routes/menuRouteState";
 import { loadingService } from "@/services/loading";
 import type { GameMode } from "@/services/storage";
 import { loadProgress } from "@/services/storage";
@@ -20,11 +20,8 @@ export default function MenuRoute({ onGameRoutePreload }: Readonly<MenuRouteProp
 
   const handleStart = (mode: GameMode) => {
     const routeToGame = () => {
-      if (mode === "Custom") {
-        location.route("/game/custom");
-        return;
-      }
-      location.route(toGamePath(mode, progress[mode].max));
+      const routeTo = resolveMenuRoute({ mode, progress });
+      location.route(routeTo);
     };
 
     const readyPromises = [ensureDeferredStylesheets(), onGameRoutePreload?.()].filter(
