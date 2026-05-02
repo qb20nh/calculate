@@ -30,6 +30,7 @@ interface GameProps {
   initialState?: GameState | null;
   createNewGame?: () => GameState;
   showNextLevelButton?: boolean;
+  persistInitialState?: boolean;
   onWin: (newStage: number) => void;
   onBack: () => void;
   onStageChange: (newStage: number) => void;
@@ -43,6 +44,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   initialState,
   createNewGame,
   showNextLevelButton = true,
+  persistInitialState = initialState !== null && initialState !== undefined,
   onWin,
   onBack,
   onStageChange,
@@ -51,7 +53,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   const { copy, t } = useAppSettings();
   const resetGridMetricsRef = useRef<() => void>(() => {});
   const hasHandledFirstStateRef = useRef(false);
-  const saveFirstStateRef = useRef(initialState !== null && initialState !== undefined);
+  const saveFirstStateRef = useRef(persistInitialState);
   const preserveClearedSaveUntilTilePlacementRef = useRef(false);
   const clearClearedSaveOnNextStateChangeRef = useRef(false);
   const handleGenerated = useCallback(() => resetGridMetricsRef.current(), []);

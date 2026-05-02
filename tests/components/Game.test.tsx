@@ -364,6 +364,40 @@ describe("Game", () => {
     });
   });
 
+  it("should leave a restored cleared state unsaved until a tile is placed", async () => {
+    const onStateChange = vi.fn();
+    renderGame({
+      initialState: makeGameState({ status: "won" }),
+      persistInitialState: false,
+      onStateChange,
+    });
+
+    await waitForGameLoaded();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onStateChange).not.toHaveBeenCalled();
+  });
+
+  it("should center a restored solved board", async () => {
+    const solvedState = makeGameState({
+      board: {
+        "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
+        "0,2": { id: "g3", val: "1", type: "val", isGiven: true },
+      },
+      bank: [],
+      initialBankSize: 0,
+      status: "won",
+    });
+
+    const { container } = renderGame({ initialState: solvedState });
+
+    await waitForGameLoaded();
+
+    const panGrid = container.querySelector('[style*="grid-template-columns"]') as HTMLElement;
+    expect(panGrid.style.transform).not.toBe("translate(0px, 0px)");
+  });
+
   it("should cancel reset when dialog is dismissed", async () => {
     const generateGameSpy = vi.mocked(BoardService.generateGame);
     generateGameSpy.mockClear();

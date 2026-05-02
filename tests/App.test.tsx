@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/index";
+import { OP_PLUS, REL_EQ } from "@/services/math";
 
 const setProgress = (
   progress: Record<"Easy" | "Medium" | "Hard", { current: number; max: number }>,
@@ -339,6 +340,208 @@ describe("App", () => {
       stage: 1,
       status: "playing",
     });
+  });
+
+  it("should keep an in-progress save when viewing a saved cleared stage", async () => {
+    vi.useRealTimers();
+    setProgress({
+      Easy: { current: 1, max: 2 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    const activeState = {
+      board: {
+        "0,0": { id: "active-given", val: "9", type: "val", isGiven: true },
+      },
+      bank: [{ id: "active-bank", val: OP_PLUS, type: "op" }],
+      initialBankSize: 1,
+      status: "playing",
+      difficulty: "Easy",
+      stage: 2,
+      solvedAcknowledged: false,
+    };
+    const clearedState = {
+      board: {
+        "0,0": { id: "cleared-left", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "cleared-eq", val: REL_EQ, type: "rel", isGiven: true },
+        "0,2": { id: "cleared-right", val: "1", type: "val", isGiven: true },
+      },
+      bank: [],
+      initialBankSize: 0,
+      status: "won",
+      difficulty: "Easy",
+      stage: 1,
+      solvedAcknowledged: true,
+    };
+    localStorage.setItem("math_scrabble_state", JSON.stringify(activeState));
+    localStorage.setItem(
+      "math_scrabble_cleared_states",
+      JSON.stringify({ "Easy:1": clearedState }),
+    );
+    window.history.replaceState(null, "", "/game/easy?stage=1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getByText("Bank is empty.")).toBeDefined();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(JSON.parse(localStorage.getItem("math_scrabble_state") || "{}")).toMatchObject({
+      difficulty: "Easy",
+      stage: 2,
+      status: "playing",
+    });
+  });
+
+  it("should clear a saved cleared stage only after placing a tile after reset", async () => {
+    vi.useRealTimers();
+    setProgress({
+      Easy: { current: 1, max: 2 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    const activeState = {
+      board: {
+        "0,0": { id: "active-given", val: "9", type: "val", isGiven: true },
+      },
+      bank: [{ id: "active-bank", val: OP_PLUS, type: "op" }],
+      initialBankSize: 1,
+      status: "playing",
+      difficulty: "Easy",
+      stage: 2,
+      solvedAcknowledged: false,
+    };
+    const clearedState = {
+      board: {
+        "0,0": { id: "cleared-left", val: "1", type: "val", isGiven: true },
+        "0,1": { id: "cleared-eq", val: REL_EQ, type: "rel", isGiven: true },
+        "0,2": { id: "cleared-right", val: "1", type: "val", isGiven: true },
+      },
+      bank: [],
+      initialBankSize: 0,
+      status: "won",
+      difficulty: "Easy",
+      stage: 1,
+      solvedAcknowledged: true,
+    };
+    localStorage.setItem("math_scrabble_state", JSON.stringify(activeState));
+    localStorage.setItem(
+      "math_scrabble_cleared_states",
+      JSON.stringify({ "Easy:1": clearedState }),
+    );
+    window.history.replaceState(null, "", "/game/easy?stage=1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bank is empty.")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByLabelText("Reset Stage"));
+    fireEvent.click(screen.getByText("Reset"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(JSON.parse(localStorage.getItem("math_scrabble_cleared_states") || "{}")).toHaveProperty(
+      "Easy:1",
+    );
+    expect(JSON.parse(localStorage.getItem("math_scrabble_state") || "{}")).toMatchObject({
+      difficulty: "Easy",
+      stage: 2,
+      status: "playing",
+    });
+
+    let bankTile: HTMLElement | undefined;
+    await waitFor(() => {
+      bankTile = screen
+        .getAllByRole("button")
+        .find((button) => button.className.includes("tile") && button.className.includes("w-11"));
+      expect(bankTile).toBeDefined();
+    });
+    fireEvent.click(requireValue(bankTile));
+    fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("math_scrabble_state") || "{}")).toMatchObject({
+        difficulty: "Easy",
+        stage: 1,
+        status: "playing",
+      });
+    });
+    expect(
+      JSON.parse(localStorage.getItem("math_scrabble_cleared_states") || "{}"),
+    ).not.toHaveProperty("Easy:1");
+  });
+
+  it("should restore an in-session stage save after visiting a cleared earlier stage", async () => {
+    vi.useRealTimers();
+    setProgress({
+      Easy: { current: 2, max: 2 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    localStorage.setItem(
+      "math_scrabble_cleared_states",
+      JSON.stringify({
+        "Easy:1": {
+          board: {
+            "0,0": { id: "cleared-left", val: "1", type: "val", isGiven: true },
+            "0,1": { id: "cleared-eq", val: REL_EQ, type: "rel", isGiven: true },
+            "0,2": { id: "cleared-right", val: "1", type: "val", isGiven: true },
+          },
+          bank: [],
+          initialBankSize: 0,
+          status: "won",
+          difficulty: "Easy",
+          stage: 1,
+          solvedAcknowledged: true,
+        },
+      }),
+    );
+    window.history.replaceState(null, "", "/game/easy?stage=2");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 2").length).toBeGreaterThan(0);
+    });
+
+    let bankTile: HTMLElement | undefined;
+    await waitFor(() => {
+      bankTile = screen
+        .getAllByRole("button")
+        .find((button) => button.className.includes("tile") && button.className.includes("w-11"));
+      expect(bankTile).toBeDefined();
+    });
+    fireEvent.click(requireValue(bankTile));
+    fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+
+    let placedTile: { val: string; type: string } | undefined;
+    await waitFor(() => {
+      const savedState = JSON.parse(localStorage.getItem("math_scrabble_state") || "{}");
+      expect(savedState).toMatchObject({ difficulty: "Easy", stage: 2, status: "playing" });
+      placedTile = Object.values(savedState.board as Record<string, { isGiven?: boolean }>).find(
+        (tile) => tile.isGiven === false,
+      ) as { val: string; type: string } | undefined;
+      expect(placedTile).toBeDefined();
+    });
+
+    fireEvent.click(requireValue(screen.getAllByLabelText("Previous Stage")[0]));
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getByText("Bank is empty.")).toBeDefined();
+    });
+
+    fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 2").length).toBeGreaterThan(0);
+    });
+
+    const restoredPlacedTiles = Array.from(
+      document.querySelectorAll(`.tile-${requireValue(placedTile).type}:not(.tile-given)`),
+    );
+    expect(restoredPlacedTiles.some((tile) => tile.textContent === placedTile?.val)).toBe(true);
   });
 
   it("should render 404 for invalid game route params", async () => {

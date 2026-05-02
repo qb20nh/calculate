@@ -176,6 +176,7 @@ describe("CustomGameRoute", () => {
 
     fireEvent.click(screen.getByText("Back to menu"));
     expect(mockRoute).toHaveBeenCalledWith("/");
+    expect(mockSaveGameState).not.toHaveBeenCalledWith(null);
   });
 
   it("should show an URL error for invalid query params", async () => {

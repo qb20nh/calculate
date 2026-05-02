@@ -91,7 +91,7 @@ function CrossingGameRoute() {
   const savedState = useMemo<GameState | null>(() => {
     if (!isClient) return null;
     return loadGameState();
-  }, [isClient]);
+  }, [isClient, location.url]);
 
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const savedCrossingStage =
@@ -126,7 +126,6 @@ function CrossingGameRoute() {
   const restorableGameState = initialGameState ?? clearedGameState;
 
   const handleBack = useCallback(() => {
-    saveGameState(null);
     location.route("/");
   }, [location]);
 
@@ -214,6 +213,7 @@ function CrossingGameRoute() {
       stage={stage}
       maxStage={latestUnlockedStage}
       initialState={restorableGameState}
+      persistInitialState={initialGameState !== null}
       showNextLevelButton={stage < CROSSING_LEVEL_COUNT}
       onWin={handleWin}
       onBack={handleBack}
@@ -239,7 +239,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const savedState = useMemo<GameState | null>(() => {
     if (!difficulty || !isClient) return null;
     return loadGameState();
-  }, [difficulty, isClient]);
+  }, [difficulty, isClient, location.url]);
   const savedStateDifficulty =
     savedState?.difficulty === "Easy" ||
     savedState?.difficulty === "Medium" ||
@@ -319,7 +319,6 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   );
 
   const handleBack = useCallback(() => {
-    saveGameState(null);
     location.route("/");
   }, [location]);
 
@@ -370,6 +369,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
       stage={stage}
       maxStage={progress[difficulty].max}
       initialState={restorableGameState}
+      persistInitialState={initialGameState !== null}
       showNextLevelButton
       onWin={handleWin}
       onBack={handleBack}

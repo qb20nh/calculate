@@ -40,6 +40,7 @@ export const useBoardPan = (gameState: GameState | null) => {
 
   const handlePointerDown = (event: PointerEvent) => {
     if (event.pointerType === "mouse") return;
+    if (gameState?.status !== "playing") return;
     isPanning.current = true;
     hasDragged.current = false;
     lastPointer.current = { x: event.clientX, y: event.clientY };
@@ -90,7 +91,7 @@ export const useBoardPan = (gameState: GameState | null) => {
 
   useLayoutEffect(() => {
     const calc = () => {
-      if (!boardContainerRef.current || gameState?.status !== "playing") return;
+      if (!boardContainerRef.current || !gameState) return;
 
       const placedAndGivenKeys = Object.keys(gameState.board);
       if (placedAndGivenKeys.length === 0) return;

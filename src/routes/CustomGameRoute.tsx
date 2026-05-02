@@ -86,7 +86,6 @@ export default function CustomGameRoute() {
 
   const handleBackToMenu = useCallback(() => {
     generation.terminateWorker();
-    saveGameState(null);
     location.route("/");
   }, [generation, location]);
 
