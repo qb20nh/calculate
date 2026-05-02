@@ -26,6 +26,7 @@ const mockLoadProgress = vi.fn(() => ({
   Easy: { current: 1, max: 1 },
   Medium: { current: 1, max: 1 },
   Hard: { current: 1, max: 1 },
+  Crossing: { current: 1, max: 1 },
 }));
 const mockLoadGameState = vi.fn(() => null);
 const mockSaveGameState = vi.fn();
@@ -39,6 +40,7 @@ vi.mock("@/services/storage", () => ({
     Easy: { current: 1, max: 1 },
     Medium: { current: 1, max: 1 },
     Hard: { current: 1, max: 1 },
+    Crossing: { current: 1, max: 1 },
   },
   loadProgress: () => mockLoadProgress(),
   loadGameState: () => mockLoadGameState(),
@@ -84,10 +86,12 @@ vi.mock("@/components/Game", () => ({
   GameLoadingShell: () => <div>Loading...</div>,
   UnavailableLevelShell: ({
     onReset,
+    onLatestAvailable,
     requestedStage,
     availableStage,
   }: {
     onReset: () => void;
+    onLatestAvailable: () => void;
     requestedStage: number;
     availableStage: number;
   }) => (
@@ -96,7 +100,7 @@ vi.mock("@/components/Game", () => ({
       <button type="button" onClick={onReset} aria-label="Reset Stage">
         Reset
       </button>
-      <button type="button" onClick={onReset}>
+      <button type="button" onClick={onLatestAvailable}>
         Go to stage {availableStage}
       </button>
       This level is not unlocked yet. Use the buttons below to leave or continue.
@@ -110,6 +114,7 @@ describe("GameRoute", () => {
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     });
     mockLocationUrl = "/game/easy?stage=10";
 
@@ -180,6 +185,7 @@ describe("GameRoute", () => {
       Easy: { current: 1, max: 3 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     });
     mockLoadGameState.mockReturnValueOnce({
       board: {},
@@ -221,6 +227,7 @@ describe("GameRoute", () => {
       Easy: { current: 1, max: 3 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     });
 
     render(<GameRoute difficulty="easy" />);
@@ -236,6 +243,7 @@ describe("GameRoute", () => {
       Easy: { current: 1, max: 3 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     });
 
     render(<GameRoute difficulty="easy" />);
@@ -250,6 +258,7 @@ describe("GameRoute", () => {
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     });
     mockLocationUrl = "/game/easy?stage=10";
 
@@ -282,6 +291,12 @@ describe("GameRoute", () => {
   it("should use a saved crossing stage when no stage is specified", async () => {
     mockRoute.mockClear();
     mockLocationUrl = "/game/crossing";
+    mockLoadProgress.mockReturnValueOnce({
+      Easy: { current: 1, max: 1 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 3 },
+    });
     mockLoadGameState.mockReturnValueOnce({
       board: {},
       bank: [],
@@ -308,6 +323,35 @@ describe("GameRoute", () => {
     expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=2");
   });
 
+  it("should lock unopened crossing stages", () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing?stage=2";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    expect(screen.getByText(/Stage 2 locked/)).toBeDefined();
+    expect(screen.getByText("Go to stage 1")).toBeDefined();
+
+    fireEvent.click(screen.getByText("Go to stage 1"));
+    expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=1");
+  });
+
+  it("should allow crossing stage changes within unlocked progress", () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing?stage=1";
+    mockLoadProgress.mockReturnValueOnce({
+      Easy: { current: 1, max: 1 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 2 },
+    });
+
+    render(<GameRoute difficulty="crossing" />);
+
+    fireEvent.click(screen.getByLabelText("Next Stage"));
+    expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=2");
+  });
+
   it("should save crossing state changes and clear state on back", () => {
     mockRoute.mockClear();
     mockSaveGameState.mockClear();
@@ -328,6 +372,12 @@ describe("GameRoute", () => {
   it("should ignore crossing stage changes outside the available range", () => {
     mockRoute.mockClear();
     mockLocationUrl = "/game/crossing?stage=9";
+    mockLoadProgress.mockReturnValueOnce({
+      Easy: { current: 1, max: 1 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+      Crossing: { current: 9, max: 9 },
+    });
 
     render(<GameRoute difficulty="crossing" />);
 

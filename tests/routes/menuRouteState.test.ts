@@ -7,6 +7,7 @@ describe("menu route resolver", () => {
     Easy: { current: 1, max: 2 },
     Medium: { current: 3, max: 1 },
     Hard: { current: 2, max: 6 },
+    Crossing: { current: 1, max: 4 },
   };
 
   it("should build a custom game route", () => {
@@ -14,7 +15,7 @@ describe("menu route resolver", () => {
   });
 
   it("should build a crossing game route", () => {
-    expect(resolveMenuRoute({ mode: "Crossing", progress })).toBe("/game/crossing?stage=1");
+    expect(resolveMenuRoute({ mode: "Crossing", progress })).toBe("/game/crossing?stage=4");
   });
 
   it("should route normal mode to the latest unlocked stage", () => {

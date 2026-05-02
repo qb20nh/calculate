@@ -1,10 +1,10 @@
 import type { FunctionalComponent } from "preact";
 import { StageHeader } from "@/components/game/StageHeader";
 import { useAppSettings } from "@/lib/appSettings";
-import type { Difficulty, GameMode } from "@/services/storage";
+import type { GameMode } from "@/services/storage";
 
 export const UnavailableLevelShell: FunctionalComponent<{
-  difficulty: Difficulty;
+  difficulty: GameMode;
   requestedStage: number;
   availableStage: number;
   notice: string;

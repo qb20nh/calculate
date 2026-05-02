@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "crossing:difficulty": "node scripts/rankCrossingDifficulty.mjs",
     "lint": "biome check .",
     "format": "biome check . --write",
     "jscpd": "jscpd src",

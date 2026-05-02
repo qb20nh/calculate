@@ -40,7 +40,9 @@ try {
       const pathname = window.location.pathname;
       const shouldHydrate = !isDynamicCustomGameRoute(pathname, window.location.search);
       const routePath = removeBasePath(pathname).replace(/\/$/, "");
-      const shouldPreloadGameRoute = /^\/game\/(?:easy|medium|hard|custom)$/.test(routePath);
+      const shouldPreloadGameRoute = /^\/game\/(?:easy|medium|hard|crossing|custom)$/.test(
+        routePath,
+      );
 
       if (shouldPreloadGameRoute && !isGameRoutePreloaded()) {
         applyDeferredStylesheets();

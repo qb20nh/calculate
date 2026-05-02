@@ -12,12 +12,18 @@ import {
   toGamePath,
 } from "@/routes/routeUtils";
 import { CROSSING_LEVEL_COUNT } from "@/services/board/handcraftedLevels";
-import { advanceProgress, unlockStage } from "@/services/progress";
+import {
+  advanceProgress,
+  getLatestUnlockedStage,
+  isStageLocked,
+  unlockStage,
+} from "@/services/progress";
 import {
   DEFAULT_PROGRESS,
   type GameState,
   loadGameState,
   loadProgress,
+  type Progress,
   saveGameState,
   saveProgress,
 } from "@/services/storage";
@@ -43,11 +49,14 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
 }
 
 function CrossingGameRoute() {
+  const { copy } = useAppSettings();
   const location = useLocation();
   const [isClient, setIsClient] = useState(false);
+  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
 
   useEffect(() => {
     setIsClient(true);
+    setProgress(loadProgress());
   }, []);
 
   const savedState = useMemo<GameState | null>(() => {
@@ -62,13 +71,20 @@ function CrossingGameRoute() {
     savedState.stage <= CROSSING_LEVEL_COUNT
       ? savedState.stage
       : null;
-  const stage = parseStageParam(stageParam) ?? savedCrossingStage ?? 1;
+  const latestUnlockedStage = getLatestUnlockedStage(progress, "Crossing");
+  const savedUnlockedStage =
+    savedCrossingStage !== null && savedCrossingStage <= latestUnlockedStage
+      ? savedCrossingStage
+      : null;
+  const stage = parseStageParam(stageParam) ?? savedUnlockedStage ?? latestUnlockedStage;
   const targetPath = toGamePath("Crossing", stage);
+  const stageLocked = isStageLocked(progress, "Crossing", stage);
+  const lockedNotice = copy.game.stageLockedNotice;
 
   useEffect(() => {
     if (stage > CROSSING_LEVEL_COUNT) return;
-    if (location.url !== targetPath) location.route(targetPath, true);
-  }, [location, stage, targetPath]);
+    if (location.url !== targetPath && !stageLocked) location.route(targetPath, true);
+  }, [location, stage, stageLocked, targetPath]);
 
   const initialGameState = useMemo<GameState | null>(() => {
     if (savedState?.difficulty !== "Crossing" || savedState.stage !== stage) return null;
@@ -80,24 +96,53 @@ function CrossingGameRoute() {
     location.route("/");
   }, [location]);
 
+  const updateProgress = useCallback((nextStage: number, includeMax: boolean) => {
+    setProgress((prev) => {
+      const nextProgress = advanceProgress(
+        prev,
+        "Crossing",
+        nextStage,
+        includeMax && nextStage <= CROSSING_LEVEL_COUNT,
+      );
+      saveProgress(nextProgress);
+      return nextProgress;
+    });
+  }, []);
+
+  const updateMaxProgress = useCallback((newMax: number) => {
+    setProgress((prev) => {
+      const nextProgress = unlockStage(prev, "Crossing", Math.min(newMax, CROSSING_LEVEL_COUNT));
+      saveProgress(nextProgress);
+      return nextProgress;
+    });
+  }, []);
+
   const handleWin = useCallback(
     (nextStage: number) => {
-      if (nextStage <= CROSSING_LEVEL_COUNT) location.route(toGamePath("Crossing", nextStage));
+      if (nextStage > CROSSING_LEVEL_COUNT) return;
+      updateProgress(nextStage, true);
+      location.route(toGamePath("Crossing", nextStage));
     },
-    [location],
+    [location, updateProgress],
   );
 
   const handleStageChange = useCallback(
     (nextStage: number) => {
       if (nextStage < 1 || nextStage > CROSSING_LEVEL_COUNT) return;
+      if (nextStage > latestUnlockedStage) return;
+      updateProgress(nextStage, false);
       location.route(toGamePath("Crossing", nextStage));
     },
-    [location],
+    [latestUnlockedStage, location, updateProgress],
   );
 
-  const handleStateChange = useCallback((state: GameState) => {
-    saveGameState(state);
-  }, []);
+  const handleStateChange = useCallback(
+    (state: GameState) => {
+      saveGameState(state);
+      if (state.status === "won") updateMaxProgress(state.stage + 1);
+    },
+    [updateMaxProgress],
+  );
 
   if (stage > CROSSING_LEVEL_COUNT) return <NotFoundRoute />;
 
@@ -106,9 +151,24 @@ function CrossingGameRoute() {
       <GameLoadingShell
         difficulty="Crossing"
         stage={stage}
-        maxStage={CROSSING_LEVEL_COUNT}
+        maxStage={latestUnlockedStage}
         onBack={handleBack}
         onStageChange={handleStageChange}
+      />
+    );
+  }
+
+  if (stageLocked) {
+    return (
+      <UnavailableLevelShell
+        difficulty="Crossing"
+        requestedStage={stage}
+        availableStage={latestUnlockedStage}
+        notice={lockedNotice}
+        onBack={handleBack}
+        onStageChange={handleStageChange}
+        onReset={() => location.route(toGamePath("Crossing", latestUnlockedStage))}
+        onLatestAvailable={() => location.route(toGamePath("Crossing", latestUnlockedStage))}
       />
     );
   }
@@ -118,7 +178,7 @@ function CrossingGameRoute() {
       key={`Crossing-${stage}`}
       difficulty="Crossing"
       stage={stage}
-      maxStage={CROSSING_LEVEL_COUNT}
+      maxStage={latestUnlockedStage}
       initialState={initialGameState}
       showNextLevelButton={stage < CROSSING_LEVEL_COUNT}
       onWin={handleWin}
@@ -135,7 +195,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const difficulty = parseDifficultySlug(difficultySlug);
 
   const [isClient, setIsClient] = useState(false);
-  const [progress, setProgress] = useState(DEFAULT_PROGRESS);
+  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
 
   useEffect(() => {
     setIsClient(true);

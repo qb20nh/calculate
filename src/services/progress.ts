@@ -1,11 +1,19 @@
-import type { Difficulty, Progress } from "@/services/storage";
+import {
+  DEFAULT_PROGRESS,
+  type Difficulty,
+  type Progress,
+  type ProgressMode,
+} from "@/services/storage";
+
+const getProgressEntry = (progress: Progress, mode: ProgressMode) =>
+  progress[mode] ?? DEFAULT_PROGRESS[mode];
 
 export const getLatestUnlockedStage = (
   progress: Progress,
-  difficulty: Difficulty | null,
+  difficulty: ProgressMode | null,
 ): number => {
   if (!difficulty) return 1;
-  return progress[difficulty].max;
+  return getProgressEntry(progress, difficulty).max;
 };
 
 export const resolveRequestedStage = ({
@@ -39,22 +47,21 @@ export const resolveRequestedStage = ({
 
 export const isStageLocked = (
   progress: Progress,
-  difficulty: Difficulty | null,
+  difficulty: ProgressMode | null,
   requestedStage: number | null,
 ) => {
   if (!difficulty || requestedStage === null) return false;
-  const latest = progress[difficulty]?.max;
-  if (latest === undefined || latest === null) return false;
+  const latest = getProgressEntry(progress, difficulty).max;
   return requestedStage > latest;
 };
 
 export const advanceProgress = (
   progress: Progress,
-  difficulty: Difficulty,
+  difficulty: ProgressMode,
   nextStage: number,
   includeMax: boolean,
 ): Progress => {
-  const currentProgress = progress[difficulty];
+  const currentProgress = getProgressEntry(progress, difficulty);
   const nextMax = includeMax ? Math.max(currentProgress.max, nextStage) : currentProgress.max;
   if (currentProgress.current === nextStage && currentProgress.max === nextMax) return progress;
 
@@ -65,15 +72,15 @@ export const advanceProgress = (
       current: nextStage,
       max: nextMax,
     },
-  };
+  } as Progress;
 };
 
 export const unlockStage = (
   progress: Progress,
-  difficulty: Difficulty,
+  difficulty: ProgressMode,
   unlockedStage: number,
 ): Progress => {
-  const currentProgress = progress[difficulty];
+  const currentProgress = getProgressEntry(progress, difficulty);
   if (unlockedStage <= currentProgress.max) return progress;
 
   return {
@@ -82,5 +89,5 @@ export const unlockStage = (
       ...currentProgress,
       max: unlockedStage,
     },
-  };
+  } as Progress;
 };

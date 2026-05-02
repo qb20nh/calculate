@@ -70,6 +70,15 @@ describe("storage", () => {
 
   it("should sanitize saved game state shape", () => {
     expect(sanitizeStoredGameState(validState)).toEqual(validState);
+    expect(
+      sanitizeStoredGameState({
+        ...validState,
+        board: { "-1,0": validState.board["0,0"] },
+      }),
+    ).toEqual({
+      ...validState,
+      board: { "-1,0": validState.board["0,0"] },
+    });
     expect(sanitizeStoredGameState({ ...validState, stage: 0 })).toBeNull();
     expect(
       sanitizeStoredGameState({ ...validState, board: { "999,0": validState.board["0,0"] } }),

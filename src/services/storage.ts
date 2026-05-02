@@ -8,6 +8,8 @@ import { OP_DIV, OP_MINUS, OP_MULT, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/se
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
 export type GameMode = Difficulty | "Custom" | "Crossing";
+export type ProgressMode = Difficulty | "Crossing";
+type ProgressEntry = { current: number; max: number };
 
 export interface CustomGameConfig {
   givenCount: number;
@@ -29,14 +31,16 @@ export interface GameState {
   solvedAcknowledged?: boolean;
 }
 
-export type Progress = Record<Difficulty, { current: number; max: number }>;
+export type Progress = Record<Difficulty, ProgressEntry> &
+  Partial<Record<"Crossing", ProgressEntry>>;
 
 const STORAGE_KEY_PROGRESS = "math_scrabble_progress";
 const STORAGE_KEY_STATE = "math_scrabble_state";
-export const DEFAULT_PROGRESS: Progress = {
+export const DEFAULT_PROGRESS: Record<ProgressMode, ProgressEntry> = {
   Easy: { current: 1, max: 1 },
   Medium: { current: 1, max: 1 },
   Hard: { current: 1, max: 1 },
+  Crossing: { current: 1, max: 1 },
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -58,7 +62,7 @@ const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
   (value.attempt === undefined || isValidRetryCount(value.attempt)) &&
   validateCustomGameConfig(value) === null;
 
-const isProgressEntry = (value: unknown): value is { current: number; max: number } =>
+const isProgressEntry = (value: unknown): value is ProgressEntry =>
   isRecord(value) &&
   typeof value.current === "number" &&
   Number.isSafeInteger(value.current) &&
@@ -70,7 +74,7 @@ const isProgressEntry = (value: unknown): value is { current: number; max: numbe
 const normalizeProgress = (value: unknown): Progress | null => {
   if (!isRecord(value)) return null;
 
-  const readEntry = (key: Difficulty) => {
+  const readEntry = (key: ProgressMode) => {
     const entry = value[key];
     return isProgressEntry(entry) ? entry : DEFAULT_PROGRESS[key];
   };
@@ -79,6 +83,7 @@ const normalizeProgress = (value: unknown): Progress | null => {
     Easy: readEntry("Easy"),
     Medium: readEntry("Medium"),
     Hard: readEntry("Hard"),
+    Crossing: readEntry("Crossing"),
   };
 };
 

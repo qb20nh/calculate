@@ -6,9 +6,21 @@ import {
   generateCustomGameAttempt,
   generateGame,
   generateStandardGame,
+  getGridBounds,
   validateBoard,
 } from "@/services/board";
-import { OP_DIV, OP_MINUS, OP_MULT, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/services/math";
+import { forEachEquation } from "@/services/board/grid";
+import { getCrossingLevelSolution } from "@/services/board/handcraftedLevels";
+import {
+  isValidEquation,
+  OP_DIV,
+  OP_MINUS,
+  OP_MULT,
+  OP_PLUS,
+  REL_EQ,
+  REL_GT,
+  REL_LT,
+} from "@/services/math";
 import type { Difficulty, GameState } from "@/services/storage";
 
 describe("board service", () => {
@@ -16,6 +28,217 @@ describe("board service", () => {
     Easy: [5, 7],
     Medium: [10, 14],
     Hard: [15, 21],
+  };
+  const crossingGivenCountTargets = [9, 9, 9, 9, 9, 9, 9, 9, 9];
+
+  const getBoardLike = (solution: Record<string, string>) => {
+    const board: Record<string, { val: string }> = {};
+    for (const [key, val] of Object.entries(solution)) board[key] = { val };
+    return board;
+  };
+
+  const countValidFormulaRuns = (solution: Record<string, string>) => {
+    let formulas = 0;
+    forEachEquation(
+      Object.keys(solution),
+      (key) => {
+        const val = solution[key];
+        return val === undefined ? undefined : { val };
+      },
+      (word) => {
+        if (isValidEquation(word)) formulas++;
+      },
+    );
+    return formulas;
+  };
+
+  const collectNumberRuns = (tiles: Record<string, string>) => {
+    const bounds = getGridBounds(Object.keys(tiles));
+    const runs: string[] = [];
+
+    const scan = (
+      outerStart: number,
+      outerEnd: number,
+      innerStart: number,
+      innerEnd: number,
+      horizontal: boolean,
+    ) => {
+      for (let outer = outerStart; outer <= outerEnd; outer++) {
+        let digits = "";
+        for (let inner = innerStart; inner <= innerEnd + 1; inner++) {
+          const key = horizontal ? `${outer},${inner}` : `${inner},${outer}`;
+          const val = tiles[key];
+          if (val !== undefined && /^\d$/.test(val)) {
+            digits += val;
+            continue;
+          }
+
+          if (digits.length > 0) runs.push(digits);
+          digits = "";
+        }
+      }
+    };
+
+    scan(bounds.minR, bounds.maxR, bounds.minC, bounds.maxC, true);
+    scan(bounds.minC, bounds.maxC, bounds.minR, bounds.maxR, false);
+
+    return runs;
+  };
+
+  type ParsedFormula = {
+    keys: string[];
+    left: number;
+    op: string;
+    right: number;
+    result: number;
+    leftRange: [number, number];
+    rightRange: [number, number];
+    resultRange: [number, number];
+  };
+
+  const isOperator = (token: string) =>
+    token === OP_PLUS || token === OP_MINUS || token === OP_MULT || token === OP_DIV;
+
+  const readNumber = (tokens: string[]) => (tokens.length > 0 ? Number(tokens.join("")) : null);
+
+  const parseFormulaRun = (word: { val: string; key: string }[]): ParsedFormula | null => {
+    const tokens = word.map((item) => item.val);
+    const relationIndex = tokens.indexOf(REL_EQ);
+    const opIndex = tokens.findIndex(
+      (token, index) => index !== relationIndex && isOperator(token),
+    );
+    if (relationIndex <= 0 || relationIndex === tokens.length - 1 || opIndex < 0) return null;
+
+    const op = tokens[opIndex];
+    if (op === undefined) return null;
+    if (opIndex < relationIndex) {
+      const left = readNumber(tokens.slice(0, opIndex));
+      const right = readNumber(tokens.slice(opIndex + 1, relationIndex));
+      const result = readNumber(tokens.slice(relationIndex + 1));
+      if (left === null || right === null || result === null) return null;
+      return {
+        keys: word.map((item) => item.key),
+        left,
+        op,
+        right,
+        result,
+        leftRange: [0, opIndex],
+        rightRange: [opIndex + 1, relationIndex],
+        resultRange: [relationIndex + 1, tokens.length],
+      };
+    }
+
+    const result = readNumber(tokens.slice(0, relationIndex));
+    const left = readNumber(tokens.slice(relationIndex + 1, opIndex));
+    const right = readNumber(tokens.slice(opIndex + 1));
+    if (left === null || right === null || result === null) return null;
+    return {
+      keys: word.map((item) => item.key),
+      left,
+      op,
+      right,
+      result,
+      resultRange: [0, relationIndex],
+      leftRange: [relationIndex + 1, opIndex],
+      rightRange: [opIndex + 1, tokens.length],
+    };
+  };
+
+  const collectParsedFormulaRuns = (solution: Record<string, string>) => {
+    const formulas: ParsedFormula[] = [];
+    forEachEquation(
+      Object.keys(solution),
+      (key) => {
+        const val = solution[key];
+        return val === undefined ? undefined : { val };
+      },
+      (word) => {
+        if (!isValidEquation(word)) return;
+        const formula = parseFormulaRun(word);
+        if (formula) formulas.push(formula);
+      },
+    );
+    return formulas;
+  };
+
+  const hasSingleDigitNumber = ({ left, right, result }: ParsedFormula) =>
+    left < 10 || right < 10 || result < 10;
+
+  const isTrivialFormula = ({ left, op, right, result }: ParsedFormula) => {
+    if (op === OP_PLUS) return left === 0 || right === 0;
+    if (op === OP_MINUS) return right === 0 || left === right;
+    if (op === OP_MULT) return left === 0 || right === 0 || left === 1 || right === 1;
+    if (op === OP_DIV) return right === 1 || left === right || result === 0;
+    return false;
+  };
+
+  const mathKeyFor = ({ left, op, right, result }: ParsedFormula) => {
+    if (op === OP_PLUS || op === OP_MINUS) {
+      const addends = op === OP_PLUS ? [left, right] : [right, result];
+      addends.sort((a, b) => a - b);
+      return `add:${addends[0]}:${addends[1]}:${op === OP_PLUS ? result : left}`;
+    }
+
+    const factors = op === OP_MULT ? [left, right] : [right, result];
+    factors.sort((a, b) => a - b);
+    return `mult:${factors[0]}:${factors[1]}:${op === OP_MULT ? result : left}`;
+  };
+
+  const isDirectComputeVisible = (formula: ParsedFormula, board: GameState["board"]) => {
+    const ranges = [formula.leftRange, formula.rightRange, formula.resultRange];
+    const missingRanges = ranges.filter(([start, end]) =>
+      formula.keys.slice(start, end).every((key) => !board[key]),
+    );
+    if (missingRanges.length !== 1) return false;
+
+    const missingRange = missingRanges[0];
+    if (!missingRange) return false;
+    return formula.keys.every((key, index) => {
+      if (index >= missingRange[0] && index < missingRange[1]) return !board[key];
+      return Boolean(board[key]);
+    });
+  };
+
+  const countCrossingTiles = (solution: Record<string, string>) => {
+    const horizontalKeys = new Set<string>();
+    const verticalKeys = new Set<string>();
+    const bounds = getGridBounds(Object.keys(solution));
+
+    const scan = (
+      outerStart: number,
+      outerEnd: number,
+      innerStart: number,
+      innerEnd: number,
+      horizontal: boolean,
+    ) => {
+      for (let outer = outerStart; outer <= outerEnd; outer++) {
+        let run: { key: string; val: string }[] = [];
+        for (let inner = innerStart; inner <= innerEnd + 1; inner++) {
+          const key = horizontal ? `${outer},${inner}` : `${inner},${outer}`;
+          const val = solution[key];
+          if (val !== undefined) {
+            run.push({ key, val });
+            continue;
+          }
+
+          if (run.length > 0 && isValidEquation(run)) {
+            for (const item of run) {
+              (horizontal ? horizontalKeys : verticalKeys).add(item.key);
+            }
+          }
+          run = [];
+        }
+      }
+    };
+
+    scan(bounds.minR, bounds.maxR, bounds.minC, bounds.maxC, true);
+    scan(bounds.minC, bounds.maxC, bounds.minR, bounds.maxR, false);
+
+    let crossings = 0;
+    for (const key of horizontalKeys) {
+      if (verticalKeys.has(key)) crossings++;
+    }
+    return crossings;
   };
 
   it("should generate a playable game for all difficulties", () => {
@@ -91,12 +314,18 @@ describe("board service", () => {
   });
 
   it("should generate crossing games with a fixed inventory", () => {
+    const visibleEdgeSignatures = new Set<string>();
+    const givenCounts: number[] = [];
+    let hasVisibleNegativeRow = false;
+    let hasVisibleNegativeCol = false;
+
     for (let stage = 1; stage <= 9; stage++) {
       const game = generateCrossingGame(stage);
       expect(game).not.toBeNull();
       if (!game) continue;
 
       expect(game.status).toBe("playing");
+      givenCounts.push(Object.keys(game.board).length);
       expect(game.initialBankSize).toBe(18);
       expect(game.bank.map((tile) => tile.val)).toEqual([
         "0",
@@ -118,10 +347,76 @@ describe("board service", () => {
         REL_EQ,
         REL_EQ,
       ]);
+      const bounds = getGridBounds(Object.keys(game.board));
+      expect(bounds.minR < 0 || bounds.minC < 0).toBe(true);
+      hasVisibleNegativeRow ||= bounds.minR < 0;
+      hasVisibleNegativeCol ||= bounds.minC < 0;
+      visibleEdgeSignatures.add(`${bounds.minR},${bounds.minC},${bounds.maxR},${bounds.maxC}`);
       expect(validateBoard(game.board).valid).toBe(false);
+      expect(
+        collectNumberRuns(
+          Object.fromEntries(Object.entries(game.board).map(([key, tile]) => [key, tile.val])),
+        ).every((value) => value.length <= 2),
+      ).toBe(true);
+
+      const solution = getCrossingLevelSolution(stage);
+      expect(solution).not.toBeNull();
+      if (!solution) continue;
+
+      expect(Object.keys(solution)).toHaveLength(Object.keys(game.board).length + 18);
+      for (const formula of collectParsedFormulaRuns(solution)) {
+        const missing = formula.keys.filter((key) => !game.board[key]).length;
+        expect(missing).not.toBe(1);
+        expect(isDirectComputeVisible(formula, game.board)).toBe(false);
+      }
     }
 
+    expect(hasVisibleNegativeRow).toBe(true);
+    expect(hasVisibleNegativeCol).toBe(true);
+    expect(visibleEdgeSignatures.size).toBeGreaterThan(1);
+    expect([...givenCounts].sort((left, right) => left - right)).toEqual(crossingGivenCountTargets);
     expect(generateCrossingGame(10)).toBeNull();
+    expect(getCrossingLevelSolution(10)).toBeNull();
+  });
+
+  it("should generate crossing solutions with non-flush bounds", () => {
+    const solutionTileCounts: number[] = [];
+    let hasNegativeRow = false;
+    let hasNegativeCol = false;
+
+    for (let stage = 1; stage <= 9; stage++) {
+      const solution = getCrossingLevelSolution(stage);
+      expect(solution).not.toBeNull();
+      if (!solution) continue;
+
+      expect(validateBoard(getBoardLike(solution)).valid).toBe(true);
+      expect(Object.keys(solution).length).toBeLessThanOrEqual(30);
+      solutionTileCounts.push(Object.keys(solution).length);
+      expect(collectNumberRuns(solution).every((value) => value.length <= 2)).toBe(true);
+      expect(countValidFormulaRuns(solution)).toBe(6);
+      expect(countCrossingTiles(solution)).toBe(9);
+      const formulas = collectParsedFormulaRuns(solution);
+      expect(formulas).toHaveLength(6);
+      expect(new Set(formulas.map(mathKeyFor)).size).toBe(6);
+      for (const formula of formulas) {
+        expect(formula.left).toBeLessThanOrEqual(99);
+        expect(formula.right).toBeLessThanOrEqual(99);
+        expect(formula.result).toBeLessThanOrEqual(99);
+        expect(hasSingleDigitNumber(formula)).toBe(true);
+        expect(isTrivialFormula(formula)).toBe(false);
+      }
+
+      const bounds = getGridBounds(Object.keys(solution));
+      expect(bounds.minR < 0 || bounds.minC < 0).toBe(true);
+      hasNegativeRow ||= bounds.minR < 0;
+      hasNegativeCol ||= bounds.minC < 0;
+    }
+
+    expect(hasNegativeRow).toBe(true);
+    expect(hasNegativeCol).toBe(true);
+    expect([...solutionTileCounts].sort((left, right) => left - right)).toEqual(
+      crossingGivenCountTargets.map((count) => count + 18),
+    );
   });
 
   it("should handle unexpected difficulty values defensively", () => {

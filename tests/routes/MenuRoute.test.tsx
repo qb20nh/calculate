@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     Easy: { current: 1, max: 1 },
     Medium: { current: 1, max: 1 },
     Hard: { current: 1, max: 1 },
+    Crossing: { current: 1, max: 1 },
   },
   route: vi.fn(),
 }));
@@ -49,6 +50,7 @@ describe("MenuRoute", () => {
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     };
     mocks.route.mockClear();
   });
@@ -72,12 +74,27 @@ describe("MenuRoute", () => {
       Easy: { current: 1, max: 5 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 1 },
     };
     render(<MenuRoute />);
 
     fireEvent.click(screen.getByText("Easy"));
 
     expect(mocks.route).toHaveBeenCalledWith("/game/easy?stage=5");
+  });
+
+  it("should route crossing mode to the max unlocked stage", () => {
+    mocks.progress = {
+      Easy: { current: 1, max: 1 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+      Crossing: { current: 1, max: 4 },
+    };
+    render(<MenuRoute />);
+
+    fireEvent.click(screen.getByText("Crossing"));
+
+    expect(mocks.route).toHaveBeenCalledWith("/game/crossing?stage=4");
   });
 
   it("should route custom mode to setup screen after deferred styles load", async () => {
