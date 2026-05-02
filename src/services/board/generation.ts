@@ -10,6 +10,7 @@ import {
   pickRandomKeys,
   shuffleInPlace,
 } from "@/services/board/grid";
+import { buildCrossingGame } from "@/services/board/handcraftedLevels";
 import { analyzeBoard } from "@/services/board/validation";
 import { isValidRetryCount, validateCustomGameConfig } from "@/services/customGameConfig";
 import {
@@ -331,6 +332,8 @@ export const generateGame = (stage: number, difficulty: Difficulty, attempt = 0)
     }
   );
 };
+
+export const generateCrossingGame = (stage: number) => buildCrossingGame(stage);
 
 export const generateStandardGame = (
   stage: number,

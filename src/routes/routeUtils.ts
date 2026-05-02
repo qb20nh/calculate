@@ -12,13 +12,14 @@ const DIFFICULTY_BY_SLUG = {
 } as const satisfies Record<string, Difficulty>;
 
 type DifficultySlug = keyof typeof DIFFICULTY_BY_SLUG;
-type GameModeSlug = DifficultySlug | "custom";
+type StandardGameMode = Exclude<GameMode, "Custom">;
+type GameModeSlug = DifficultySlug | "custom" | "crossing";
 
 const FALLBACK_ORIGIN = "https://calculate.local";
 
 const isDifficultySlug = (slug: string): slug is DifficultySlug => slug in DIFFICULTY_BY_SLUG;
 const isGameModeSlug = (slug: string): slug is GameModeSlug =>
-  slug === "custom" || isDifficultySlug(slug);
+  slug === "custom" || slug === "crossing" || isDifficultySlug(slug);
 
 export const normalizeBasePath = (basePath: string) => {
   const pathname = new URL(basePath || "/", FALLBACK_ORIGIN).pathname.replaceAll(/\/+$/g, "");
@@ -47,11 +48,11 @@ export const removeBasePath = (url: string, basePath = BASE_PATH) => {
   return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
 };
 
-const toDifficultySlug = (difficulty: Difficulty): DifficultySlug =>
-  difficulty.toLowerCase() as DifficultySlug;
+const toGameModeSlug = (mode: StandardGameMode): DifficultySlug | "crossing" =>
+  mode === "Crossing" ? "crossing" : (mode.toLowerCase() as DifficultySlug);
 
-export const toGamePath = (difficulty: Difficulty, stage: number) => {
-  return `/game/${toDifficultySlug(difficulty)}?stage=${stage}`;
+export const toGamePath = (mode: StandardGameMode, stage: number) => {
+  return `/game/${toGameModeSlug(mode)}?stage=${stage}`;
 };
 
 export const toCustomGamePath = (config: CustomGameConfig, retryCount?: number) => {
@@ -75,7 +76,9 @@ export const parseDifficultySlug = (slug?: string): Difficulty | null => {
 
 export const parseGameModeSlug = (slug?: string): GameMode | null => {
   if (!slug || !isGameModeSlug(slug)) return null;
-  return slug === "custom" ? "Custom" : DIFFICULTY_BY_SLUG[slug];
+  if (slug === "custom") return "Custom";
+  if (slug === "crossing") return "Crossing";
+  return DIFFICULTY_BY_SLUG[slug];
 };
 
 export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGameConfig | null => {

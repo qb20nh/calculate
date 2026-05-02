@@ -11,5 +11,8 @@ export const resolveMenuRoute = ({ mode, progress }: MenuRouteInput): string => 
   if (mode === "Custom") {
     return "/game/custom";
   }
+  if (mode === "Crossing") {
+    return toGamePath(mode, 1);
+  }
   return toGamePath(mode, getLatestUnlockedStage(progress, mode));
 };

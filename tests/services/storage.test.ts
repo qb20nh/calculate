@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OP_PLUS } from "@/services/math";
 import type { GameState } from "@/services/storage";
 import {
   DEFAULT_PROGRESS,
@@ -32,7 +33,7 @@ const validState: GameState = {
   board: {
     "0,0": { id: "g_0,0", val: "1", type: "val", isGiven: true },
   },
-  bank: [{ id: "b_0,1", val: "+", type: "op" }],
+  bank: [{ id: "b_0,1", val: OP_PLUS, type: "op" }],
   initialBankSize: 1,
   status: "playing",
   difficulty: "Easy",

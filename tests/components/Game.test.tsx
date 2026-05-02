@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Game } from "@/components/Game";
 import * as BoardService from "@/services/board";
 import { generateGame } from "@/services/board";
+import { OP_PLUS, REL_EQ } from "@/services/math";
 import type { GameState } from "@/services/storage";
 
 vi.mock("@/services/board", async () => {
@@ -309,7 +310,7 @@ describe("Game", () => {
       makeGameState({
         board: {
           "0,0": { id: "g1", val: "3", type: "val", isGiven: true },
-          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+          "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
           "0,2": { id: "g3", val: "3", type: "val", isGiven: true },
         },
         bank: [],
@@ -418,7 +419,7 @@ describe("Game", () => {
     const mockGame = {
       board: {
         "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+        "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
       },
       bank: [{ id: "b1", val: "2", type: "val" }], // 1=2 is invalid
       initialBankSize: 1,
@@ -455,7 +456,7 @@ describe("Game", () => {
     const mockGame = {
       board: {
         "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+        "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
       },
       bank: [{ id: "b1", val: "1", type: "val" }],
       initialBankSize: 1,
@@ -491,9 +492,9 @@ describe("Game", () => {
     const customGame = {
       board: {
         "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-        "0,1": { id: "g2", val: "+", type: "op", isGiven: true },
+        "0,1": { id: "g2", val: OP_PLUS, type: "op", isGiven: true },
         "0,2": { id: "g3", val: "1", type: "val", isGiven: true },
-        "0,3": { id: "g4", val: "=", type: "rel", isGiven: true },
+        "0,3": { id: "g4", val: REL_EQ, type: "rel", isGiven: true },
         "0,4": { id: "g5", val: "2", type: "val", isGiven: true },
       },
       bank: [],
@@ -539,9 +540,9 @@ describe("Game", () => {
     const customGame = {
       board: {
         "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-        "0,1": { id: "g2", val: "+", type: "op", isGiven: true },
+        "0,1": { id: "g2", val: OP_PLUS, type: "op", isGiven: true },
         "0,2": { id: "g3", val: "1", type: "val", isGiven: true },
-        "0,3": { id: "g4", val: "=", type: "rel", isGiven: true },
+        "0,3": { id: "g4", val: REL_EQ, type: "rel", isGiven: true },
         "0,4": { id: "g5", val: "2", type: "val", isGiven: true },
       },
       bank: [],
@@ -583,7 +584,7 @@ describe("Game", () => {
     const mockGame = {
       board: {
         "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-        "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+        "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
       },
       bank: [{ id: "b1", val: "1", type: "val" }],
       initialBankSize: 1,
@@ -826,8 +827,8 @@ describe("Game", () => {
         bank: [
           { id: "v1", val: "5", type: "val" },
           { id: "v2", val: "5", type: "val" },
-          { id: "o1", val: "+", type: "op" },
-          { id: "r1", val: "=", type: "rel" },
+          { id: "o1", val: OP_PLUS, type: "op" },
+          { id: "r1", val: REL_EQ, type: "rel" },
         ],
       };
       renderGame({ initialState: customState });
@@ -865,10 +866,10 @@ describe("Game", () => {
       const customState: GameState = {
         ...makeGameState(),
         bank: [
-          { id: "o1", val: "+", type: "op" },
-          { id: "o2", val: "+", type: "op" },
-          { id: "r1", val: "=", type: "rel" },
-          { id: "r2", val: "=", type: "rel" },
+          { id: "o1", val: OP_PLUS, type: "op" },
+          { id: "o2", val: OP_PLUS, type: "op" },
+          { id: "r1", val: REL_EQ, type: "rel" },
+          { id: "r2", val: REL_EQ, type: "rel" },
         ],
       };
       renderGame({ initialState: customState });
@@ -881,7 +882,7 @@ describe("Game", () => {
       const mockGame = {
         board: {
           "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+          "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
         },
         bank: [{ id: "b1", val: "1", type: "val" }],
         initialBankSize: 1,
@@ -913,7 +914,7 @@ describe("Game", () => {
       const mockGame = {
         board: {
           "0,0": { id: "g1", val: "1", type: "val", isGiven: true },
-          "0,1": { id: "g2", val: "=", type: "rel", isGiven: true },
+          "0,1": { id: "g2", val: REL_EQ, type: "rel", isGiven: true },
         },
         bank: [{ id: "b1", val: "1", type: "val" }],
         initialBankSize: 1,

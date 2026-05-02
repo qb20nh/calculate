@@ -5,7 +5,13 @@ import { useAppSettings } from "@/lib/appSettings";
 import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { resolveNormalGameRouteState } from "@/routes/normalGameRouteState";
-import { parseDifficultySlug, parseGameModeSlug, toGamePath } from "@/routes/routeUtils";
+import {
+  parseDifficultySlug,
+  parseGameModeSlug,
+  parseStageParam,
+  toGamePath,
+} from "@/routes/routeUtils";
+import { CROSSING_LEVEL_COUNT } from "@/services/board/handcraftedLevels";
 import { advanceProgress, unlockStage } from "@/services/progress";
 import {
   DEFAULT_PROGRESS,
@@ -29,8 +35,98 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
   if (gameMode === "Custom") {
     return <CustomGameRoute />;
   }
+  if (gameMode === "Crossing") {
+    return <CrossingGameRoute />;
+  }
 
   return <NormalGameRoute difficultySlug={difficultySlug} />;
+}
+
+function CrossingGameRoute() {
+  const location = useLocation();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const savedState = useMemo<GameState | null>(() => {
+    if (!isClient) return null;
+    return loadGameState();
+  }, [isClient]);
+
+  const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
+  const savedCrossingStage =
+    savedState?.difficulty === "Crossing" &&
+    savedState.stage >= 1 &&
+    savedState.stage <= CROSSING_LEVEL_COUNT
+      ? savedState.stage
+      : null;
+  const stage = parseStageParam(stageParam) ?? savedCrossingStage ?? 1;
+  const targetPath = toGamePath("Crossing", stage);
+
+  useEffect(() => {
+    if (stage > CROSSING_LEVEL_COUNT) return;
+    if (location.url !== targetPath) location.route(targetPath, true);
+  }, [location, stage, targetPath]);
+
+  const initialGameState = useMemo<GameState | null>(() => {
+    if (savedState?.difficulty !== "Crossing" || savedState.stage !== stage) return null;
+    return savedState;
+  }, [savedState, stage]);
+
+  const handleBack = useCallback(() => {
+    saveGameState(null);
+    location.route("/");
+  }, [location]);
+
+  const handleWin = useCallback(
+    (nextStage: number) => {
+      if (nextStage <= CROSSING_LEVEL_COUNT) location.route(toGamePath("Crossing", nextStage));
+    },
+    [location],
+  );
+
+  const handleStageChange = useCallback(
+    (nextStage: number) => {
+      if (nextStage < 1 || nextStage > CROSSING_LEVEL_COUNT) return;
+      location.route(toGamePath("Crossing", nextStage));
+    },
+    [location],
+  );
+
+  const handleStateChange = useCallback((state: GameState) => {
+    saveGameState(state);
+  }, []);
+
+  if (stage > CROSSING_LEVEL_COUNT) return <NotFoundRoute />;
+
+  if (!isClient) {
+    return (
+      <GameLoadingShell
+        difficulty="Crossing"
+        stage={stage}
+        maxStage={CROSSING_LEVEL_COUNT}
+        onBack={handleBack}
+        onStageChange={handleStageChange}
+      />
+    );
+  }
+
+  return (
+    <Game
+      key={`Crossing-${stage}`}
+      difficulty="Crossing"
+      stage={stage}
+      maxStage={CROSSING_LEVEL_COUNT}
+      initialState={initialGameState}
+      showNextLevelButton={stage < CROSSING_LEVEL_COUNT}
+      onWin={handleWin}
+      onBack={handleBack}
+      onStageChange={handleStageChange}
+      onStateChange={handleStateChange}
+    />
+  );
 }
 
 function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
@@ -50,14 +146,19 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     if (!difficulty || !isClient) return null;
     return loadGameState();
   }, [difficulty, isClient]);
+  const savedStateDifficulty =
+    savedState?.difficulty === "Easy" ||
+    savedState?.difficulty === "Medium" ||
+    savedState?.difficulty === "Hard"
+      ? savedState.difficulty
+      : null;
 
   const { requestedStage, latestUnlockedStage, stageLocked, targetPath, shouldRedirect } =
     resolveNormalGameRouteState({
       difficulty,
       isClient,
       locationUrl: location.url,
-      savedStateDifficulty:
-        savedState?.difficulty === "Custom" ? null : (savedState?.difficulty ?? null),
+      savedStateDifficulty,
       savedStateStage: savedState?.difficulty === difficulty ? savedState.stage : null,
       progress,
     });

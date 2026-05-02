@@ -15,9 +15,11 @@ export const MESSAGES = {
       Easy: "쉬움",
       Medium: "보통",
       Hard: "어려움",
+      Crossing: "교차 퍼즐",
       Custom: "사용자 지정",
     },
     difficultyDescription: {
+      Crossing: "9개의 고밀도 교차 퍼즐",
       Custom: "정확한 개수, 크기, 시드 선택",
       Standard: "최고 단계: {{maxStage}}",
     },
@@ -117,9 +119,11 @@ export const MESSAGES = {
       Easy: "Easy",
       Medium: "Medium",
       Hard: "Hard",
+      Crossing: "Crossing",
       Custom: "Custom",
     },
     difficultyDescription: {
+      Crossing: "9 dense crossing puzzles",
       Custom: "Pick counts, size, seed",
       Standard: "Max Stage: {{maxStage}}",
     },

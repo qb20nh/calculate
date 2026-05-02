@@ -5,6 +5,7 @@ const routes = [
   { path: "/game/easy?stage=1", label: "easy", text: "Easy - Stage 1" },
   { path: "/game/medium?stage=1", label: "medium", text: "Medium - Stage 1" },
   { path: "/game/hard?stage=1", label: "hard", text: "Hard - Stage 1" },
+  { path: "/game/crossing?stage=1", label: "crossing", text: "Crossing - Stage 1" },
   { path: "/game/custom", label: "custom", text: "Custom Game" },
   { path: "/game", label: "game", text: "Page not found" },
   { path: "/game/", label: "game-slash", text: "Page not found" },
@@ -153,6 +154,37 @@ describe("browser smoke", () => {
       await browser.drainBrowserConsoleErrors(),
       "menu should be interactive after returning from custom game",
     ).toEqual([]);
+  }, 60000);
+
+  it("supports crossing game menu navigation and back navigation", async () => {
+    const browser = browserCommands();
+
+    await browser.captureBrowserConsole();
+    await browser.gotoRoute("/");
+    await browser.waitForRouteSettled("/", "Math Crossword");
+
+    await browser.clickButton("Crossing");
+    await browser.waitForRouteSettled("/game/crossing?stage=1", "Crossing - Stage 1");
+    expect(
+      await browser.getComputedStyleValue('[data-testid="game-board-container"]', "flex-grow"),
+      "crossing route should have full game layout styles after menu navigation",
+    ).toBe("1");
+    expect(
+      await browser.getComputedStyleValue(".tile", "display"),
+      "crossing tiles should keep route styles after menu navigation",
+    ).toBe("flex");
+    expect(
+      await browser.drainBrowserConsoleErrors(),
+      "crossing menu navigation should not emit page errors",
+    ).toEqual([]);
+
+    await browser.clickButton("Back");
+    await browser.resetAppState();
+    await browser.waitForAppSettled("Math Crossword");
+    expect(
+      await browser.drainBrowserConsoleErrors(),
+      "back from crossing game should not emit page errors",
+    ).toEqual([]);
   }, 30000);
 
   it("keeps split CSS styles on direct SSG route loads", async () => {
@@ -172,6 +204,21 @@ describe("browser smoke", () => {
     expect(
       await browser.getComputedStyleValue(".board-container", "overflow-x"),
       "direct game inventory should keep split route styles",
+    ).toBe("auto");
+
+    await browser.gotoRoute("/game/crossing?stage=1");
+    await browser.waitForRouteSettled("/game/crossing?stage=1", "Crossing - Stage 1");
+    expect(
+      await browser.getComputedStyleValue('[data-testid="game-board-container"]', "flex-grow"),
+      "direct crossing route should use game layout styles",
+    ).toBe("1");
+    expect(
+      await browser.getComputedStyleValue(".tile", "display"),
+      "direct crossing tiles should keep split route styles",
+    ).toBe("flex");
+    expect(
+      await browser.getComputedStyleValue(".board-container", "overflow-x"),
+      "direct crossing inventory should keep split route styles",
     ).toBe("auto");
 
     await browser.gotoRoute("/game/custom");
@@ -237,11 +284,20 @@ describe("browser smoke", () => {
     expect(custom.firstAppClass).toContain("theme-page-bg h-dvh w-full overflow-y-auto");
     expect(custom.bodyText).toContain("Custom Game");
 
+    const crossing = await browser.fetchRouteHtmlSummary("/game/crossing?stage=1");
+    expect(crossing.hasCriticalCss).toBe(true);
+    expect(crossing.firstAppClass).toContain("theme-page-bg h-dvh w-full flex flex-col");
+    expect(crossing.bodyText).toContain("Crossing");
+    expect(crossing.bodyText).toContain("Stage 1");
+
     const easySlash = await browser.fetchRouteHtmlSummary("/game/easy/?stage=1");
     expect(easySlash.firstAppClass).toBe(easy.firstAppClass);
 
     const customSlash = await browser.fetchRouteHtmlSummary("/game/custom/");
     expect(customSlash.firstAppClass).toBe(custom.firstAppClass);
+
+    const crossingSlash = await browser.fetchRouteHtmlSummary("/game/crossing/?stage=1");
+    expect(crossingSlash.firstAppClass).toBe(crossing.firstAppClass);
   });
 
   it("verifies back navigation for all primary routes", async () => {
@@ -250,6 +306,7 @@ describe("browser smoke", () => {
       { path: "/game/easy?stage=1", text: "Easy - Stage 1" },
       { path: "/game/medium?stage=1", text: "Medium - Stage 1" },
       { path: "/game/hard?stage=1", text: "Hard - Stage 1" },
+      { path: "/game/crossing?stage=1", text: "Crossing - Stage 1" },
     ];
 
     for (const route of primaryRoutes) {

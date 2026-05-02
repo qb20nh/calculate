@@ -10,15 +10,12 @@ import { useBoardPan } from "@/components/game/useBoardPan";
 import { useDialogFocus } from "@/components/game/useDialogFocus";
 import { useGameValidation } from "@/components/game/useGameValidation";
 import { useInventoryScroll } from "@/components/game/useInventoryScroll";
-import {
-  createStandardGameState,
-  useStandardGameState,
-} from "@/components/game/useStandardGameState";
+import { createGameState, useStandardGameState } from "@/components/game/useStandardGameState";
 import { useAppReadinessSignal } from "@/hooks/useAppReadinessSignal";
 import { useAppSettings } from "@/lib/appSettings";
 import { cn } from "@/lib/utils";
 import type { TileData } from "@/services/math";
-import type { Difficulty, GameMode, GameState } from "@/services/storage";
+import type { GameMode, GameState } from "@/services/storage";
 
 export { GameLoadingShell, UnavailableLevelShell } from "@/components/game/GameShells";
 
@@ -225,9 +222,7 @@ export const Game: FunctionalComponent<GameProps> = ({
   };
 
   const confirmResetLevel = () => {
-    const newGame = createNewGame
-      ? createNewGame()
-      : createStandardGameState(stage, difficulty as Difficulty);
+    const newGame = createNewGame ? createNewGame() : createGameState(stage, difficulty);
     setGameState(newGame);
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);

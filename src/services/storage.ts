@@ -4,9 +4,10 @@ import {
   validateCustomGameConfig,
 } from "@/services/customGameConfig";
 import type { TileData } from "@/services/math";
+import { OP_DIV, OP_MINUS, OP_MULT, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/services/math";
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
-export type GameMode = Difficulty | "Custom";
+export type GameMode = Difficulty | "Custom" | "Crossing";
 
 export interface CustomGameConfig {
   givenCount: number;
@@ -44,7 +45,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isDifficulty = (value: unknown): value is Difficulty =>
   value === "Easy" || value === "Medium" || value === "Hard";
 
-const isGameMode = (value: unknown): value is GameMode => isDifficulty(value) || value === "Custom";
+const isGameMode = (value: unknown): value is GameMode =>
+  isDifficulty(value) || value === "Custom" || value === "Crossing";
 
 const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
   isRecord(value) &&
@@ -83,11 +85,21 @@ const normalizeProgress = (value: unknown): Progress | null => {
 const isTileType = (value: unknown): value is TileData["type"] =>
   value === "val" || value === "op" || value === "rel";
 
+const VALID_SINGLE_TILE_VALUES = new Set([
+  OP_PLUS,
+  OP_MINUS,
+  OP_MULT,
+  OP_DIV,
+  REL_EQ,
+  REL_LT,
+  REL_GT,
+  ..."0123456789",
+]);
+
 const isTileValue = (value: unknown): value is string =>
   typeof value === "string" &&
-  value.length > 0 &&
-  value.length <= 2 &&
-  /^[0-9+−×÷=<>]$/.test(value);
+  ((value.length === 1 && VALID_SINGLE_TILE_VALUES.has(value)) ||
+    (value.length === 2 && value === `${REL_LT}${REL_GT}`));
 
 const isTileData = (value: unknown): value is TileData =>
   isRecord(value) &&

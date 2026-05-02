@@ -92,6 +92,7 @@ export default defineConfig(({ command }) => {
             "/game/easy",
             "/game/medium",
             "/game/hard",
+            "/game/crossing",
             "/game/custom",
           ],
           previewMiddlewareEnabled: false,

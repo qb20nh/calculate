@@ -8,6 +8,7 @@ import {
   parseGameModeSlug,
   removeBasePath,
   toCustomGamePath,
+  toGamePath,
 } from "@/routes/routeUtils";
 
 describe("route utils", () => {
@@ -43,7 +44,9 @@ describe("route utils", () => {
     expect(parseDifficultySlug()).toBe(null);
     expect(parseGameModeSlug()).toBe(null);
     expect(parseGameModeSlug("custom")).toBe("Custom");
+    expect(parseGameModeSlug("crossing")).toBe("Crossing");
     expect(parseGameModeSlug("easy")).toBe("Easy");
+    expect(toGamePath("Crossing", 3)).toBe("/game/crossing?stage=3");
 
     const parsed = parseCustomGameConfig(
       new URLSearchParams("given=6&inventory=10&size=10&seed=123"),

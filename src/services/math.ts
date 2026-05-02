@@ -49,7 +49,12 @@ export const OP_DIV = "÷"; // U+00F7
 export const REL_EQ = "=";
 export const REL_LT = "<";
 export const REL_GT = ">";
-const REL_NEQ = "<>";
+const REL_NEQ = `${REL_LT}${REL_GT}`;
+
+const ASCII_PLUS = "+";
+const ASCII_MINUS = "-";
+const ASCII_MULT = "*";
+const ASCII_DIV = "/";
 
 // --- Math Logic Helpers ---
 const randInt = (prng: () => number, min: number, max: number) =>
@@ -147,11 +152,14 @@ export const evaluateExpression = (str: string) => {
   if (str.length === 0) return null;
 
   // Map Unicode symbols to standard ASCII operators for evaluation
-  const normalized = str.replaceAll(OP_MINUS, "-").replaceAll(OP_MULT, "*").replaceAll(OP_DIV, "/");
+  const normalized = str
+    .replaceAll(OP_MINUS, ASCII_MINUS)
+    .replaceAll(OP_MULT, ASCII_MULT)
+    .replaceAll(OP_DIV, ASCII_DIV);
 
   if (!/^[0-9+\-*/]+$/.test(normalized)) return null;
 
-  const tokens: Array<number | "+" | "-" | "*" | "/"> = [];
+  const tokens: Array<number | string> = [];
   let sign = 1;
   let expectNumber = true;
   for (let i = 0; i < normalized.length; ) {
@@ -180,27 +188,27 @@ export const evaluateExpression = (str: string) => {
       continue;
     }
 
-    if (ch === "+") {
+    if (ch === ASCII_PLUS) {
       if (expectNumber) return null;
-      tokens.push("+");
+      tokens.push(ASCII_PLUS);
       expectNumber = true;
       i++;
       continue;
     }
 
-    if (ch === "-") {
+    if (ch === ASCII_MINUS) {
       if (expectNumber) {
         sign *= -1;
         i++;
         continue;
       }
-      tokens.push("-");
+      tokens.push(ASCII_MINUS);
       expectNumber = true;
       i++;
       continue;
     }
 
-    if (ch === "*" || ch === "/") {
+    if (ch === ASCII_MULT || ch === ASCII_DIV) {
       if (expectNumber) return null;
       tokens.push(ch);
       expectNumber = true;
@@ -211,25 +219,25 @@ export const evaluateExpression = (str: string) => {
   if (expectNumber) return null;
 
   const values: number[] = [];
-  const ops: Array<"+" | "-"> = [];
+  const ops: string[] = [];
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     if (t === undefined) return null;
-    if (t === "*" || t === "/") {
+    if (t === ASCII_MULT || t === ASCII_DIV) {
       const left = values.pop();
       if (left === undefined) return null;
       const rightToken = tokens[++i];
       if (rightToken === undefined) return null;
       const right = Number(rightToken);
       if (!Number.isFinite(right)) return null;
-      if (t === "*") {
+      if (t === ASCII_MULT) {
         values.push(left * right);
       } else {
         if (right === 0) return null;
         if (left % right !== 0) return null;
         values.push(left / right);
       }
-    } else if (t === "+" || t === "-") {
+    } else if (t === ASCII_PLUS || t === ASCII_MINUS) {
       ops.push(t);
     } else {
       const value = Number(t);
@@ -245,8 +253,8 @@ export const evaluateExpression = (str: string) => {
     const op = ops[i];
     const right = values[i + 1];
     if (right === undefined) return null;
-    if (op === "+") res += right;
-    if (op === "-") res -= right;
+    if (op === ASCII_PLUS) res += right;
+    if (op === ASCII_MINUS) res -= right;
   }
 
   if (!Number.isFinite(res)) return null;

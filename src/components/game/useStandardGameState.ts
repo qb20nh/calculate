@@ -1,28 +1,52 @@
 import { useEffect, useState } from "preact/hooks";
-import { generateGame } from "@/services/board";
+import { generateCrossingGame, generateGame } from "@/services/board";
 import type { Difficulty, GameMode, GameState } from "@/services/storage";
 
-export const createStandardGameState = (
+const createStandardGameState = (
   stage: number,
   difficulty: Difficulty,
   maxAttempts = 3000,
 ): GameState => {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const game = generateGame(stage, difficulty, attempt);
-    if (Object.keys(game.board).length > 0) {
-      return { ...game, difficulty, stage, solvedAcknowledged: false };
-    }
+  let generatedGame: ReturnType<typeof generateGame> | null = null;
+  let attempt = 0;
+  while (!generatedGame && attempt < maxAttempts) {
+    const candidate = generateGame(stage, difficulty, attempt);
+    if (Object.keys(candidate.board).length > 0) generatedGame = candidate;
+    attempt++;
   }
 
   return {
-    board: {},
-    bank: [],
-    initialBankSize: 0,
-    status: "playing",
+    ...(generatedGame || { board: {}, bank: [], initialBankSize: 0, status: "playing" as const }),
     difficulty,
     stage,
     solvedAcknowledged: false,
   };
+};
+
+export const createGameState = (stage: number, difficulty: GameMode): GameState => {
+  if (difficulty === "Crossing") {
+    const game = generateCrossingGame(stage);
+    return {
+      ...(game || { board: {}, bank: [], initialBankSize: 0, status: "playing" as const }),
+      difficulty,
+      stage,
+      solvedAcknowledged: false,
+    };
+  }
+
+  if (difficulty === "Custom") {
+    return {
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty,
+      stage,
+      solvedAcknowledged: false,
+    };
+  }
+
+  return createStandardGameState(stage, difficulty);
 };
 
 export const useStandardGameState = ({
@@ -68,7 +92,7 @@ export const useStandardGameState = ({
     if (initialState) return;
     if (difficulty === "Custom") return;
 
-    setGameState(createStandardGameState(stage, difficulty as Difficulty));
+    setGameState(createGameState(stage, difficulty));
     onGenerated();
   }, [stage, difficulty, initialState, onGenerated]);
 

@@ -1,4 +1,5 @@
 export {
+  generateCrossingGame,
   generateCustomGame,
   generateCustomGameAttempt,
   generateGame,

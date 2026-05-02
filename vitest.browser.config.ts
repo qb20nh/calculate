@@ -73,7 +73,7 @@ const expectedReadyRouteForPath = (path: string) => {
   if (pathname === "/game/custom") {
     return url.searchParams.has("given") ? "game" : "custom-setup";
   }
-  if (["/game/easy", "/game/medium", "/game/hard"].includes(pathname)) {
+  if (["/game/easy", "/game/medium", "/game/hard", "/game/crossing"].includes(pathname)) {
     return "game";
   }
   return "notfound";
@@ -262,6 +262,7 @@ const waitForRouteSettled: BrowserCommand<[string, string]> = async (context, pa
             "/game/easy",
             "/game/medium",
             "/game/hard",
+            "/game/crossing",
             "/game/custom",
           ].includes(pathname);
           if (isKnownGameRoute && (pathname !== "/game/custom" || url.searchParams.has("given"))) {

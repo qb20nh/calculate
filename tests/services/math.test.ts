@@ -16,13 +16,19 @@ import {
 } from "@/services/math";
 
 describe("math service", () => {
+  const asciiPlus = String.fromCharCode(43);
+  const asciiMinus = String.fromCharCode(45);
+  const asciiMult = String.fromCharCode(42);
+  const asciiDiv = String.fromCharCode(47);
+
   const referenceEvaluateExpression = (str: string) => {
     if (str.length === 0) return null;
 
     const normalized = str
-      .replaceAll(OP_MINUS, "-")
-      .replaceAll(OP_MULT, "*")
-      .replaceAll(OP_DIV, "/");
+      .replaceAll(OP_PLUS, asciiPlus)
+      .replaceAll(OP_MINUS, asciiMinus)
+      .replaceAll(OP_MULT, asciiMult)
+      .replaceAll(OP_DIV, asciiDiv);
 
     if (/[+\-*/]{2,}/.test(normalized)) return null;
     if (/^[+\-*/]/.test(normalized)) return null;
@@ -34,13 +40,13 @@ describe("math service", () => {
     if (!tokens) return null;
 
     const values: number[] = [];
-    const ops: Array<"+" | "-"> = [];
+    const ops: string[] = [];
 
     for (let i = 0; i < tokens.length; i++) {
       const t = tokens[i];
       if (!t) return null;
 
-      if (t === "*" || t === "/") {
+      if (t === asciiMult || t === asciiDiv) {
         const left = values.pop();
         if (left === undefined) return null;
 
@@ -50,14 +56,14 @@ describe("math service", () => {
         const right = Number(rightToken);
         if (!Number.isFinite(right)) return null;
 
-        if (t === "*") {
+        if (t === asciiMult) {
           values.push(left * right);
         } else {
           if (right === 0) return null;
           if (left % right !== 0) return null;
           values.push(left / right);
         }
-      } else if (t === "+" || t === "-") {
+      } else if (t === asciiPlus || t === asciiMinus) {
         ops.push(t);
       } else {
         const value = Number(t);
@@ -75,8 +81,8 @@ describe("math service", () => {
       const right = values[i + 1];
       if (right === undefined) return null;
 
-      if (op === "+") res += right;
-      if (op === "-") res -= right;
+      if (op === asciiPlus) res += right;
+      if (op === asciiMinus) res -= right;
     }
 
     if (!Number.isFinite(res)) return null;
@@ -150,7 +156,7 @@ describe("math service", () => {
       .array(fc.integer({ min: 0, max: 999 }), { minLength: 1, maxLength: 6 })
       .chain((terms) =>
         fc
-          .array(fc.constantFrom("+", OP_MINUS, OP_MULT, OP_DIV), {
+          .array(fc.constantFrom(OP_PLUS, OP_MINUS, OP_MULT, OP_DIV), {
             minLength: terms.length - 1,
             maxLength: terms.length - 1,
           })

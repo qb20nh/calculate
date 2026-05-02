@@ -28,6 +28,7 @@ const mockLoadProgress = vi.fn(() => ({
   Hard: { current: 1, max: 1 },
 }));
 const mockLoadGameState = vi.fn(() => null);
+const mockSaveGameState = vi.fn();
 
 vi.mock("@/routes/CustomGameRoute", () => ({
   default: () => <div>Custom Setup</div>,
@@ -41,7 +42,7 @@ vi.mock("@/services/storage", () => ({
   },
   loadProgress: () => mockLoadProgress(),
   loadGameState: () => mockLoadGameState(),
-  saveGameState: vi.fn(),
+  saveGameState: (...args: Parameters<typeof mockSaveGameState>) => mockSaveGameState(...args),
   saveProgress: vi.fn(),
 }));
 
@@ -265,5 +266,82 @@ describe("GameRoute", () => {
     render(<GameRoute difficulty="custom" />);
 
     expect(screen.getByText("Custom Setup")).toBeDefined();
+  });
+
+  it("should redirect crossing route to its first stage", async () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    await waitFor(() => {
+      expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=1", true);
+    });
+  });
+
+  it("should use a saved crossing stage when no stage is specified", async () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing";
+    mockLoadGameState.mockReturnValueOnce({
+      board: {},
+      bank: [],
+      initialBankSize: 0,
+      status: "playing",
+      difficulty: "Crossing",
+      stage: 3,
+    } as never);
+
+    render(<GameRoute difficulty="crossing" />);
+
+    await waitFor(() => {
+      expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=3", true);
+    });
+  });
+
+  it("should advance crossing stages without progress locking", () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing?stage=1";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    fireEvent.click(screen.getByText("Mock Win"));
+    expect(mockRoute).toHaveBeenCalledWith("/game/crossing?stage=2");
+  });
+
+  it("should save crossing state changes and clear state on back", () => {
+    mockRoute.mockClear();
+    mockSaveGameState.mockClear();
+    mockLocationUrl = "/game/crossing?stage=1";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    fireEvent.click(screen.getByText("Mock State Playing"));
+    expect(mockSaveGameState).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "playing", stage: 1 }),
+    );
+
+    fireEvent.click(requireValue(screen.getAllByLabelText("Back")[0]));
+    expect(mockSaveGameState).toHaveBeenCalledWith(null);
+    expect(mockRoute).toHaveBeenCalledWith("/");
+  });
+
+  it("should ignore crossing stage changes outside the available range", () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing?stage=9";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    mockRoute.mockClear();
+    fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
+    expect(mockRoute).not.toHaveBeenCalled();
+  });
+
+  it("should reject unavailable crossing stages", () => {
+    mockRoute.mockClear();
+    mockLocationUrl = "/game/crossing?stage=10";
+
+    render(<GameRoute difficulty="crossing" />);
+
+    expect(screen.getByText("Page not found")).toBeDefined();
   });
 });

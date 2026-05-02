@@ -13,6 +13,10 @@ describe("menu route resolver", () => {
     expect(resolveMenuRoute({ mode: "Custom", progress })).toBe("/game/custom");
   });
 
+  it("should build a crossing game route", () => {
+    expect(resolveMenuRoute({ mode: "Crossing", progress })).toBe("/game/crossing?stage=1");
+  });
+
   it("should route normal mode to the latest unlocked stage", () => {
     expect(resolveMenuRoute({ mode: "Easy", progress })).toBe("/game/easy?stage=2");
     expect(resolveMenuRoute({ mode: "Hard", progress })).toBe("/game/hard?stage=6");
