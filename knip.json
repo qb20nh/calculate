@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
-  "ignoreFiles": ["tests/browser/vitest.globalSetup.ts"],
+  "ignoreFiles": ["tests/browser/vitest.globalSetup.ts", "tests/types/**/*.test-d.ts"],
   "ignoreDependencies": ["tailwindcss"]
 }

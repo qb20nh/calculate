@@ -1,15 +1,20 @@
 import { fileURLToPath } from "node:url";
 import preact from "@preact/preset-vite";
+import UnpluginTypia from "@typia/unplugin/vite";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [UnpluginTypia({ tsconfig: "./tsconfig.json" }), preact()],
   test: {
     name: "unit",
     environment: "jsdom",
     globals: true,
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["tests/browser/**", "tests/**/*.browser.{test,spec}.{ts,tsx}"],
+    typecheck: {
+      include: ["tests/**/*.test-d.ts"],
+      tsconfig: "./tsconfig.json",
+    },
     coverage: {
       provider: "v8",
       include: ["src/**"],

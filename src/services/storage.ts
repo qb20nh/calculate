@@ -1,23 +1,28 @@
-import {
-  CUSTOM_GAME_LIMITS,
-  isValidRetryCount,
-  validateCustomGameConfig,
-} from "@/services/customGameConfig";
-import type { TileData } from "@/services/math";
-import { OP_DIV, OP_MINUS, OP_MULT, OP_PLUS, REL_EQ, REL_GT, REL_LT } from "@/services/math";
+import typia, { type tags } from "typia";
+import { CUSTOM_GAME_LIMITS, validateCustomGameConfig } from "@/services/customGameConfig";
+import type {
+  OP_DIV,
+  OP_MINUS,
+  OP_MULT,
+  OP_PLUS,
+  REL_EQ,
+  REL_GT,
+  REL_LT,
+  TileData,
+} from "@/services/math";
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
 export type GameMode = Difficulty | "Custom" | "Crossing";
 export type ProgressMode = Difficulty | "Crossing";
-type ProgressEntry = { current: number; max: number };
+type ProgressEntry = Readonly<{ current: number; max: number }>;
 
 export interface CustomGameConfig {
-  givenCount: number;
-  inventoryCount: number;
-  sizeLimit: number;
-  seed: string;
-  limitSolutionSize: boolean;
-  attempt?: number;
+  readonly givenCount: number;
+  readonly inventoryCount: number;
+  readonly sizeLimit: number;
+  readonly seed: string;
+  readonly limitSolutionSize: boolean;
+  readonly attempt?: number;
 }
 
 export interface GameState {
@@ -33,6 +38,51 @@ export interface GameState {
 
 export type Progress = Record<Difficulty, ProgressEntry> &
   Partial<Record<"Crossing", ProgressEntry>>;
+
+type NonNegativeInt = number & tags.Type<"uint32">;
+type PositiveInt = NonNegativeInt & tags.Minimum<1>;
+type TileId = string & tags.MinLength<1> & tags.MaxLength<80>;
+type TileDigit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+type StoredTileValue =
+  | TileDigit
+  | typeof OP_PLUS
+  | typeof OP_MINUS
+  | typeof OP_MULT
+  | typeof OP_DIV
+  | typeof REL_EQ
+  | typeof REL_LT
+  | typeof REL_GT
+  | `${typeof REL_LT}${typeof REL_GT}`;
+
+type StoredTileData = Omit<TileData, "id" | "val"> & {
+  id: TileId;
+  val: StoredTileValue;
+};
+
+type StoredProgressEntry = {
+  current: PositiveInt;
+  max: PositiveInt;
+};
+
+type StoredCustomGameConfig = {
+  givenCount: NonNegativeInt;
+  inventoryCount: NonNegativeInt;
+  sizeLimit: PositiveInt;
+  seed: string & tags.MaxLength<typeof CUSTOM_GAME_LIMITS.maxSeedLength>;
+  limitSolutionSize: boolean;
+  attempt?: NonNegativeInt & tags.Maximum<typeof CUSTOM_GAME_LIMITS.maxRetryCount>;
+};
+
+type StoredGameStateShape = {
+  board: Record<string, StoredTileData>;
+  bank: StoredTileData[] & tags.MaxItems<typeof CUSTOM_GAME_LIMITS.maxTotalTiles>;
+  initialBankSize: NonNegativeInt & tags.Maximum<typeof CUSTOM_GAME_LIMITS.maxTotalTiles>;
+  status: "playing" | "won";
+  difficulty: GameMode;
+  stage: PositiveInt & tags.Maximum<typeof CUSTOM_GAME_LIMITS.maxRetryCount>;
+  customConfig?: StoredCustomGameConfig;
+  solvedAcknowledged?: boolean;
+};
 
 const STORAGE_KEY_PROGRESS = "math_scrabble_progress";
 const STORAGE_KEY_STATE = "math_scrabble_state";
@@ -58,24 +108,12 @@ const isProgressMode = (value: unknown): value is ProgressMode =>
 
 const getClearedStateKey = (difficulty: ProgressMode, stage: number) => `${difficulty}:${stage}`;
 
-const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
-  isRecord(value) &&
-  typeof value.givenCount === "number" &&
-  typeof value.inventoryCount === "number" &&
-  typeof value.sizeLimit === "number" &&
-  typeof value.seed === "string" &&
-  typeof value.limitSolutionSize === "boolean" &&
-  (value.attempt === undefined || isValidRetryCount(value.attempt)) &&
-  validateCustomGameConfig(value) === null;
-
-const isProgressEntry = (value: unknown): value is ProgressEntry =>
-  isRecord(value) &&
-  typeof value.current === "number" &&
-  Number.isSafeInteger(value.current) &&
-  value.current >= 1 &&
-  typeof value.max === "number" &&
-  Number.isSafeInteger(value.max) &&
-  value.max >= 1;
+const isProgressEntry = typia.createIs<StoredProgressEntry>();
+const isStoredGameStateShape = typia.createIs<StoredGameStateShape>();
+const parseStoredGameState = typia.json.createIsParse<StoredGameStateShape>();
+const stringifyProgress = typia.json.createStringify<Progress>();
+const stringifyGameState = typia.json.createStringify<GameState>();
+const stringifyClearedGameStates = typia.json.createStringify<Record<string, GameState>>();
 
 const normalizeProgress = (value: unknown): Progress | null => {
   if (!isRecord(value)) return null;
@@ -92,34 +130,6 @@ const normalizeProgress = (value: unknown): Progress | null => {
     Crossing: readEntry("Crossing"),
   };
 };
-
-const isTileType = (value: unknown): value is TileData["type"] =>
-  value === "val" || value === "op" || value === "rel";
-
-const VALID_SINGLE_TILE_VALUES = new Set([
-  OP_PLUS,
-  OP_MINUS,
-  OP_MULT,
-  OP_DIV,
-  REL_EQ,
-  REL_LT,
-  REL_GT,
-  ..."0123456789",
-]);
-
-const isTileValue = (value: unknown): value is string =>
-  typeof value === "string" &&
-  ((value.length === 1 && VALID_SINGLE_TILE_VALUES.has(value)) ||
-    (value.length === 2 && value === `${REL_LT}${REL_GT}`));
-
-const isTileData = (value: unknown): value is TileData =>
-  isRecord(value) &&
-  typeof value.id === "string" &&
-  value.id.length > 0 &&
-  value.id.length <= 80 &&
-  isTileValue(value.val) &&
-  isTileType(value.type) &&
-  (value.isGiven === undefined || typeof value.isGiven === "boolean");
 
 const isBoardKey = (key: string) => {
   const match = /^-?\d+,-?\d+$/.exec(key);
@@ -140,39 +150,17 @@ const isBoard = (value: unknown): value is GameState["board"] => {
   if (!isRecord(value)) return false;
   const entries = Object.entries(value);
   if (entries.length > CUSTOM_GAME_LIMITS.maxTotalTiles) return false;
-  return entries.every(([key, tile]) => isBoardKey(key) && isTileData(tile));
+  return entries.every(([key]) => isBoardKey(key));
 };
 
 const isGameState = (value: unknown): value is GameState => {
-  if (!isRecord(value)) return false;
+  if (!isStoredGameStateShape(value)) return false;
   if (!isBoard(value.board)) return false;
-  if (!Array.isArray(value.bank) || value.bank.length > CUSTOM_GAME_LIMITS.maxTotalTiles) {
-    return false;
-  }
-  if (!value.bank.every(isTileData)) return false;
-  if (
-    typeof value.initialBankSize !== "number" ||
-    !Number.isSafeInteger(value.initialBankSize) ||
-    value.initialBankSize < 0 ||
-    value.initialBankSize > CUSTOM_GAME_LIMITS.maxTotalTiles
-  ) {
-    return false;
-  }
-  if (value.status !== "playing" && value.status !== "won") return false;
   if (!isGameMode(value.difficulty)) return false;
-  if (
-    typeof value.stage !== "number" ||
-    !Number.isSafeInteger(value.stage) ||
-    value.stage < 1 ||
-    value.stage > CUSTOM_GAME_LIMITS.maxRetryCount
-  ) {
+  if (value.difficulty === "Custom" && validateCustomGameConfig(value.customConfig) !== null) {
     return false;
   }
-  if (value.difficulty === "Custom" && !isCustomGameConfig(value.customConfig)) return false;
   if (value.difficulty !== "Custom" && value.customConfig !== undefined) return false;
-  if (value.solvedAcknowledged !== undefined && typeof value.solvedAcknowledged !== "boolean") {
-    return false;
-  }
   return true;
 };
 
@@ -201,6 +189,15 @@ const parseJson = <T>(raw: string | null): T | null => {
   }
 };
 
+const parseStoredGameStateJson = (raw: string | null) => {
+  if (!raw) return null;
+  try {
+    return parseStoredGameState(raw);
+  } catch {
+    return null;
+  }
+};
+
 const getStorage = () =>
   typeof localStorage !== "undefined" &&
   typeof localStorage.getItem === "function" &&
@@ -213,7 +210,7 @@ export const saveProgress = (progress: Progress) => {
   const storage = getStorage();
   if (!storage) return;
   try {
-    storage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
+    storage.setItem(STORAGE_KEY_PROGRESS, stringifyProgress(progress));
   } catch {
     // Ignore quota/private-mode storage failures.
   }
@@ -235,7 +232,7 @@ export const saveGameState = (state: GameState | null) => {
 
   try {
     if (state) {
-      storage.setItem(STORAGE_KEY_STATE, JSON.stringify(state));
+      storage.setItem(STORAGE_KEY_STATE, stringifyGameState(state));
     } else {
       storage.removeItem(STORAGE_KEY_STATE);
     }
@@ -248,7 +245,7 @@ export const loadGameState = (): GameState | null => {
   const storage = getStorage();
   if (!storage) return null;
 
-  const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_STATE));
+  const saved = parseStoredGameStateJson(storage.getItem(STORAGE_KEY_STATE));
   return sanitizeStoredGameState(saved);
 };
 
@@ -260,8 +257,13 @@ export const saveClearedGameState = (state: GameState) => {
   try {
     const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_CLEARED_STATES));
     const clearedStates = sanitizeStoredClearedGameStates(saved);
-    clearedStates[getClearedStateKey(state.difficulty, state.stage)] = state;
-    storage.setItem(STORAGE_KEY_CLEARED_STATES, JSON.stringify(clearedStates));
+    storage.setItem(
+      STORAGE_KEY_CLEARED_STATES,
+      stringifyClearedGameStates({
+        ...clearedStates,
+        [getClearedStateKey(state.difficulty, state.stage)]: state,
+      }),
+    );
   } catch {
     // Ignore quota/private-mode storage failures.
   }
@@ -283,8 +285,15 @@ export const clearClearedGameState = (difficulty: ProgressMode, stage: number) =
   try {
     const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_CLEARED_STATES));
     const clearedStates = sanitizeStoredClearedGameStates(saved);
-    delete clearedStates[getClearedStateKey(difficulty, stage)];
-    storage.setItem(STORAGE_KEY_CLEARED_STATES, JSON.stringify(clearedStates));
+    const clearedStateKey = getClearedStateKey(difficulty, stage);
+    storage.setItem(
+      STORAGE_KEY_CLEARED_STATES,
+      stringifyClearedGameStates(
+        Object.fromEntries(
+          Object.entries(clearedStates).filter(([key]) => key !== clearedStateKey),
+        ),
+      ),
+    );
   } catch {
     // Ignore quota/private-mode storage failures.
   }

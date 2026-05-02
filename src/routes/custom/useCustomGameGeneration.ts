@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { match } from "ts-pattern";
 import { addBasePath, toCustomGamePath } from "@/routes/routeUtils";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
@@ -67,45 +68,42 @@ export function useCustomGameGeneration({
         workerRef.current = worker;
 
         worker.onmessage = (event: MessageEvent<CustomGameGenerationMessage>) => {
-          const message = event.data;
-          if (message.type === "progress") {
-            if (message.retryCount >= CUSTOM_GAME_RETRY_LIMIT) {
+          match(event.data)
+            .with({ type: "progress" }, (message) => {
+              if (message.retryCount >= CUSTOM_GAME_RETRY_LIMIT) {
+                failGeneration();
+                return;
+              }
+
+              setRetryCount(message.retryCount);
+              worker.postMessage({
+                type: "generate",
+                config,
+                retryCount: message.retryCount,
+              });
+            })
+            .with({ type: "success" }, (message) => {
+              terminateWorker();
+              setIsGenerating(false);
+
+              const finalAttempt = message.game.customConfig?.attempt ?? 0;
+              const finalGame: GameState = {
+                ...message.game,
+                customConfig: {
+                  ...config,
+                  attempt: finalAttempt,
+                },
+              };
+
+              setRetryCount(finalAttempt);
+              saveGameState(finalGame);
+              syncCustomUrl(finalGame.customConfig ?? config, finalAttempt);
+              onSuccess(finalGame);
+            })
+            .with({ type: "failure" }, () => {
               failGeneration();
-              return;
-            }
-
-            setRetryCount(message.retryCount);
-            worker.postMessage({
-              type: "generate",
-              config,
-              retryCount: message.retryCount,
-            });
-            return;
-          }
-
-          if (message.type === "success") {
-            terminateWorker();
-            setIsGenerating(false);
-
-            const finalAttempt = message.game.customConfig?.attempt ?? 0;
-            const finalGame: GameState = {
-              ...message.game,
-              customConfig: {
-                ...config,
-                attempt: finalAttempt,
-              },
-            };
-
-            setRetryCount(finalAttempt);
-            saveGameState(finalGame);
-            syncCustomUrl(finalGame.customConfig ?? config, finalAttempt);
-            onSuccess(finalGame);
-            return;
-          }
-
-          if (message.type === "failure") {
-            failGeneration();
-          }
+            })
+            .exhaustive();
         };
 
         worker.onerror = () => failGeneration();

@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import preact from "@preact/preset-vite";
+import UnpluginTypia from "@typia/unplugin/vite";
 import legacy from "@vitejs/plugin-legacy";
 import { defineConfig, type Plugin } from "vite";
 import { emitCleanRouteHtmlPlugin } from "./build/emitCleanRouteHtmlPlugin";
@@ -81,6 +82,7 @@ export default defineConfig(({ command }) => {
       },
     },
     plugins: [
+      UnpluginTypia({ tsconfig: "./tsconfig.json" }),
       preact({
         prerender: {
           enabled: !!prerender,

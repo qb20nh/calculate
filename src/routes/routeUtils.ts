@@ -1,3 +1,4 @@
+import { match, P } from "ts-pattern";
 import {
   CUSTOM_GAME_LIMITS,
   isValidRetryCount,
@@ -49,7 +50,12 @@ export const removeBasePath = (url: string, basePath = BASE_PATH) => {
 };
 
 const toGameModeSlug = (mode: StandardGameMode): DifficultySlug | "crossing" =>
-  mode === "Crossing" ? "crossing" : (mode.toLowerCase() as DifficultySlug);
+  match(mode)
+    .with("Easy", () => "easy" as const)
+    .with("Medium", () => "medium" as const)
+    .with("Hard", () => "hard" as const)
+    .with("Crossing", () => "crossing" as const)
+    .exhaustive();
 
 export const toGamePath = (mode: StandardGameMode, stage: number) => {
   return `/game/${toGameModeSlug(mode)}?stage=${stage}`;
@@ -76,9 +82,11 @@ export const parseDifficultySlug = (slug?: string): Difficulty | null => {
 
 export const parseGameModeSlug = (slug?: string): GameMode | null => {
   if (!slug || !isGameModeSlug(slug)) return null;
-  if (slug === "custom") return "Custom";
-  if (slug === "crossing") return "Crossing";
-  return DIFFICULTY_BY_SLUG[slug];
+  return match(slug)
+    .with("custom", () => "Custom" as const)
+    .with("crossing", () => "Crossing" as const)
+    .with(P.union("easy", "medium", "hard"), (difficultySlug) => DIFFICULTY_BY_SLUG[difficultySlug])
+    .exhaustive();
 };
 
 export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGameConfig | null => {
@@ -118,7 +126,7 @@ export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGame
     return null;
   }
 
-  const config: CustomGameConfig = {
+  const baseConfig: CustomGameConfig = {
     givenCount,
     inventoryCount,
     sizeLimit,
@@ -127,13 +135,16 @@ export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGame
   };
 
   const retryCountRaw = searchParams.get("retryCount");
-  if (retryCountRaw !== null) {
-    const attempt = Number(retryCountRaw);
-    if (!isValidRetryCount(attempt)) return null;
-    config.attempt = attempt;
-  }
+  const config =
+    retryCountRaw === null
+      ? baseConfig
+      : (() => {
+          const attempt = Number(retryCountRaw);
+          if (!isValidRetryCount(attempt)) return null;
+          return { ...baseConfig, attempt };
+        })();
 
-  return validateCustomGameConfig(config) === null ? config : null;
+  return config && validateCustomGameConfig(config) === null ? config : null;
 };
 
 export const parseCustomGameRetryCount = (searchParams: URLSearchParams): number => {

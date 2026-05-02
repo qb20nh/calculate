@@ -119,6 +119,9 @@ describe("storage", () => {
       JSON.stringify({ ...validState, board: { "not-a-key": validState.board["0,0"] } }),
     );
     expect(loadGameState()).toBeNull();
+
+    localStorage.setItem("math_scrabble_state", "{not-json");
+    expect(loadGameState()).toBeNull();
   });
 
   it("should save cleared game states per level", () => {

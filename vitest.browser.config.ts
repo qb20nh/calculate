@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import preact from "@preact/preset-vite";
+import UnpluginTypia from "@typia/unplugin/vite";
 import { playwright } from "@vitest/browser-playwright";
 import type { Page } from "playwright";
 import { defineConfig } from "vitest/config";
@@ -406,7 +407,7 @@ const drainBrowserConsoleErrors: BrowserCommand = ({ sessionId }) => {
 };
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [UnpluginTypia({ tsconfig: "./tsconfig.json" }), preact()],
   test: {
     name: "browser",
     include: [
