@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OP_PLUS } from "@/services/math";
 import type { GameState } from "@/services/storage";
 import {
+  clearClearedGameState,
   DEFAULT_PROGRESS,
+  loadClearedGameState,
   loadGameState,
   loadProgress,
   sanitizeStoredGameState,
+  saveClearedGameState,
   saveGameState,
   saveProgress,
 } from "@/services/storage";
@@ -116,5 +119,54 @@ describe("storage", () => {
       JSON.stringify({ ...validState, board: { "not-a-key": validState.board["0,0"] } }),
     );
     expect(loadGameState()).toBeNull();
+  });
+
+  it("should save cleared game states per level", () => {
+    const easyState = { ...validState, status: "won" as const, stage: 1 };
+    const crossingState: GameState = {
+      ...validState,
+      status: "won",
+      difficulty: "Crossing",
+      stage: 2,
+    };
+
+    saveClearedGameState(easyState);
+    saveClearedGameState(crossingState);
+
+    expect(loadClearedGameState("Easy", 1)).toEqual(easyState);
+    expect(loadClearedGameState("Crossing", 2)).toEqual(crossingState);
+    expect(loadClearedGameState("Easy", 2)).toBeNull();
+  });
+
+  it("should clear one saved cleared level without touching others", () => {
+    const easyState = { ...validState, status: "won" as const, stage: 1 };
+    const hardState: GameState = {
+      ...validState,
+      status: "won",
+      difficulty: "Hard",
+      stage: 2,
+    };
+    saveClearedGameState(easyState);
+    saveClearedGameState(hardState);
+
+    clearClearedGameState("Easy", 1);
+
+    expect(loadClearedGameState("Easy", 1)).toBeNull();
+    expect(loadClearedGameState("Hard", 2)).toEqual(hardState);
+  });
+
+  it("should sanitize cleared game state entries", () => {
+    localStorage.setItem(
+      "math_scrabble_cleared_states",
+      JSON.stringify({
+        "Easy:1": { ...validState, status: "won" },
+        "Easy:2": { ...validState, status: "won", board: { "not-a-key": validState.board["0,0"] } },
+        "Hard:7": { ...validState, status: "won", difficulty: "Hard", stage: 3 },
+      }),
+    );
+
+    expect(loadClearedGameState("Easy", 1)).toEqual({ ...validState, status: "won" });
+    expect(loadClearedGameState("Easy", 2)).toBeNull();
+    expect(loadClearedGameState("Hard", 3)).toBeNull();
   });
 });

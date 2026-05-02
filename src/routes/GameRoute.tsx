@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
-import { Game, GameLoadingShell, UnavailableLevelShell } from "@/components/Game";
+import {
+  Game,
+  GameLoadingShell,
+  type GameStateChangeContext,
+  UnavailableLevelShell,
+} from "@/components/Game";
 import { useAppSettings } from "@/lib/appSettings";
 import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
@@ -19,11 +24,15 @@ import {
   unlockStage,
 } from "@/services/progress";
 import {
+  clearClearedGameState,
   DEFAULT_PROGRESS,
   type GameState,
+  loadClearedGameState,
   loadGameState,
   loadProgress,
   type Progress,
+  type ProgressMode,
+  saveClearedGameState,
   saveGameState,
   saveProgress,
 } from "@/services/storage";
@@ -35,6 +44,26 @@ interface GameRouteProps {
 interface NormalGameRouteProps {
   difficultySlug: string | undefined;
 }
+
+const persistStageGameState = (
+  state: GameState,
+  difficulty: ProgressMode,
+  context?: GameStateChangeContext,
+) => {
+  saveGameState(state);
+
+  if (state.status === "won") {
+    saveClearedGameState(state);
+    return;
+  }
+
+  if (state.solvedAcknowledged && loadClearedGameState(difficulty, state.stage) === null) {
+    saveClearedGameState(state);
+  }
+  if (context?.clearedResetTilePlaced) {
+    clearClearedGameState(difficulty, state.stage);
+  }
+};
 
 export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameRouteProps>) {
   const gameMode = parseGameModeSlug(difficultySlug);
@@ -90,6 +119,11 @@ function CrossingGameRoute() {
     if (savedState?.difficulty !== "Crossing" || savedState.stage !== stage) return null;
     return savedState;
   }, [savedState, stage]);
+  const clearedGameState = useMemo<GameState | null>(() => {
+    if (!isClient) return null;
+    return loadClearedGameState("Crossing", stage);
+  }, [isClient, stage]);
+  const restorableGameState = initialGameState ?? clearedGameState;
 
   const handleBack = useCallback(() => {
     saveGameState(null);
@@ -137,8 +171,8 @@ function CrossingGameRoute() {
   );
 
   const handleStateChange = useCallback(
-    (state: GameState) => {
-      saveGameState(state);
+    (state: GameState, context?: GameStateChangeContext) => {
+      persistStageGameState(state, "Crossing", context);
       if (state.status === "won") updateMaxProgress(state.stage + 1);
     },
     [updateMaxProgress],
@@ -179,7 +213,7 @@ function CrossingGameRoute() {
       difficulty="Crossing"
       stage={stage}
       maxStage={latestUnlockedStage}
-      initialState={initialGameState}
+      initialState={restorableGameState}
       showNextLevelButton={stage < CROSSING_LEVEL_COUNT}
       onWin={handleWin}
       onBack={handleBack}
@@ -236,6 +270,11 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
     if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
     return savedState;
   }, [difficulty, savedState, stage]);
+  const clearedGameState = useMemo<GameState | null>(() => {
+    if (!difficulty || !stage || !isClient) return null;
+    return loadClearedGameState(difficulty, stage);
+  }, [difficulty, isClient, stage]);
+  const restorableGameState = initialGameState ?? clearedGameState;
 
   const updateProgress = useCallback(
     (nextStage: number, includeMax: boolean) => {
@@ -285,13 +324,14 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   }, [location]);
 
   const handleStateChange = useCallback(
-    (state: GameState) => {
-      saveGameState(state);
+    (state: GameState, context?: GameStateChangeContext) => {
+      if (!difficulty) return;
+      persistStageGameState(state, difficulty, context);
       if (state.status === "won") {
         updateMaxProgress(state.stage + 1);
       }
     },
-    [updateMaxProgress],
+    [difficulty, updateMaxProgress],
   );
 
   if (!difficulty || !stage) return <NotFoundRoute />;
@@ -329,7 +369,7 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
       difficulty={difficulty}
       stage={stage}
       maxStage={progress[difficulty].max}
-      initialState={initialGameState}
+      initialState={restorableGameState}
       showNextLevelButton
       onWin={handleWin}
       onBack={handleBack}

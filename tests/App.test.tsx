@@ -18,6 +18,13 @@ const waitForGameLoaded = async (stageLabel: string) => {
   });
 };
 
+const requireValue = <T,>(value: T | undefined): T => {
+  if (value === undefined) {
+    throw new Error("Expected value");
+  }
+  return value;
+};
+
 describe("App", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -249,6 +256,88 @@ describe("App", () => {
     expect(screen.getByText("Math")).toBeDefined();
     await waitFor(() => {
       expect(screen.queryByLabelText("Loading screen")).toBeNull();
+    });
+  });
+
+  it("should restore an in-progress save on direct stage refresh", async () => {
+    vi.useRealTimers();
+    setProgress({
+      Easy: { current: 1, max: 2 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    localStorage.setItem(
+      "math_scrabble_state",
+      JSON.stringify({
+        board: {
+          "0,0": { id: "saved-given", val: "9", type: "val", isGiven: true },
+        },
+        bank: [],
+        initialBankSize: 0,
+        status: "playing",
+        difficulty: "Easy",
+        stage: 1,
+        solvedAcknowledged: false,
+      }),
+    );
+    window.history.replaceState(null, "", "/game/easy?stage=1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
+      expect(screen.getByText("Bank is empty.")).toBeDefined();
+    });
+  });
+
+  it("should keep an in-progress save when navigating to another stage", async () => {
+    vi.useRealTimers();
+    setProgress({
+      Easy: { current: 1, max: 2 },
+      Medium: { current: 1, max: 1 },
+      Hard: { current: 1, max: 1 },
+    });
+    window.history.replaceState(null, "", "/game/easy?stage=1");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
+    });
+
+    let bankTile: HTMLElement | undefined;
+    await waitFor(() => {
+      bankTile = screen
+        .getAllByRole("button")
+        .find((button) => button.className.includes("tile") && button.className.includes("w-11"));
+      expect(bankTile).toBeDefined();
+    });
+    bankTile = requireValue(bankTile);
+    fireEvent.click(bankTile);
+    fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("math_scrabble_state") || "{}")).toMatchObject({
+        difficulty: "Easy",
+        stage: 1,
+        status: "playing",
+      });
+    });
+
+    fireEvent.click(requireValue(screen.getAllByLabelText("Next Stage")[0]));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/game/easy");
+      expect(window.location.search).toBe("?stage=2");
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText("Easy - Stage 2").length).toBeGreaterThan(0);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(JSON.parse(localStorage.getItem("math_scrabble_state") || "{}")).toMatchObject({
+      difficulty: "Easy",
+      stage: 1,
+      status: "playing",
     });
   });
 

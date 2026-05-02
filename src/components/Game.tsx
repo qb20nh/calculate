@@ -19,6 +19,10 @@ import type { GameMode, GameState } from "@/services/storage";
 
 export { GameLoadingShell, UnavailableLevelShell } from "@/components/game/GameShells";
 
+export interface GameStateChangeContext {
+  clearedResetTilePlaced?: boolean;
+}
+
 interface GameProps {
   difficulty: GameMode;
   stage: number;
@@ -29,7 +33,7 @@ interface GameProps {
   onWin: (newStage: number) => void;
   onBack: () => void;
   onStageChange: (newStage: number) => void;
-  onStateChange: (state: GameState) => void;
+  onStateChange: (state: GameState, context?: GameStateChangeContext) => void;
 }
 
 export const Game: FunctionalComponent<GameProps> = ({
@@ -46,6 +50,10 @@ export const Game: FunctionalComponent<GameProps> = ({
 }) => {
   const { copy, t } = useAppSettings();
   const resetGridMetricsRef = useRef<() => void>(() => {});
+  const hasHandledFirstStateRef = useRef(false);
+  const saveFirstStateRef = useRef(initialState !== null && initialState !== undefined);
+  const preserveClearedSaveUntilTilePlacementRef = useRef(false);
+  const clearClearedSaveOnNextStateChangeRef = useRef(false);
   const handleGenerated = useCallback(() => resetGridMetricsRef.current(), []);
   const { gameState, setGameState, showLoadingShell, isLoadingVisible } = useStandardGameState({
     difficulty,
@@ -161,7 +169,20 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   useEffect(() => {
     if (gameState) {
-      onStateChange({ ...gameState, difficulty, stage });
+      if (!hasHandledFirstStateRef.current) {
+        hasHandledFirstStateRef.current = true;
+        // Generated baselines are deterministic; saving them would overwrite another in-progress stage.
+        if (!saveFirstStateRef.current) return;
+      }
+      if (preserveClearedSaveUntilTilePlacementRef.current) {
+        return;
+      }
+
+      const context = clearClearedSaveOnNextStateChangeRef.current
+        ? { clearedResetTilePlaced: true }
+        : undefined;
+      clearClearedSaveOnNextStateChangeRef.current = false;
+      onStateChange({ ...gameState, difficulty, stage }, context);
     }
   }, [gameState, difficulty, stage, onStateChange]);
 
@@ -202,6 +223,10 @@ export const Game: FunctionalComponent<GameProps> = ({
         const bankIdx = next.bank.findIndex((tile) => tile.id === selectedTileId);
         if (bankIdx === -1) return prev;
         const tile = next.bank[bankIdx] as TileData;
+        if (preserveClearedSaveUntilTilePlacementRef.current) {
+          preserveClearedSaveUntilTilePlacementRef.current = false;
+          clearClearedSaveOnNextStateChangeRef.current = true;
+        }
 
         if (cell) {
           next.bank[bankIdx] = { id: cell.id, val: cell.val, type: cell.type };
@@ -223,6 +248,8 @@ export const Game: FunctionalComponent<GameProps> = ({
 
   const confirmResetLevel = () => {
     const newGame = createNewGame ? createNewGame() : createGameState(stage, difficulty);
+    preserveClearedSaveUntilTilePlacementRef.current =
+      gameState?.status === "won" || gameState?.solvedAcknowledged === true;
     setGameState(newGame);
     setSelectedTileId(null);
     setIsCompletionDialogOpen(false);

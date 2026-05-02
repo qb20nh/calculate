@@ -36,6 +36,7 @@ export type Progress = Record<Difficulty, ProgressEntry> &
 
 const STORAGE_KEY_PROGRESS = "math_scrabble_progress";
 const STORAGE_KEY_STATE = "math_scrabble_state";
+const STORAGE_KEY_CLEARED_STATES = "math_scrabble_cleared_states";
 export const DEFAULT_PROGRESS: Record<ProgressMode, ProgressEntry> = {
   Easy: { current: 1, max: 1 },
   Medium: { current: 1, max: 1 },
@@ -51,6 +52,11 @@ const isDifficulty = (value: unknown): value is Difficulty =>
 
 const isGameMode = (value: unknown): value is GameMode =>
   isDifficulty(value) || value === "Custom" || value === "Crossing";
+
+const isProgressMode = (value: unknown): value is ProgressMode =>
+  isDifficulty(value) || value === "Crossing";
+
+const getClearedStateKey = (difficulty: ProgressMode, stage: number) => `${difficulty}:${stage}`;
 
 const isCustomGameConfig = (value: unknown): value is CustomGameConfig =>
   isRecord(value) &&
@@ -173,6 +179,19 @@ const isGameState = (value: unknown): value is GameState => {
 export const sanitizeStoredGameState = (value: unknown): GameState | null =>
   isGameState(value) ? value : null;
 
+const sanitizeStoredClearedGameStates = (value: unknown): Record<string, GameState> => {
+  if (!isRecord(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, state]) => {
+      const sanitized = sanitizeStoredGameState(state);
+      if (!sanitized || !isProgressMode(sanitized.difficulty)) return [];
+      if (key !== getClearedStateKey(sanitized.difficulty, sanitized.stage)) return [];
+      return [[key, sanitized]];
+    }),
+  );
+};
+
 const parseJson = <T>(raw: string | null): T | null => {
   if (!raw) return null;
   try {
@@ -231,4 +250,42 @@ export const loadGameState = (): GameState | null => {
 
   const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_STATE));
   return sanitizeStoredGameState(saved);
+};
+
+export const saveClearedGameState = (state: GameState) => {
+  if (!isProgressMode(state.difficulty)) return;
+  const storage = getStorage();
+  if (!storage) return;
+
+  try {
+    const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_CLEARED_STATES));
+    const clearedStates = sanitizeStoredClearedGameStates(saved);
+    clearedStates[getClearedStateKey(state.difficulty, state.stage)] = state;
+    storage.setItem(STORAGE_KEY_CLEARED_STATES, JSON.stringify(clearedStates));
+  } catch {
+    // Ignore quota/private-mode storage failures.
+  }
+};
+
+export const loadClearedGameState = (difficulty: ProgressMode, stage: number): GameState | null => {
+  const storage = getStorage();
+  if (!storage) return null;
+
+  const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_CLEARED_STATES));
+  const state = sanitizeStoredClearedGameStates(saved)[getClearedStateKey(difficulty, stage)];
+  return state ?? null;
+};
+
+export const clearClearedGameState = (difficulty: ProgressMode, stage: number) => {
+  const storage = getStorage();
+  if (!storage) return;
+
+  try {
+    const saved = parseJson<unknown>(storage.getItem(STORAGE_KEY_CLEARED_STATES));
+    const clearedStates = sanitizeStoredClearedGameStates(saved);
+    delete clearedStates[getClearedStateKey(difficulty, stage)];
+    storage.setItem(STORAGE_KEY_CLEARED_STATES, JSON.stringify(clearedStates));
+  } catch {
+    // Ignore quota/private-mode storage failures.
+  }
 };

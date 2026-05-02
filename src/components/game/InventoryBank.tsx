@@ -26,7 +26,7 @@ export const InventoryBank: FunctionalComponent<{
   const { copy } = useAppSettings();
 
   return (
-    <div className="theme-panel border-t shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
+    <div className="theme-panel border-x-0 border-b-0 border-t shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] shrink-0 z-20 pb-safe">
       <div className="max-w-4xl mx-auto relative">
         {canScrollLeft && (
           <div className="absolute left-0 top-0 bottom-0 w-8 theme-edge-fade-left pointer-events-none z-30" />

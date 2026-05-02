@@ -330,6 +330,40 @@ describe("Game", () => {
     expect(screen.getAllByText("Easy - Stage 1").length).toBeGreaterThan(0);
   });
 
+  it("should preserve a solved reset until a tile is placed", async () => {
+    const onStateChange = vi.fn();
+    renderGame({ initialState: makeGameState({ status: "won" }), onStateChange });
+
+    await waitForGameLoaded();
+    await waitFor(() => {
+      expect(onStateChange).toHaveBeenCalled();
+    });
+    onStateChange.mockClear();
+
+    fireEvent.click(screen.getByLabelText("Reset Stage"));
+    fireEvent.click(screen.getByText("Reset"));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onStateChange).not.toHaveBeenCalled();
+
+    let bankTile: HTMLElement | undefined;
+    await waitFor(() => {
+      bankTile = screen
+        .getAllByRole("button")
+        .find((button) => button.className.includes("tile") && button.className.includes("w-11"));
+      expect(bankTile).toBeDefined();
+    });
+    fireEvent.click(requireValue(bankTile));
+    fireEvent.click(requireValue(screen.getAllByLabelText("Place tile here")[0]));
+
+    await waitFor(() => {
+      expect(onStateChange).toHaveBeenCalledWith(
+        expect.objectContaining({ difficulty: "Easy", status: "playing", stage: 1 }),
+        { clearedResetTilePlaced: true },
+      );
+    });
+  });
+
   it("should cancel reset when dialog is dismissed", async () => {
     const generateGameSpy = vi.mocked(BoardService.generateGame);
     generateGameSpy.mockClear();
