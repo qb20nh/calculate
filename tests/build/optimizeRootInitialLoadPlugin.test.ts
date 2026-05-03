@@ -251,12 +251,13 @@ describe("optimizeRootInitialLoadPlugin", () => {
     expect(html).toContain(
       '<script fetchpriority="low" type="module" crossorigin src="/assets/index.js"></script>',
     );
-    expect(bundle["game/easy/index.html"]?.source).toContain(
-      '<link rel="stylesheet" crossorigin href="/assets/GameRoute-test.css">',
+    const gameHtml = bundle["game/easy/index.html"]?.source ?? "";
+    expect(gameHtml).toContain('data-root-deferred-style data-href="/assets/GameRoute-test.css"');
+    expect(gameHtml).toContain(
+      '<noscript><link rel="stylesheet" crossorigin href="/assets/GameRoute-test.css">',
     );
-    expect(bundle["game/easy/index.html"]?.source).toContain("<style data-critical-root>");
-    expect(bundle["game/easy/index.html"]?.source).toContain(".route-only{display:grid}");
-    expect(bundle["game/easy/index.html"]?.source).not.toContain("data-root-deferred-style");
+    expect(gameHtml).toContain("<style data-critical-root>");
+    expect(gameHtml).toContain(".route-only{display:grid}");
   });
 
   it("does not require a split GameRoute stylesheet", () => {

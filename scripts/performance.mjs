@@ -24,10 +24,62 @@ export const NETWORK_THROTTLE = {
 };
 const ROUTE_SETTLE_TIMEOUT_MS = 30000;
 const METRIC_SETTLE_MS = 600;
-const routes = [{ path: "/", label: "root", readyText: "Math Crossword" }];
+const DEFAULT_ROUTES = [
+  { path: "/", label: "root", readyText: "Math Crossword" },
+  { path: "/game/easy?stage=1", label: "game/easy?stage=1", readyText: "Easy - Stage 1" },
+  { path: "/game/custom", label: "game/custom", readyText: "Custom Game" },
+];
+const GAME_ROUTE_LABELS = {
+  crossing: "Crossing",
+  easy: "Easy",
+  hard: "Hard",
+  medium: "Medium",
+};
 
 const getBasePath = () =>
   process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/` : "/";
+
+const normalizeRouteInput = (input) => {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error("Performance route input cannot be empty");
+
+  const parsed = new URL(trimmed, "http://calculate.local");
+  return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+};
+
+const getRouteReadyText = (path) => {
+  const parsed = new URL(path, "http://calculate.local");
+  const pathname = parsed.pathname.replace(/\/$/, "") || "/";
+  if (pathname === "/") return "Math Crossword";
+  if (pathname === "/game/custom") return "Custom Game";
+
+  const [, gamePrefix, modeSlug] = pathname.split("/");
+  if (gamePrefix === "game" && modeSlug && modeSlug in GAME_ROUTE_LABELS) {
+    const stage = parsed.searchParams.get("stage") || "1";
+    return `${GAME_ROUTE_LABELS[modeSlug]} - Stage ${stage}`;
+  }
+
+  return "Page not found";
+};
+
+const getRouteLabel = (path) => {
+  if (path === "/") return "root";
+  return path.replace(/^\//, "") || "root";
+};
+
+export const resolvePerformanceRoutes = (args = []) => {
+  const inputs = args.filter((arg) => arg !== "--");
+  if (inputs.length === 0) return DEFAULT_ROUTES;
+
+  return inputs.map((input) => {
+    const path = normalizeRouteInput(input);
+    return {
+      path,
+      label: getRouteLabel(path),
+      readyText: getRouteReadyText(path),
+    };
+  });
+};
 
 const getFreePort = async () =>
   new Promise((resolvePort, reject) => {
@@ -323,6 +375,7 @@ const measureRoute = async (browser, previewBaseUrl, route) => {
 
 const main = async () => {
   await ensureFreshBuild();
+  const routes = resolvePerformanceRoutes(process.argv.slice(2));
 
   const previewPort = await getFreePort();
   const previewBaseUrl = new URL(getBasePath(), `http://127.0.0.1:${previewPort}`).toString();

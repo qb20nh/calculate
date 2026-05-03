@@ -5,6 +5,7 @@ import {
   CLS_LIMIT,
   LCP_LIMIT_MS,
   NETWORK_THROTTLE,
+  resolvePerformanceRoutes,
 } from "../../scripts/performance.mjs";
 
 const route = { label: "root", path: "/" };
@@ -55,6 +56,40 @@ describe("performance gates", () => {
           offline: false,
           uploadThroughput: NETWORK_THROTTLE.uploadThroughput,
         },
+      },
+    ]);
+  });
+
+  it("resolves custom performance URL inputs", () => {
+    expect(resolvePerformanceRoutes([])).toEqual([
+      { label: "root", path: "/", readyText: "Math Crossword" },
+      {
+        label: "game/easy?stage=1",
+        path: "/game/easy?stage=1",
+        readyText: "Easy - Stage 1",
+      },
+      {
+        label: "game/custom",
+        path: "/game/custom",
+        readyText: "Custom Game",
+      },
+    ]);
+    expect(
+      resolvePerformanceRoutes([
+        "--",
+        "http://localhost:4173/game/easy?stage=1",
+        "http://localhost:4173/game/custom",
+      ]),
+    ).toEqual([
+      {
+        label: "game/easy?stage=1",
+        path: "/game/easy?stage=1",
+        readyText: "Easy - Stage 1",
+      },
+      {
+        label: "game/custom",
+        path: "/game/custom",
+        readyText: "Custom Game",
       },
     ]);
   });

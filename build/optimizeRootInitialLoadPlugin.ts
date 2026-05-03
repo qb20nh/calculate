@@ -622,6 +622,9 @@ const optimizeHtmlAsset = (
 const optimizeIndexHtml = (html: string) =>
   moveEntryModuleToBody(removeRootAppCoreModulePreload(html));
 
+const shouldDeferHtmlStylesheets = (fileName: string) =>
+  fileName === "index.html" || fileName.startsWith("game/");
+
 export function optimizeRootInitialLoadPlugin(): Plugin {
   return {
     name: "calculate:optimize-root-initial-load",
@@ -639,7 +642,7 @@ export function optimizeRootInitialLoadPlugin(): Plugin {
       for (const [fileName, htmlAsset] of Object.entries(typedBundle)) {
         if (!fileName.endsWith(".html") || !isHtmlAsset(htmlAsset)) continue;
         const optimizedHtml = optimizeHtmlAsset(htmlAsset.source, typedBundle, {
-          shouldDeferStylesheets: fileName === "index.html",
+          shouldDeferStylesheets: shouldDeferHtmlStylesheets(fileName),
         });
         htmlAsset.source =
           fileName === "index.html" ? optimizeIndexHtml(optimizedHtml) : optimizedHtml;
