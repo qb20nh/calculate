@@ -14,11 +14,17 @@ type FormulaRun = {
   keys: string[];
 };
 
-type BoardValidation = { valid: true } | { valid: false; reason: string };
+type BoardValidationReason =
+  | { code: "boardEmpty" }
+  | { code: "noFormula" }
+  | { code: "noCrossing" }
+  | { code: "invalidFormula"; formula: string };
+
+type BoardValidation = { valid: true } | { valid: false; reason: BoardValidationReason };
 
 export const analyzeBoard = (board: BoardLike): BoardValidation => {
   const placedKeys = Object.keys(board);
-  if (placedKeys.length === 0) return { valid: false, reason: "Board is empty." };
+  if (placedKeys.length === 0) return { valid: false, reason: { code: "boardEmpty" } };
 
   const trueFormulas: FormulaRun[] = [];
   const invalidFormulas: FormulaRun[] = [];
@@ -130,11 +136,11 @@ export const analyzeBoard = (board: BoardLike): BoardValidation => {
   );
 
   if (trueFormulas.length === 0) {
-    return { valid: false, reason: "No valid mathematical formula found." };
+    return { valid: false, reason: { code: "noFormula" } };
   }
 
   if (trueFormulas.length < 2) {
-    return { valid: false, reason: "At least two crossing formulas are required." };
+    return { valid: false, reason: { code: "noCrossing" } };
   }
 
   const trueTileKeys = new Set<string>();
@@ -146,7 +152,7 @@ export const analyzeBoard = (board: BoardLike): BoardValidation => {
     formula.keys.every((key) => !trueTileKeys.has(key)),
   );
   if (hasIsolatedInvalidFormula && invalidFormula) {
-    return { valid: false, reason: `Invalid formula: "${invalidFormula}"` };
+    return { valid: false, reason: { code: "invalidFormula", formula: invalidFormula } };
   }
 
   return { valid: true };

@@ -498,7 +498,7 @@ describe("Game", () => {
     );
     vi.mocked(BoardService.validateBoard).mockReturnValue({
       valid: false,
-      reason: "Invalid equation",
+      reason: { code: "invalidFormula", formula: "1=2" },
     });
 
     renderGame();
@@ -511,10 +511,9 @@ describe("Game", () => {
     expect(firstFringeSlot).toBeDefined();
     fireEvent.click(requireValue(firstFringeSlot));
 
-    // Should show validation error toast
     await waitFor(
       () => {
-        expect(screen.getByText("Invalid equation")).toBeDefined();
+        expect(screen.getByText('Invalid formula: "1=2"')).toBeDefined();
       },
       { timeout: 3000 },
     );

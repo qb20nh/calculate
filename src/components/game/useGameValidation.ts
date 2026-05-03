@@ -50,25 +50,11 @@ export const useGameValidation = ({
         setToast(null);
         setIsCompletionDialogOpen(true);
       } else {
-        const getValidationKey = (reason: string) => {
-          if (reason === "Board is empty.") return "game.validation.boardEmpty";
-          if (reason === "No valid mathematical formula found.") return "game.validation.noFormula";
-          if (reason === "At least two crossing formulas are required.")
-            return "game.validation.noCrossing";
-          if (reason.startsWith('Invalid formula: "')) return "game.validation.invalidFormula";
-          return null;
-        };
-
-        const validationKey = getValidationKey(validation.reason);
-        if (validationKey) {
-          if (validationKey === "game.validation.invalidFormula") {
-            const formula = validation.reason.slice('Invalid formula: "'.length, -1);
-            setToast(t(validationKey, { formula }));
-          } else {
-            setToast(t(validationKey));
-          }
+        const validationKey = `game.validation.${validation.reason.code}`;
+        if (validation.reason.code === "invalidFormula") {
+          setToast(t(validationKey, { formula: validation.reason.formula }));
         } else {
-          setToast(validation.reason);
+          setToast(t(validationKey));
         }
         timer = setTimeout(() => setToast(null), 3500);
       }

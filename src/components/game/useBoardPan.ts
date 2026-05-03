@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 import { TILE_SIZE } from "@/components/game/gameUtils";
+import { getBoardGeometry } from "@/services/board";
 import type { GameState } from "@/services/storage";
 
 export const useBoardPan = (gameState: GameState | null) => {
@@ -93,56 +94,11 @@ export const useBoardPan = (gameState: GameState | null) => {
     const calc = () => {
       if (!boardContainerRef.current || !gameState) return;
 
-      const placedAndGivenKeys = Object.keys(gameState.board);
-      if (placedAndGivenKeys.length === 0) return;
+      const geometry = getBoardGeometry(gameState.board);
+      if (!geometry.occupiedBounds) return;
 
-      const fringe = new Set<string>();
-      for (const key of placedAndGivenKeys) {
-        const [rStr, cStr] = key.split(",");
-        const r = Number(rStr);
-        const c = Number(cStr);
-        const neighbors = [`${r + 1},${c}`, `${r - 1},${c}`, `${r},${c + 1}`, `${r},${c - 1}`];
-        for (const neighborKey of neighbors) {
-          if (!gameState.board[neighborKey]) fringe.add(neighborKey);
-        }
-      }
-
-      const allRelevantKeys = [...placedAndGivenKeys, ...Array.from(fringe)];
-      let minR = Infinity;
-      let maxR = -Infinity;
-      let minC = Infinity;
-      let maxC = -Infinity;
-      for (const key of allRelevantKeys) {
-        const [rStr, cStr] = key.split(",");
-        const r = Number(rStr);
-        const c = Number(cStr);
-        minR = Math.min(minR, r);
-        maxR = Math.max(maxR, r);
-        minC = Math.min(minC, c);
-        maxC = Math.max(maxC, c);
-      }
-
-      minR -= 1;
-      maxR += 1;
-      minC -= 1;
-      maxC += 1;
-
-      const cols = maxC - minC + 1;
-      const rows = maxR - minR + 1;
-
-      let pMinR = Infinity;
-      let pMaxR = -Infinity;
-      let pMinC = Infinity;
-      let pMaxC = -Infinity;
-      for (const key of placedAndGivenKeys) {
-        const [rStr, cStr] = key.split(",");
-        const r = Number(rStr);
-        const c = Number(cStr);
-        pMinR = Math.min(pMinR, r);
-        pMaxR = Math.max(pMaxR, r);
-        pMinC = Math.min(pMinC, c);
-        pMaxC = Math.max(pMaxC, c);
-      }
+      const { minR, minC } = geometry.layoutBounds;
+      const { minR: pMinR, maxR: pMaxR, minC: pMinC, maxC: pMaxC } = geometry.occupiedBounds;
       const viewportWidth = boardContainerRef.current.clientWidth || 300;
       const viewportHeight = boardContainerRef.current.clientHeight || 300;
 
@@ -158,15 +114,15 @@ export const useBoardPan = (gameState: GameState | null) => {
         curPanX += dw / 2;
         curPanY += dh / 2;
       } else {
-        curPanX = viewportWidth / 2 - (cols * TILE_SIZE) / 2;
-        curPanY = viewportHeight / 2 - (rows * TILE_SIZE) / 2;
+        curPanX = viewportWidth / 2 - (geometry.cols * TILE_SIZE) / 2;
+        curPanY = viewportHeight / 2 - (geometry.rows * TILE_SIZE) / 2;
       }
 
       prevGridMetrics.current = {
         minC,
         minR,
-        cols,
-        rows,
+        cols: geometry.cols,
+        rows: geometry.rows,
         viewportWidth,
         viewportHeight,
         initialized: true,

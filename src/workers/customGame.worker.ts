@@ -1,12 +1,12 @@
 /// <reference lib="webworker" />
 
-import { generateCustomGameAttempt } from "@/services/board";
 import {
   CUSTOM_GAME_RETRY_LIMIT,
   type CustomGameGenerationFailure,
   type CustomGameGenerationProgress,
   type CustomGameGenerationRequest,
   type CustomGameGenerationSuccess,
+  findCustomGameAttemptRange,
   isCustomGameGenerationRequest,
 } from "@/services/customGameGeneration";
 
@@ -18,7 +18,7 @@ workerGlobal.addEventListener("message", (event: MessageEvent<CustomGameGenerati
 
   const { config, retryCount } = event.data;
   try {
-    const game = generateCustomGameAttempt(config, retryCount);
+    const game = findCustomGameAttemptRange(config, retryCount, retryCount + 1);
     if (game) {
       const successMessage: CustomGameGenerationSuccess = {
         type: "success",

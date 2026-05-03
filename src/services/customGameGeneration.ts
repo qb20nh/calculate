@@ -1,4 +1,5 @@
 import typia from "typia";
+import { generateCustomGameAttempt } from "@/services/board/generation";
 import {
   CUSTOM_GAME_LIMITS,
   isValidRetryCount,
@@ -7,6 +8,7 @@ import {
 import type { CustomGameConfig, GameState } from "@/services/storage";
 
 export const CUSTOM_GAME_RETRY_LIMIT = CUSTOM_GAME_LIMITS.maxRetryCount + 1;
+export const CUSTOM_GAME_FALLBACK_BATCH_SIZE = 50;
 
 export type CustomGameGenerationRequest = Readonly<{
   type: "generate";
@@ -57,3 +59,16 @@ export const createCustomGameWorker = (): CustomGameWorkerHandle =>
   new Worker(new URL("../workers/customGame.worker.ts", import.meta.url), {
     type: "module",
   }) as CustomGameWorkerHandle;
+
+export const findCustomGameAttemptRange = (
+  config: CustomGameConfig,
+  startRetryCount: number,
+  endRetryCount: number,
+) => {
+  const end = Math.min(endRetryCount, CUSTOM_GAME_RETRY_LIMIT);
+  for (let retryCount = startRetryCount; retryCount < end; retryCount++) {
+    const game = generateCustomGameAttempt(config, retryCount);
+    if (game) return game;
+  }
+  return null;
+};

@@ -1,6 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  getReadyRouteForPath,
+  PRERENDER_ROUTE_PATHS,
+  shouldPreloadRoutePath,
+} from "@/routes/routeManifest";
+import {
   addBasePath,
   normalizeBasePath,
   parseCustomGameConfig,
@@ -57,6 +62,19 @@ const appPathArb = fc.oneof(
 const basePathArb = fc.constantFrom("/", "/calculate", "/calculate/");
 
 describe("route utils", () => {
+  it("should classify direct route readiness from the route manifest", () => {
+    expect(getReadyRouteForPath("/")).toBe("menu");
+    expect(getReadyRouteForPath("/game/easy")).toBe("game");
+    expect(getReadyRouteForPath("/game/crossing/")).toBe("game");
+    expect(getReadyRouteForPath("/game/custom")).toBe("custom-setup");
+    expect(getReadyRouteForPath("/game/custom", "?given=6")).toBe("game");
+    expect(getReadyRouteForPath("/game")).toBe("notfound");
+    expect(shouldPreloadRoutePath("/game/custom")).toBe(true);
+    expect(shouldPreloadRoutePath("/404")).toBe(false);
+    expect(PRERENDER_ROUTE_PATHS).toContain("/game/crossing");
+    expect(PRERENDER_ROUTE_PATHS).toContain("/game/custom");
+  });
+
   it("should normalize vite base paths", () => {
     expect(normalizeBasePath("")).toBe("/");
     expect(normalizeBasePath("/")).toBe("/");

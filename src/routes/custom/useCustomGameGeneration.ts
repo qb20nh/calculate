@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { match } from "ts-pattern";
-import { addBasePath, toCustomGamePath } from "@/routes/routeUtils";
-import { generateCustomGame } from "@/services/board";
+import { getCustomGameUrlSyncPath } from "@/routes/customGameSession";
 import {
+  CUSTOM_GAME_FALLBACK_BATCH_SIZE,
   CUSTOM_GAME_RETRY_LIMIT,
   type CustomGameGenerationMessage,
   type CustomGameWorkerHandle,
   createCustomGameWorker,
+  findCustomGameAttemptRange,
   isCustomGameGenerationMessage,
 } from "@/services/customGameGeneration";
 import type { CustomGameConfig, GameState } from "@/services/storage";
@@ -34,10 +35,10 @@ export function useCustomGameGeneration({
   const syncCustomUrl = useCallback((config: CustomGameConfig, nextRetryCount: number) => {
     if (typeof window === "undefined") return;
 
-    const nextPath = addBasePath(toCustomGamePath(config, nextRetryCount));
     const currentPath = window.location.pathname + window.location.search;
+    const nextPath = getCustomGameUrlSyncPath(config, nextRetryCount, currentPath);
 
-    if (currentPath !== nextPath) {
+    if (nextPath) {
       window.history.replaceState(null, "", nextPath);
     }
   }, []);
@@ -103,17 +104,14 @@ export function useCustomGameGeneration({
         const runFallbackBatch = (batchStartRetryCount: number) => {
           if (runTokenRef.current !== runToken) return;
 
-          const batchEndRetryCount = Math.min(batchStartRetryCount + 50, CUSTOM_GAME_RETRY_LIMIT);
-          for (
-            let nextRetryCount = batchStartRetryCount;
-            nextRetryCount < batchEndRetryCount;
-            nextRetryCount++
-          ) {
-            const game = generateCustomGame(config, nextRetryCount);
-            if (game) {
-              succeedGeneration(game);
-              return;
-            }
+          const batchEndRetryCount = Math.min(
+            batchStartRetryCount + CUSTOM_GAME_FALLBACK_BATCH_SIZE,
+            CUSTOM_GAME_RETRY_LIMIT,
+          );
+          const game = findCustomGameAttemptRange(config, batchStartRetryCount, batchEndRetryCount);
+          if (game) {
+            succeedGeneration(game);
+            return;
           }
 
           if (batchEndRetryCount >= CUSTOM_GAME_RETRY_LIMIT) {

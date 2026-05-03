@@ -9,7 +9,7 @@ let mockHandler:
   | null = null;
 const mockPostMessage = vi.fn();
 
-vi.mock("@/services/board", () => ({
+vi.mock("@/services/board/generation", () => ({
   generateCustomGameAttempt: (...args: unknown[]) => mockGenerateCustomGameAttempt(...args),
 }));
 

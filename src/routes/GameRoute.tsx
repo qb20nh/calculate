@@ -9,14 +9,10 @@ import {
 import { useAppSettings } from "@/lib/appSettings";
 import { EMPTY_STAGE_RESTORE, useGamePersistence } from "@/lib/gamePersistence";
 import CustomGameRoute from "@/routes/CustomGameRoute";
+import { resolveCrossingGameRouteState } from "@/routes/crossingGameRouteState";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { resolveNormalGameRouteState } from "@/routes/normalGameRouteState";
-import {
-  parseDifficultySlug,
-  parseGameModeSlug,
-  parseStageParam,
-  toGamePath,
-} from "@/routes/routeUtils";
+import { parseDifficultySlug, parseGameModeSlug, toGamePath } from "@/routes/routeUtils";
 import { CROSSING_LEVEL_COUNT } from "@/services/board/handcraftedLevels";
 import type { GameState } from "@/services/storage";
 
@@ -45,32 +41,35 @@ function CrossingGameRoute() {
   const location = useLocation();
   const persistence = useGamePersistence();
   const savedState = persistence.activeState;
-
-  const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const savedCrossingStage =
     savedState?.difficulty === "Crossing" &&
     savedState.stage >= 1 &&
     savedState.stage <= CROSSING_LEVEL_COUNT
       ? savedState.stage
       : null;
-  const latestUnlockedStage = persistence.getLatestUnlockedStage("Crossing");
-  const savedUnlockedStage =
-    savedCrossingStage !== null && savedCrossingStage <= latestUnlockedStage
-      ? savedCrossingStage
-      : null;
-  const stage = parseStageParam(stageParam) ?? savedUnlockedStage ?? latestUnlockedStage;
-  const targetPath = toGamePath("Crossing", stage);
-  const stageLocked = persistence.isStageLocked("Crossing", stage);
+  const {
+    requestedStage,
+    latestUnlockedStage,
+    stageLocked,
+    targetPath,
+    shouldRedirect,
+    isNotFound,
+  } = resolveCrossingGameRouteState({
+    isClient: persistence.isHydrated,
+    locationUrl: location.url,
+    maxStage: CROSSING_LEVEL_COUNT,
+    progress: persistence.progress,
+    savedStateStage: savedCrossingStage,
+  });
+  const stage = requestedStage;
   const lockedNotice = copy.game.stageLockedNotice;
   const stageRestore = persistence.isHydrated
     ? persistence.getStageRestore("Crossing", stage)
     : EMPTY_STAGE_RESTORE;
 
   useEffect(() => {
-    if (!persistence.isHydrated) return;
-    if (stage > CROSSING_LEVEL_COUNT) return;
-    if (location.url !== targetPath && !stageLocked) location.route(targetPath, true);
-  }, [location, persistence.isHydrated, stage, stageLocked, targetPath]);
+    if (shouldRedirect) location.route(targetPath, true);
+  }, [location, shouldRedirect, targetPath]);
 
   const handleBack = useCallback(() => {
     location.route("/");
@@ -105,7 +104,7 @@ function CrossingGameRoute() {
     [persistence],
   );
 
-  if (stage > CROSSING_LEVEL_COUNT) return <NotFoundRoute />;
+  if (isNotFound) return <NotFoundRoute />;
 
   if (!persistence.isHydrated) {
     return (

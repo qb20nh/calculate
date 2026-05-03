@@ -9,6 +9,7 @@ import { injectSkeletonPlugin } from "./build/injectSkeletonPlugin";
 import { injectTranslationsPlugin } from "./build/injectTranslationsPlugin";
 import { legacyPrerenderPlugin } from "./build/legacyPrerenderPlugin";
 import { optimizeRootInitialLoadPlugin } from "./build/optimizeRootInitialLoadPlugin";
+import { PRERENDER_ROUTE_PATHS } from "./src/routes/routeManifest";
 
 const isLegacyBuild = process.env.CALCULATE_LEGACY_BUILD === "1";
 const prerenderScript = fileURLToPath(new URL("./src/prerender.tsx", import.meta.url));
@@ -33,6 +34,7 @@ const appCoreModules = new Set(
     "lib/preferences.ts",
     "routes/MenuRoute.tsx",
     "routes/lazyRoutes.ts",
+    "routes/routeManifest.ts",
     "routes/routeUtils.ts",
     "services/loading.ts",
     "services/preferences.ts",
@@ -96,15 +98,7 @@ export default defineConfig(({ command }) => {
           enabled: !!prerender,
           renderTarget: "#app",
           prerenderScript,
-          additionalPrerenderRoutes: [
-            "/404",
-            "/game",
-            "/game/easy",
-            "/game/medium",
-            "/game/hard",
-            "/game/crossing",
-            "/game/custom",
-          ],
+          additionalPrerenderRoutes: PRERENDER_ROUTE_PATHS,
           previewMiddlewareEnabled: false,
         },
       }),

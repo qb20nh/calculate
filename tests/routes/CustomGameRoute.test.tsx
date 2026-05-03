@@ -68,6 +68,17 @@ vi.mock("@/services/customGameGeneration", async (importOriginal) => {
     ...actual,
     CUSTOM_GAME_RETRY_LIMIT: 10000,
     createCustomGameWorker: () => mockCreateCustomGameWorker(),
+    findCustomGameAttemptRange: (
+      config: unknown,
+      startRetryCount: number,
+      endRetryCount: number,
+    ) => {
+      for (let retryCount = startRetryCount; retryCount < endRetryCount; retryCount++) {
+        const game = mockGenerateCustomGame(config, retryCount);
+        if (game) return game;
+      }
+      return null;
+    },
   };
 });
 

@@ -6,6 +6,7 @@ import {
   generateCustomGameAttempt,
   generateGame,
   generateStandardGame,
+  getBoardGeometry,
   getGridBounds,
   validateBoard,
 } from "@/services/board";
@@ -30,12 +31,30 @@ describe("board service", () => {
     Hard: [15, 21],
   };
   const crossingGivenCountTargets = [9, 9, 9, 9, 9, 9, 9, 9, 9];
+  const expectInvalidCode = (result: ReturnType<typeof validateBoard>, code: string | string[]) => {
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(Array.isArray(code) ? code : [code]).toContain(result.reason.code);
+  };
 
   const getBoardLike = (solution: Record<string, string>) => {
     const board: Record<string, { val: string }> = {};
     for (const [key, val] of Object.entries(solution)) board[key] = { val };
     return board;
   };
+
+  it("should compute shared board geometry for layout and pan callers", () => {
+    const geometry = getBoardGeometry({
+      "0,0": { val: "1" },
+      "0,1": { val: OP_PLUS },
+    });
+
+    expect(geometry.occupiedBounds).toEqual({ minR: 0, maxR: 0, minC: 0, maxC: 1 });
+    expect(geometry.layoutBounds).toEqual({ minR: -2, maxR: 2, minC: -2, maxC: 3 });
+    expect(geometry.rows).toBe(5);
+    expect(geometry.cols).toBe(6);
+    expect(geometry.fringe).toEqual(new Set(["1,0", "-1,0", "0,-1", "1,1", "-1,1", "0,2"]));
+    expect(getBoardGeometry({}).occupiedBounds).toBe(null);
+  });
 
   const countValidFormulaRuns = (solution: Record<string, string>) => {
     let formulas = 0;
@@ -820,10 +839,7 @@ describe("board service", () => {
   it("should invalidate an incorrect board", () => {
     const board = createTestBoard({ "0,4": "6" });
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, ["noFormula", "noCrossing", "invalidFormula"]);
   });
 
   it("should invalidate a single true formula board", () => {
@@ -836,10 +852,7 @@ describe("board service", () => {
       "0,5": { id: "6", val: "6", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("crossing formulas");
-    }
+    expectInvalidCode(result, "noCrossing");
   });
 
   it("should invalidate an all-given board with a single false statement", () => {
@@ -851,10 +864,7 @@ describe("board service", () => {
       "0,4": { id: "5", val: "3", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should invalidate an all-given board with a single invalid formula", () => {
@@ -864,14 +874,11 @@ describe("board service", () => {
       "0,2": { id: "3", val: "5", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should invalidate an empty board", () => {
-    expect(validateBoard({}).valid).toBe(false);
+    expectInvalidCode(validateBoard({}), "boardEmpty");
   });
 
   it("should invalidate a board with no valid equations", () => {
@@ -881,10 +888,7 @@ describe("board service", () => {
       "0,2": { id: "3", val: "3", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toMatch(/cross|operator|formula/);
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should invalidate a board where some tiles are not part of any equation", () => {
@@ -897,10 +901,7 @@ describe("board service", () => {
       "1,0": { id: "6", val: "9", type: "val" as const, isGiven: true }, // Extra tile
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toMatch(/cross|operator|formula/);
-    }
+    expectInvalidCode(result, "noCrossing");
   });
 
   it("should invalidate a single tile board", () => {
@@ -908,10 +909,7 @@ describe("board service", () => {
       "0,0": { id: "1", val: "2", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should invalidate a board with a relation but no operators", () => {
@@ -921,10 +919,7 @@ describe("board service", () => {
       "0,2": { id: "3", val: "5", type: "val" as const, isGiven: true },
     };
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should invalidate a board with a greater-than formula that is false", () => {
@@ -935,10 +930,7 @@ describe("board service", () => {
     };
 
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should ignore formulas that start with a relation token", () => {
@@ -950,10 +942,7 @@ describe("board service", () => {
     };
 
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason.toLowerCase()).toContain("formula");
-    }
+    expectInvalidCode(result, "noFormula");
   });
 
   it("should report an isolated invalid formula when a valid one also exists", () => {
@@ -967,10 +956,8 @@ describe("board service", () => {
     };
 
     const result = validateBoard(board);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.reason).toContain('Invalid formula: "2+3>10"');
-    }
+    expectInvalidCode(result, "invalidFormula");
+    if (!result.valid) expect(result.reason).toEqual({ code: "invalidFormula", formula: "2+3>10" });
   });
   it("should mark a board with an invalid inequality as invalid", () => {
     const board: Record<string, { id: string; val: string; type: string; isGiven: boolean }> = {

@@ -5,6 +5,7 @@ import { playwright } from "@vitest/browser-playwright";
 import type { Page } from "playwright";
 import { defineConfig } from "vitest/config";
 import type { BrowserCommand, BrowserInstanceOption } from "vitest/node";
+import { getReadyRouteForPath } from "./src/routes/routeManifest";
 
 const browserMatrix: BrowserInstanceOption[] =
   process.env.ENABLE_BROWSER_MATRIX === "1"
@@ -68,16 +69,7 @@ const ROUTE_SETTLE_TIMEOUT_MS = 30000;
 
 const expectedReadyRouteForPath = (path: string) => {
   const url = new URL(path, "http://localhost");
-  const pathname = url.pathname.replace(/\/$/, "") || "/";
-
-  if (pathname === "/") return "menu";
-  if (pathname === "/game/custom") {
-    return url.searchParams.has("given") ? "game" : "custom-setup";
-  }
-  if (["/game/easy", "/game/medium", "/game/hard", "/game/crossing"].includes(pathname)) {
-    return "game";
-  }
-  return "notfound";
+  return getReadyRouteForPath(url.pathname, url.search);
 };
 
 const ensureAppPage = async ({ context, sessionId }: Parameters<BrowserCommand>[0]) => {

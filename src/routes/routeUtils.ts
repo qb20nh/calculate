@@ -1,4 +1,11 @@
-import { match, P } from "ts-pattern";
+import {
+  DIFFICULTY_BY_SLUG,
+  GAME_MODE_BY_SLUG,
+  isDifficultySlug,
+  isGameModeSlug,
+  STANDARD_GAME_MODE_SLUG_BY_MODE,
+  type StandardGameMode,
+} from "@/routes/routeManifest";
 import {
   CUSTOM_GAME_LIMITS,
   isValidRetryCount,
@@ -6,21 +13,7 @@ import {
 } from "@/services/customGameConfig";
 import type { CustomGameConfig, Difficulty, GameMode } from "@/services/storage";
 
-const DIFFICULTY_BY_SLUG = {
-  easy: "Easy",
-  medium: "Medium",
-  hard: "Hard",
-} as const satisfies Record<string, Difficulty>;
-
-type DifficultySlug = keyof typeof DIFFICULTY_BY_SLUG;
-type StandardGameMode = Exclude<GameMode, "Custom">;
-type GameModeSlug = DifficultySlug | "custom" | "crossing";
-
 const FALLBACK_ORIGIN = "https://calculate.local";
-
-const isDifficultySlug = (slug: string): slug is DifficultySlug => slug in DIFFICULTY_BY_SLUG;
-const isGameModeSlug = (slug: string): slug is GameModeSlug =>
-  slug === "custom" || slug === "crossing" || isDifficultySlug(slug);
 
 export const normalizeBasePath = (basePath: string) => {
   const pathname = new URL(basePath || "/", FALLBACK_ORIGIN).pathname.replaceAll(/\/+$/g, "");
@@ -49,13 +42,7 @@ export const removeBasePath = (url: string, basePath = BASE_PATH) => {
   return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
 };
 
-const toGameModeSlug = (mode: StandardGameMode): DifficultySlug | "crossing" =>
-  match(mode)
-    .with("Easy", () => "easy" as const)
-    .with("Medium", () => "medium" as const)
-    .with("Hard", () => "hard" as const)
-    .with("Crossing", () => "crossing" as const)
-    .exhaustive();
+const toGameModeSlug = (mode: StandardGameMode) => STANDARD_GAME_MODE_SLUG_BY_MODE[mode];
 
 export const toGamePath = (mode: StandardGameMode, stage: number) => {
   return `/game/${toGameModeSlug(mode)}?stage=${stage}`;
@@ -82,11 +69,7 @@ export const parseDifficultySlug = (slug?: string): Difficulty | null => {
 
 export const parseGameModeSlug = (slug?: string): GameMode | null => {
   if (!slug || !isGameModeSlug(slug)) return null;
-  return match(slug)
-    .with("custom", () => "Custom" as const)
-    .with("crossing", () => "Crossing" as const)
-    .with(P.union("easy", "medium", "hard"), (difficultySlug) => DIFFICULTY_BY_SLUG[difficultySlug])
-    .exhaustive();
+  return GAME_MODE_BY_SLUG[slug];
 };
 
 export const parseCustomGameConfig = (searchParams: URLSearchParams): CustomGameConfig | null => {

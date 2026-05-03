@@ -7,10 +7,9 @@ import { CustomGameLoading } from "@/routes/custom/CustomGameLoading";
 import { CustomGameSetup } from "@/routes/custom/CustomGameSetup";
 import { useCustomGameGeneration } from "@/routes/custom/useCustomGameGeneration";
 import { buildCustomConfigFromDraft } from "@/routes/customGameForm";
-import { sameCustomConfig } from "@/routes/customGameHelpers";
-import { parseCustomGameConfig, parseCustomGameRetryCount } from "@/routes/routeUtils";
-import { generateCustomGame } from "@/services/board";
+import { resolveCustomGameSession } from "@/routes/customGameSession";
 import { validateCustomGameConfig } from "@/services/customGameConfig";
+import { findCustomGameAttemptRange } from "@/services/customGameGeneration";
 import type { CustomGameConfig, GameState } from "@/services/storage";
 
 const DEFAULT_CUSTOM_CONFIG: CustomGameConfig = {
@@ -25,28 +24,23 @@ export default function CustomGameRoute() {
   const { copy } = useAppSettings();
   const location = useLocation();
   const persistence = useGamePersistence();
-  const searchParams = useMemo(
-    () => new URL(location.url, "http://localhost").searchParams,
-    [location.url],
-  );
-  const parsedConfig = useMemo(() => parseCustomGameConfig(searchParams), [searchParams]);
-  const parsedRetryCount = useMemo(() => parseCustomGameRetryCount(searchParams), [searchParams]);
-  const hasRetryCountInUrl = useMemo(() => searchParams.has("retryCount"), [searchParams]);
-
   const savedState = persistence.activeState;
-  const savedCustomConfig =
-    persistence.isHydrated && savedState?.difficulty === "Custom" ? savedState.customConfig : null;
+  const session = useMemo(
+    () =>
+      resolveCustomGameSession({
+        isHydrated: persistence.isHydrated,
+        locationUrl: location.url,
+        savedState,
+      }),
+    [location.url, persistence.isHydrated, savedState],
+  );
 
-  const resumeSavedGame = useMemo(() => {
-    if (!persistence.isHydrated) return null;
-    if (!parsedConfig) return null;
-    return savedState && sameCustomConfig(savedCustomConfig, parsedConfig, hasRetryCountInUrl)
-      ? savedState
-      : null;
-  }, [persistence.isHydrated, savedState, savedCustomConfig, parsedConfig, hasRetryCountInUrl]);
-
-  const [draft, setDraft] = useState<CustomGameConfig>(parsedConfig ?? DEFAULT_CUSTOM_CONFIG);
-  const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(() => parsedConfig);
+  const [draft, setDraft] = useState<CustomGameConfig>(
+    session.parsedConfig ?? DEFAULT_CUSTOM_CONFIG,
+  );
+  const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(
+    () => session.parsedConfig,
+  );
   const [gameState, setGameState] = useState<GameState | null>(null);
 
   const handleGenerationSuccess = useCallback(
@@ -62,11 +56,13 @@ export default function CustomGameRoute() {
   );
 
   const generation = useCustomGameGeneration({
-    initialError:
-      parsedConfig === null && searchParams.toString().length > 0 ? copy.custom.invalidUrl : null,
+    initialError: session.invalidUrl ? copy.custom.invalidUrl : null,
     initialIsGenerating:
-      persistence.isHydrated && gameState === null && parsedConfig !== null && hasRetryCountInUrl,
-    initialRetryCount: parsedRetryCount,
+      persistence.isHydrated &&
+      gameState === null &&
+      session.parsedConfig !== null &&
+      session.hasRetryCountInUrl,
+    initialRetryCount: session.parsedRetryCount,
     generationError: copy.custom.generationError,
     onSuccess: handleGenerationSuccess,
   });
@@ -93,10 +89,8 @@ export default function CustomGameRoute() {
 
   const handleCreateNewGame = useCallback(() => {
     if (!activeConfig) throw new Error("No active config");
-    for (let attempt = 0; attempt < 100; attempt++) {
-      const nextGame = generateCustomGame(activeConfig, attempt);
-      if (nextGame) return nextGame;
-    }
+    const nextGame = findCustomGameAttemptRange(activeConfig, 0, 100);
+    if (nextGame) return nextGame;
     throw new Error(copy.custom.couldNotRegenerate);
   }, [activeConfig, copy.custom.couldNotRegenerate]);
 
@@ -116,16 +110,20 @@ export default function CustomGameRoute() {
 
   useLayoutEffect(() => {
     if (!persistence.isHydrated || gameState !== null) return;
-    if (resumeSavedGame) {
-      setActiveConfig(resumeSavedGame.customConfig ?? parsedConfig);
-      setGameState(resumeSavedGame);
+    if (session.resumeSavedGame) {
+      setActiveConfig(session.resumeSavedGame.customConfig ?? session.parsedConfig);
+      setGameState(session.resumeSavedGame);
       return;
     }
-    if (parsedConfig === null || !hasRetryCountInUrl) return;
+    if (session.parsedConfig === null || !session.hasRetryCountInUrl) return;
 
-    const generatedGame = generateCustomGame(parsedConfig, parsedRetryCount);
+    const generatedGame = findCustomGameAttemptRange(
+      session.parsedConfig,
+      session.parsedRetryCount,
+      session.parsedRetryCount + 1,
+    );
     if (generatedGame) {
-      setActiveConfig(generatedGame.customConfig ?? parsedConfig);
+      setActiveConfig(generatedGame.customConfig ?? session.parsedConfig);
       setGameState(generatedGame);
       persistence.saveActiveState(generatedGame);
       return;
@@ -133,16 +131,8 @@ export default function CustomGameRoute() {
 
     if (resumeStartedRef.current) return;
     resumeStartedRef.current = true;
-    generation.startGeneration(parsedConfig, parsedRetryCount);
-  }, [
-    persistence,
-    resumeSavedGame,
-    parsedConfig,
-    parsedRetryCount,
-    gameState,
-    hasRetryCountInUrl,
-    generation,
-  ]);
+    generation.startGeneration(session.parsedConfig, session.parsedRetryCount);
+  }, [persistence, session, gameState, generation]);
 
   if (gameState && activeConfig) {
     return (

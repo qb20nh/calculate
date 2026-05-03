@@ -3,6 +3,7 @@ import hydrate from "preact-iso/hydrate";
 import { App } from "@/App";
 import { applyDeferredStylesheets, scheduleDeferredStylesheets } from "@/lib/deferredStylesheet";
 import { isGameRoutePreloaded, preloadGameRoute } from "@/routes/lazyRoutes";
+import { isDynamicCustomGameRoutePath, shouldPreloadRoutePath } from "@/routes/routeManifest";
 import { removeBasePath } from "@/routes/routeUtils";
 import {
   getSystemTheme,
@@ -11,11 +12,6 @@ import {
   syncDocumentPreferences,
 } from "@/services/preferences";
 import "@/style.css";
-
-const isDynamicCustomGameRoute = (pathname: string, search: string) => {
-  const routePath = removeBasePath(pathname).replace(/\/$/, "");
-  return routePath === "/game/custom" && search.length > 0;
-};
 
 const mountApp = (appElement: HTMLElement, shouldHydrate: boolean) => {
   if (shouldHydrate) {
@@ -38,11 +34,9 @@ try {
     const appElement = document.getElementById("app");
     if (appElement) {
       const pathname = window.location.pathname;
-      const shouldHydrate = !isDynamicCustomGameRoute(pathname, window.location.search);
       const routePath = removeBasePath(pathname).replace(/\/$/, "");
-      const shouldPreloadGameRoute = /^\/game\/(?:easy|medium|hard|crossing|custom)$/.test(
-        routePath,
-      );
+      const shouldHydrate = !isDynamicCustomGameRoutePath(routePath, window.location.search);
+      const shouldPreloadGameRoute = shouldPreloadRoutePath(routePath);
 
       if (shouldPreloadGameRoute && !isGameRoutePreloaded()) {
         applyDeferredStylesheets();
