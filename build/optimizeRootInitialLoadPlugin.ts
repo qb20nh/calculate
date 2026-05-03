@@ -78,6 +78,8 @@ const criticalProperties = new Set([
   "opacity",
   "overflow",
   "padding",
+  "padding-block",
+  "padding-inline",
   "pointer-events",
   "position",
   "right",

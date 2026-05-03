@@ -7,6 +7,7 @@ Math crossword game built with Preact and Vite.
 - `pnpm dev` - start local Vite dev server.
 - `pnpm build` - build and prerender production output into `dist/`.
 - `pnpm preview` - serve built production output.
+- `pnpm performance` - build, preview, and gate root route LCP/CLS in Chromium under the DevTools 3G preset.
 - `pnpm test` - run unit tests with coverage.
 - `pnpm e2e` - run browser smoke tests against preview output.
 - `pnpm quality` - run knip, typecheck, duplicate check, tests, and lint.
