@@ -34,7 +34,7 @@ const loadingRouteHtml = `
     </head>
     <body>
       <div id="app">
-        <main class="theme-page-bg h-dvh w-full flex flex-col">
+        <main class="theme-page-bg h-dvh w-full flex flex-col loading-screen loading-screen-fading fixed inset-0 z-[90] items-center justify-center">
           <div id="skeleton-progress" class="route-progress">
             <div class="route-progress-bar"></div>
           </div>
@@ -110,7 +110,48 @@ const rootCss = `
   }
   .active\\:scale-95:active { transform: scale(.95); }
   .tile { display: flex; }
-  .theme-spinner { border-color: var(--theme-primary); }
+  .fixed { position: fixed; }
+  .inset-0 { inset: 0; }
+  .z-\\[90\\] { z-index: 90; }
+  .items-center { align-items: center; }
+  .justify-center { justify-content: center; }
+  .size-16 { width: 4rem; height: 4rem; }
+  .rounded-full { border-radius: 9999px; }
+  .border-4 { border-style: var(--tw-border-style); border-width: 4px; }
+  .theme-spinner {
+    border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
+    border-top-color: var(--theme-primary);
+  }
+  .loading-screen {
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity .24s ease;
+  }
+  .loading-screen-fading {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .menu-panel-intro {
+    opacity: .1;
+    transform: scale(.9);
+  }
+  :root[data-app-ready="true"] .menu-panel-intro {
+    animation: fadeIn .3s ease-out forwards;
+  }
+  .animate-spin { animation: spin 1s linear infinite; }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: .1;
+      transform: scale(.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
   .unused { color: red; }
   @media (min-width: 48rem) {
     .md\\:p-12 { padding: 3rem; }

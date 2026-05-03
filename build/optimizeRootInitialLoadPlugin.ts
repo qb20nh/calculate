@@ -25,16 +25,8 @@ type CriticalHtmlContext = {
 
 const criticalStyleAttr = "data-critical-root";
 const criticalLayerOrder = "@layer properties,theme,base,components,utilities;";
-const loadingCriticalCss =
-  "@layer components{.theme-spinner{border-color:color-mix(in srgb,var(--theme-primary) 20%,transparent);border-top-color:var(--theme-primary)}.loading-screen{opacity:1;pointer-events:auto;transition:opacity .24s ease}.loading-screen-fading{opacity:0;pointer-events:none}}@layer utilities{.fixed{position:fixed}.inset-0{inset:0}.z-\\[90\\]{z-index:90}.flex{display:flex}.size-16{width:4rem;height:4rem}.items-center{align-items:center}.justify-center{justify-content:center}.border-4{border-style:solid;border-width:4px}.animate-spin{animation:spin 1s linear infinite}}@keyframes spin{to{transform:rotate(360deg)}}";
-const menuIntroCriticalCss =
-  "@layer components{.menu-panel-intro{opacity:.1;transform:scale(.9)}:root[data-app-ready=true] .menu-panel-intro{animation:fadeIn .3s ease-out forwards}}";
-const fadeInUtilityCriticalCss =
-  "@layer utilities{.animate-fade-in{animation:fadeIn .3s ease-out forwards}}";
-const fadeInKeyframesCss =
-  "@keyframes fadeIn{from{opacity:.1;transform:scale(.9)}to{opacity:1;transform:scale(1)}}";
 const classSelectorPattern = /\.((?:\\.|[-_a-zA-Z0-9]|[\u0080-\uFFFF])+)/g;
-const nonCriticalClassPattern = /^(active:|animate-|duration-|ease-|shadow-|transition)/;
+const nonCriticalClassPattern = /^(active:|duration-|ease-|shadow-|transition)/;
 const statePseudoPattern =
   /(^|[^\\]):(active|checked|disabled|enabled|focus|focus-visible|focus-within|hover|target|visited)\b/;
 const varPattern = /var\(\s*(--[-_a-zA-Z0-9]+)\b/g;
@@ -47,6 +39,8 @@ const rootAppCoreModulePreloadPattern =
 const criticalProperties = new Set([
   "-webkit-text-size-adjust",
   "align-items",
+  "animation",
+  "animation-name",
   "background",
   "background-color",
   "background-image",
@@ -54,6 +48,7 @@ const criticalProperties = new Set([
   "border-color",
   "border-radius",
   "border-style",
+  "border-top-color",
   "border-width",
   "box-sizing",
   "color",
@@ -71,6 +66,7 @@ const criticalProperties = new Set([
   "inset",
   "justify-content",
   "letter-spacing",
+  "left",
   "line-height",
   "margin",
   "margin-block-end",
@@ -79,17 +75,42 @@ const criticalProperties = new Set([
   "margin-left",
   "max-width",
   "min-width",
+  "opacity",
   "overflow",
   "padding",
+  "pointer-events",
   "position",
   "right",
   "text-align",
   "text-transform",
   "text-wrap",
   "top",
+  "transform",
+  "transition",
   "white-space",
   "width",
   "z-index",
+]);
+const animationNonNameTokens = new Set([
+  "alternate",
+  "alternate-reverse",
+  "backwards",
+  "both",
+  "ease",
+  "ease-in",
+  "ease-in-out",
+  "ease-out",
+  "forwards",
+  "infinite",
+  "initial",
+  "inherit",
+  "linear",
+  "none",
+  "normal",
+  "paused",
+  "reverse",
+  "running",
+  "unset",
 ]);
 
 const isHtmlAsset = (asset: BundleItem | undefined): asset is HtmlAsset =>
@@ -222,27 +243,6 @@ const collectRootElementNames = (html: string) => {
   }
 
   return elementNames;
-};
-
-const getVisibleHtml = (html: string) => html.replace(ignoredHtmlPattern, "");
-
-const needsLoadingCriticalCss = (html: string) => {
-  const visibleHtml = getVisibleHtml(html);
-  return (
-    visibleHtml.includes('id="skeleton-progress"') ||
-    visibleHtml.includes('id="skeleton-spinner"') ||
-    visibleHtml.includes('id="custom-generation-spinner"') ||
-    /\b(theme-spinner|animate-spin)\b/.test(visibleHtml)
-  );
-};
-
-const getMenuAnimationCriticalCss = (html: string) => {
-  const visibleHtml = getVisibleHtml(html);
-  const includeMenuIntro = /\bmenu-panel-intro\b/.test(visibleHtml);
-  const includeFadeInUtility = /\banimate-fade-in\b/.test(visibleHtml);
-  if (!includeMenuIntro && !includeFadeInUtility) return "";
-
-  return `${includeMenuIntro ? menuIntroCriticalCss : ""}${includeFadeInUtility ? fadeInUtilityCriticalCss : ""}${fadeInKeyframesCss}`;
 };
 
 const decodeCssIdentifier = (identifier: string) =>
@@ -435,6 +435,73 @@ const pruneUnusedCustomProperties = (criticalRoot: postcss.Root, sourceRoot: pos
   });
 };
 
+const animationDurationPattern = /^-?(?:\d+|\d*\.\d+)(?:ms|s)$/;
+const animationTimingFunctionPattern = /^(?:cubic-bezier|linear|steps)\(/;
+
+const getAnimationNameCandidates = (animationValue: string) => {
+  const names = new Set<string>();
+
+  for (const animation of animationValue.split(",")) {
+    for (const token of animation.trim().split(/\s+/)) {
+      const normalizedToken = decodeCssIdentifier(token.replaceAll(/,$/g, ""));
+      const lowerToken = normalizedToken.toLowerCase();
+      if (
+        lowerToken === "" ||
+        animationNonNameTokens.has(lowerToken) ||
+        animationDurationPattern.test(lowerToken) ||
+        animationTimingFunctionPattern.test(lowerToken)
+      ) {
+        continue;
+      }
+      names.add(normalizedToken);
+      break;
+    }
+  }
+
+  return names;
+};
+
+const collectAnimationNames = (criticalRoot: postcss.Root) => {
+  const names = new Set<string>();
+
+  criticalRoot.walkDecls((declaration) => {
+    if (declaration.prop === "animation-name") {
+      for (const name of declaration.value.split(",")) {
+        const trimmedName = name.trim();
+        if (trimmedName && trimmedName !== "none") names.add(trimmedName);
+      }
+      return;
+    }
+
+    if (declaration.prop === "animation") {
+      for (const name of getAnimationNameCandidates(declaration.value)) names.add(name);
+    }
+  });
+
+  return names;
+};
+
+const appendUsedKeyframes = (criticalRoot: postcss.Root, sourceRoot: postcss.Root) => {
+  const animationNames = collectAnimationNames(criticalRoot);
+  if (animationNames.size === 0) return;
+
+  const existingKeyframes = new Set<string>();
+  criticalRoot.walkAtRules((atRule) => {
+    if (atRule.name.toLowerCase().includes("keyframes"))
+      existingKeyframes.add(atRule.params.trim());
+  });
+
+  sourceRoot.walkAtRules((atRule) => {
+    if (!atRule.name.toLowerCase().includes("keyframes")) return;
+
+    const name = atRule.params.trim();
+    if (!animationNames.has(name) || existingKeyframes.has(name)) return;
+
+    criticalRoot.append(atRule.clone());
+    existingKeyframes.add(name);
+  });
+};
+
 const removeEmptyContainers = (container: Container) => {
   container.each((node) => {
     if ("nodes" in node && node.nodes) {
@@ -468,6 +535,7 @@ const minifyCss = (css: string) =>
     .replace(/calc\(1 - 1\)/g, "0")
     .replace(/calc\(([-.\d]+rem) \* 0\)/g, "0")
     .replace(/calc\(([-.\d]+rem) \* 1\)/g, "$1")
+    .replace(/\[([-_a-zA-Z0-9]+)="([-_a-zA-Z0-9]+)"\]/g, "[$1=$2]")
     .replace(/;}/g, "}")
     .trim();
 
@@ -486,12 +554,9 @@ export const extractRootCriticalCss = (html: string, css: string) => {
   inlineResolvableVariables(criticalRoot, sourceRoot);
   pruneUnusedCustomProperties(criticalRoot, sourceRoot);
   removeEmptyContainers(criticalRoot);
+  appendUsedKeyframes(criticalRoot, sourceRoot);
 
-  const menuAnimationCss = getMenuAnimationCriticalCss(html);
-  const includeLoading = needsLoadingCriticalCss(html);
-  const criticalCss = minifyCss(
-    `${criticalLayerOrder}${criticalRoot.toString()}${includeLoading ? loadingCriticalCss : ""}${menuAnimationCss}`,
-  );
+  const criticalCss = minifyCss(`${criticalLayerOrder}${criticalRoot.toString()}`);
   if (!criticalCss) throw new TypeError("Root critical CSS extraction produced empty output.");
 
   return criticalCss;

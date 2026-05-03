@@ -8,6 +8,7 @@ import { injectLoadingScriptPlugin } from "./build/injectLoadingScriptPlugin";
 import { injectSkeletonPlugin } from "./build/injectSkeletonPlugin";
 import { injectTranslationsPlugin } from "./build/injectTranslationsPlugin";
 import { legacyPrerenderPlugin } from "./build/legacyPrerenderPlugin";
+import { minifyHtmlAssetsPlugin } from "./build/minifyHtmlAssetsPlugin";
 import { optimizeRootInitialLoadPlugin } from "./build/optimizeRootInitialLoadPlugin";
 import { PRERENDER_ROUTE_PATHS } from "./src/routes/routeManifest";
 
@@ -108,6 +109,7 @@ export default defineConfig(({ command }) => {
       !isLegacyBuild && injectLoadingScriptPlugin(),
       !isLegacyBuild && optimizeRootInitialLoadPlugin(),
       !isLegacyBuild && emitCleanRouteHtmlPlugin(),
+      !isLegacyBuild && minifyHtmlAssetsPlugin(),
     ].filter((p): p is Plugin => !!p),
     resolve: {
       alias: {
