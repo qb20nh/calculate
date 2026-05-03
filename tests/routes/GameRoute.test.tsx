@@ -21,7 +21,6 @@ vi.mock("preact-iso/router", () => ({
   }),
 }));
 
-// Mock storage
 const mockLoadProgress = vi.fn(() => ({
   Easy: { current: 1, max: 1 },
   Medium: { current: 1, max: 1 },
@@ -29,34 +28,63 @@ const mockLoadProgress = vi.fn(() => ({
   Crossing: { current: 1, max: 1 },
 }));
 const mockLoadGameState = vi.fn<() => GameState | null>(() => null);
-const mockSaveGameState = vi.fn();
 const mockLoadClearedGameState = vi.fn<(difficulty: string, stage: number) => GameState | null>(
   () => null,
 );
-const mockSaveClearedGameState = vi.fn();
-const mockClearClearedGameState = vi.fn();
+const mockSetCurrentStage = vi.fn();
+const mockUnlockStage = vi.fn();
+const mockSaveStageState = vi.fn();
+const mockSaveActiveState = vi.fn();
 
 vi.mock("@/routes/CustomGameRoute", () => ({
   default: () => <div>Custom Setup</div>,
 }));
 
-vi.mock("@/services/storage", () => ({
-  DEFAULT_PROGRESS: {
-    Easy: { current: 1, max: 1 },
-    Medium: { current: 1, max: 1 },
-    Hard: { current: 1, max: 1 },
-    Crossing: { current: 1, max: 1 },
+vi.mock("@/lib/gamePersistence", () => ({
+  EMPTY_STAGE_RESTORE: {
+    state: null,
+    source: "none",
+    persistInitialState: false,
   },
-  loadProgress: () => mockLoadProgress(),
-  loadGameState: () => mockLoadGameState(),
-  loadClearedGameState: (...args: Parameters<typeof mockLoadClearedGameState>) =>
-    mockLoadClearedGameState(...args),
-  saveGameState: (...args: Parameters<typeof mockSaveGameState>) => mockSaveGameState(...args),
-  saveClearedGameState: (...args: Parameters<typeof mockSaveClearedGameState>) =>
-    mockSaveClearedGameState(...args),
-  clearClearedGameState: (...args: Parameters<typeof mockClearClearedGameState>) =>
-    mockClearClearedGameState(...args),
-  saveProgress: vi.fn(),
+  useGamePersistence: () => {
+    const progress = mockLoadProgress();
+    const activeState = mockLoadGameState();
+
+    return {
+      isHydrated: true,
+      progress,
+      activeState,
+      getStageRestore: (difficulty: string, stage: number) => {
+        if (activeState?.difficulty === difficulty && activeState.stage === stage) {
+          return {
+            state: activeState,
+            source: "active",
+            persistInitialState: true,
+          };
+        }
+
+        const clearedState = mockLoadClearedGameState(difficulty, stage);
+        return clearedState
+          ? {
+              state: clearedState,
+              source: "cleared",
+              persistInitialState: false,
+            }
+          : {
+              state: null,
+              source: "none",
+              persistInitialState: false,
+            };
+      },
+      getLatestUnlockedStage: (difficulty: keyof typeof progress) => progress[difficulty].max,
+      isStageLocked: (difficulty: keyof typeof progress, stage: number) =>
+        stage > progress[difficulty].max,
+      setCurrentStage: mockSetCurrentStage,
+      unlockStage: mockUnlockStage,
+      saveStageState: mockSaveStageState,
+      saveActiveState: mockSaveActiveState,
+    };
+  },
 }));
 
 vi.mock("@/components/Game", () => ({
@@ -169,9 +197,10 @@ vi.mock("@/components/Game", () => ({
 describe("GameRoute", () => {
   beforeEach(() => {
     mockRoute.mockClear();
-    mockSaveGameState.mockClear();
-    mockSaveClearedGameState.mockClear();
-    mockClearClearedGameState.mockClear();
+    mockSetCurrentStage.mockClear();
+    mockUnlockStage.mockClear();
+    mockSaveStageState.mockClear();
+    mockSaveActiveState.mockClear();
     mockLoadProgress.mockReturnValue({
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
@@ -209,7 +238,7 @@ describe("GameRoute", () => {
     // Game calls onBack
     fireEvent.click(requireValue(screen.getAllByLabelText("Back")[0]));
     expect(mockRoute).toHaveBeenCalledWith("/");
-    expect(mockSaveGameState).not.toHaveBeenCalledWith(null);
+    expect(mockSaveActiveState).not.toHaveBeenCalledWith(null);
   });
 
   it("should handle stage change", () => {
@@ -262,7 +291,7 @@ describe("GameRoute", () => {
       Hard: { current: 1, max: 1 },
       Crossing: { current: 1, max: 1 },
     });
-    mockLoadGameState.mockReturnValueOnce({
+    mockLoadGameState.mockReturnValue({
       board: {},
       bank: [],
       initialBankSize: 0,
@@ -293,9 +322,11 @@ describe("GameRoute", () => {
 
     // Game calls onStateChange with won status
     fireEvent.click(screen.getByText("Mock State Won"));
-    expect(mockSaveClearedGameState).toHaveBeenCalledWith(
+    expect(mockSaveStageState).toHaveBeenCalledWith(
       expect.objectContaining({ difficulty: "Easy", status: "won", stage: 1 }),
+      undefined,
     );
+    expect(mockUnlockStage).toHaveBeenCalledWith("Easy", 2);
   });
 
   it("should restore a saved cleared stage when no active save matches", async () => {
@@ -337,9 +368,9 @@ describe("GameRoute", () => {
 
     fireEvent.click(screen.getByText("Mock Dirty Playing"));
 
-    expect(mockClearClearedGameState).toHaveBeenCalledWith("Easy", 1);
-    expect(mockSaveGameState).toHaveBeenCalledWith(
+    expect(mockSaveStageState).toHaveBeenCalledWith(
       expect.objectContaining({ difficulty: "Easy", status: "playing", stage: 1 }),
+      { clearedResetTilePlaced: true },
     );
   });
 
@@ -349,9 +380,9 @@ describe("GameRoute", () => {
 
     fireEvent.click(screen.getByText("Mock State Playing"));
 
-    expect(mockClearClearedGameState).not.toHaveBeenCalled();
-    expect(mockSaveGameState).toHaveBeenCalledWith(
+    expect(mockSaveStageState).toHaveBeenCalledWith(
       expect.objectContaining({ difficulty: "Easy", status: "playing", stage: 1 }),
+      undefined,
     );
   });
 
@@ -478,13 +509,13 @@ describe("GameRoute", () => {
   it("should use a saved crossing stage when no stage is specified", async () => {
     mockRoute.mockClear();
     mockLocationUrl = "/game/crossing";
-    mockLoadProgress.mockReturnValueOnce({
+    mockLoadProgress.mockReturnValue({
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
       Crossing: { current: 1, max: 3 },
     });
-    mockLoadGameState.mockReturnValueOnce({
+    mockLoadGameState.mockReturnValue({
       board: {},
       bank: [],
       initialBankSize: 0,
@@ -536,9 +567,11 @@ describe("GameRoute", () => {
 
     fireEvent.click(screen.getByText("Mock State Won"));
 
-    expect(mockSaveClearedGameState).toHaveBeenCalledWith(
+    expect(mockSaveStageState).toHaveBeenCalledWith(
       expect.objectContaining({ difficulty: "Crossing", status: "won", stage: 1 }),
+      undefined,
     );
+    expect(mockUnlockStage).toHaveBeenCalledWith("Crossing", 2);
   });
 
   it("should lock unopened crossing stages", () => {
@@ -557,7 +590,7 @@ describe("GameRoute", () => {
   it("should allow crossing stage changes within unlocked progress", () => {
     mockRoute.mockClear();
     mockLocationUrl = "/game/crossing?stage=1";
-    mockLoadProgress.mockReturnValueOnce({
+    mockLoadProgress.mockReturnValue({
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },
@@ -572,25 +605,26 @@ describe("GameRoute", () => {
 
   it("should save crossing state changes and preserve state on back", () => {
     mockRoute.mockClear();
-    mockSaveGameState.mockClear();
+    mockSaveStageState.mockClear();
     mockLocationUrl = "/game/crossing?stage=1";
 
     render(<GameRoute difficulty="crossing" />);
 
     fireEvent.click(screen.getByText("Mock State Playing"));
-    expect(mockSaveGameState).toHaveBeenCalledWith(
+    expect(mockSaveStageState).toHaveBeenCalledWith(
       expect.objectContaining({ status: "playing", stage: 1 }),
+      undefined,
     );
 
     fireEvent.click(requireValue(screen.getAllByLabelText("Back")[0]));
-    expect(mockSaveGameState).not.toHaveBeenCalledWith(null);
+    expect(mockSaveActiveState).not.toHaveBeenCalledWith(null);
     expect(mockRoute).toHaveBeenCalledWith("/");
   });
 
   it("should ignore crossing stage changes outside the available range", () => {
     mockRoute.mockClear();
     mockLocationUrl = "/game/crossing?stage=9";
-    mockLoadProgress.mockReturnValueOnce({
+    mockLoadProgress.mockReturnValue({
       Easy: { current: 1, max: 1 },
       Medium: { current: 1, max: 1 },
       Hard: { current: 1, max: 1 },

@@ -52,6 +52,7 @@ export const Game: FunctionalComponent<GameProps> = ({
 }) => {
   const { copy, t } = useAppSettings();
   const resetGridMetricsRef = useRef<() => void>(() => {});
+  const onStateChangeRef = useRef(onStateChange);
   const hasHandledFirstStateRef = useRef(false);
   const saveFirstStateRef = useRef(persistInitialState);
   const preserveClearedSaveUntilTilePlacementRef = useRef(false);
@@ -86,6 +87,10 @@ export const Game: FunctionalComponent<GameProps> = ({
     inventoryRef,
     gameState?.bank,
   );
+
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
 
   const dismissCompletionDialog = useCallback(() => {
     setIsCompletionDialogOpen(false);
@@ -184,9 +189,9 @@ export const Game: FunctionalComponent<GameProps> = ({
         ? { clearedResetTilePlaced: true }
         : undefined;
       clearClearedSaveOnNextStateChangeRef.current = false;
-      onStateChange({ ...gameState, difficulty, stage }, context);
+      onStateChangeRef.current({ ...gameState, difficulty, stage }, context);
     }
-  }, [gameState, difficulty, stage, onStateChange]);
+  }, [gameState, difficulty, stage]);
 
   useGameValidation({
     gameState,

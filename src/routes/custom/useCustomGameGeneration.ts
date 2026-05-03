@@ -8,7 +8,6 @@ import {
   createCustomGameWorker,
 } from "@/services/customGameGeneration";
 import type { CustomGameConfig, GameState } from "@/services/storage";
-import { saveGameState } from "@/services/storage";
 
 export function useCustomGameGeneration({
   initialError,
@@ -96,7 +95,6 @@ export function useCustomGameGeneration({
               };
 
               setRetryCount(finalAttempt);
-              saveGameState(finalGame);
               syncCustomUrl(finalGame.customConfig ?? config, finalAttempt);
               onSuccess(finalGame);
             })

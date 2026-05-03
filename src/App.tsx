@@ -8,6 +8,7 @@ import { reportAppRenderError } from "@/hooks/useAppReadinessSignal";
 import { useLoading } from "@/hooks/useLoading";
 import { AppSettingsProvider } from "@/lib/appSettings";
 import { applyDeferredStylesheets, ensureDeferredStylesheets } from "@/lib/deferredStylesheet";
+import { GamePersistenceProvider } from "@/lib/gamePersistence";
 import { GameRoute, MenuRoute, NotFoundRoute, preloadGameRoute } from "@/routes/lazyRoutes";
 import { addBasePath, removeBasePath } from "@/routes/routeUtils";
 import { loadingService, ROUTE_TRANSITION_LOADING_KEY } from "@/services/loading";
@@ -123,19 +124,21 @@ export function App() {
 
   return (
     <AppSettingsProvider>
-      <LocationProvider>
-        <BasePathProvider>
-          <ErrorBoundary onError={reportAppRenderError}>
-            <AppRoutes
-              hasHydrated={hasHydrated}
-              hasMounted={hasMounted}
-              setIsRouteLoading={setIsRouteLoading}
-            />
-            <ProgressBar isLoading={isLoading} />
-            <LoadingSpinner isVisible={isLoading} />
-          </ErrorBoundary>
-        </BasePathProvider>
-      </LocationProvider>
+      <GamePersistenceProvider>
+        <LocationProvider>
+          <BasePathProvider>
+            <ErrorBoundary onError={reportAppRenderError}>
+              <AppRoutes
+                hasHydrated={hasHydrated}
+                hasMounted={hasMounted}
+                setIsRouteLoading={setIsRouteLoading}
+              />
+              <ProgressBar isLoading={isLoading} />
+              <LoadingSpinner isVisible={isLoading} />
+            </ErrorBoundary>
+          </BasePathProvider>
+        </LocationProvider>
+      </GamePersistenceProvider>
     </AppSettingsProvider>
   );
 }

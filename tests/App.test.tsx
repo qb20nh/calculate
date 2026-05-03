@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/index";
+import { loadingService, ROUTE_TRANSITION_LOADING_KEY } from "@/services/loading";
 import { OP_PLUS, REL_EQ } from "@/services/math";
 
 const setProgress = (
@@ -10,9 +11,11 @@ const setProgress = (
 };
 
 const waitForGameLoaded = async (stageLabel: string) => {
-  await vi.advanceTimersByTimeAsync(0);
-  await vi.advanceTimersByTimeAsync(250);
-  await vi.advanceTimersByTimeAsync(0);
+  if (vi.isFakeTimers()) {
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(0);
+  }
   await waitFor(() => {
     expect(screen.queryByText("Generating Puzzle...")).toBeNull();
     expect(screen.getAllByText(stageLabel).length).toBeGreaterThan(0);
@@ -46,7 +49,11 @@ describe("App", () => {
   });
 
   afterEach(() => {
+    cleanup();
+    loadingService.stop(ROUTE_TRANSITION_LOADING_KEY);
+    loadingService.stop("route-styles");
     vi.doUnmock("@/routes/GameRoute");
+    vi.clearAllTimers();
     vi.useRealTimers();
   });
 
@@ -102,42 +109,6 @@ describe("App", () => {
     });
     await waitFor(() => {
       expect(screen.queryByText("Generating Puzzle...")).toBeNull();
-    });
-  });
-
-  it("should show a progress bar while a lazy route loads", async () => {
-    vi.resetModules();
-    vi.doMock(
-      "@/routes/GameRoute",
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              default: () => <div>Delayed game route</div>,
-            });
-          }, 1000);
-        }),
-    );
-    const { App: AppWithDelayedGameRoute } = await import("@/App");
-
-    render(<AppWithDelayedGameRoute />);
-
-    expect(await screen.findByText("Math")).toBeDefined();
-    await vi.advanceTimersByTimeAsync(250);
-    expect(screen.queryByLabelText("Loading")).toBeNull();
-
-    fireEvent.click(screen.getByText("Easy"));
-
-    expect(screen.getByLabelText("Loading").tagName).toBe("DIV");
-    expect(screen.getByLabelText("Loading screen")).toBeDefined();
-
-    await vi.advanceTimersByTimeAsync(1000);
-    await waitFor(() => {
-      expect(screen.getByText("Delayed game route")).toBeDefined();
-    });
-    await vi.advanceTimersByTimeAsync(360);
-    await waitFor(() => {
-      expect(screen.queryByLabelText("Loading screen")).toBeNull();
     });
   });
 
@@ -235,11 +206,11 @@ describe("App", () => {
   });
 
   it("should navigate back to menu", async () => {
+    vi.useRealTimers();
     render(<App />);
 
     fireEvent.click(await screen.findByText("Easy"));
     await waitForGameLoaded("Easy - Stage 1");
-    vi.useRealTimers();
 
     await waitFor(() => {
       expect(screen.getByLabelText("Back")).toBeDefined();
@@ -589,6 +560,42 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Page not found")).toBeDefined();
+    });
+  });
+
+  it("should show a progress bar while a lazy route loads", async () => {
+    vi.resetModules();
+    vi.doMock(
+      "@/routes/GameRoute",
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              default: () => <div>Delayed game route</div>,
+            });
+          }, 1000);
+        }),
+    );
+    const { App: AppWithDelayedGameRoute } = await import("@/App");
+
+    render(<AppWithDelayedGameRoute />);
+
+    expect(await screen.findByText("Math")).toBeDefined();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(screen.queryByLabelText("Loading")).toBeNull();
+
+    fireEvent.click(screen.getByText("Easy"));
+
+    expect(screen.getByLabelText("Loading").tagName).toBe("DIV");
+    expect(screen.getByLabelText("Loading screen")).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await waitFor(() => {
+      expect(screen.getByText("Delayed game route")).toBeDefined();
+    });
+    await vi.advanceTimersByTimeAsync(360);
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Loading screen")).toBeNull();
     });
   });
 });

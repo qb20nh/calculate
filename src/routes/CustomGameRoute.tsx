@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation } from "preact-iso/router";
 import { Game } from "@/components/Game";
 import { useAppSettings } from "@/lib/appSettings";
+import { useGamePersistence } from "@/lib/gamePersistence";
 import { CustomGameLoading } from "@/routes/custom/CustomGameLoading";
 import { CustomGameSetup } from "@/routes/custom/CustomGameSetup";
 import { useCustomGameGeneration } from "@/routes/custom/useCustomGameGeneration";
@@ -11,7 +12,6 @@ import { parseCustomGameConfig, parseCustomGameRetryCount } from "@/routes/route
 import { generateCustomGame } from "@/services/board";
 import { validateCustomGameConfig } from "@/services/customGameConfig";
 import type { CustomGameConfig, GameState } from "@/services/storage";
-import { loadGameState, saveGameState } from "@/services/storage";
 
 const DEFAULT_CUSTOM_CONFIG: CustomGameConfig = {
   givenCount: 8,
@@ -24,6 +24,7 @@ const DEFAULT_CUSTOM_CONFIG: CustomGameConfig = {
 export default function CustomGameRoute() {
   const { copy } = useAppSettings();
   const location = useLocation();
+  const persistence = useGamePersistence();
   const searchParams = useMemo(
     () => new URL(location.url, "http://localhost").searchParams,
     [location.url],
@@ -32,38 +33,39 @@ export default function CustomGameRoute() {
   const parsedRetryCount = useMemo(() => parseCustomGameRetryCount(searchParams), [searchParams]);
   const hasRetryCountInUrl = useMemo(() => searchParams.has("retryCount"), [searchParams]);
 
-  const savedState = useMemo(() => loadGameState(), []);
-  const savedCustomConfig = savedState?.difficulty === "Custom" ? savedState.customConfig : null;
+  const savedState = persistence.activeState;
+  const savedCustomConfig =
+    persistence.isHydrated && savedState?.difficulty === "Custom" ? savedState.customConfig : null;
 
   const resumeSavedGame = useMemo(() => {
+    if (!persistence.isHydrated) return null;
     if (!parsedConfig) return null;
     return savedState && sameCustomConfig(savedCustomConfig, parsedConfig, hasRetryCountInUrl)
       ? savedState
       : null;
-  }, [savedState, savedCustomConfig, parsedConfig, hasRetryCountInUrl]);
+  }, [persistence.isHydrated, savedState, savedCustomConfig, parsedConfig, hasRetryCountInUrl]);
 
   const [draft, setDraft] = useState<CustomGameConfig>(parsedConfig ?? DEFAULT_CUSTOM_CONFIG);
   const [activeConfig, setActiveConfig] = useState<CustomGameConfig | null>(() => parsedConfig);
-  const [gameState, setGameState] = useState<GameState | null>(() => {
-    if (resumeSavedGame) return resumeSavedGame;
-    if (parsedConfig && hasRetryCountInUrl) {
-      return generateCustomGame(parsedConfig, parsedRetryCount);
-    }
-    return null;
-  });
+  const [gameState, setGameState] = useState<GameState | null>(null);
 
-  const handleGenerationSuccess = useCallback((finalGame: GameState) => {
-    setActiveConfig(finalGame.customConfig ?? null);
-    setGameState(finalGame);
-    if (finalGame.customConfig) {
-      setDraft(finalGame.customConfig);
-    }
-  }, []);
+  const handleGenerationSuccess = useCallback(
+    (finalGame: GameState) => {
+      setActiveConfig(finalGame.customConfig ?? null);
+      setGameState(finalGame);
+      persistence.saveActiveState(finalGame);
+      if (finalGame.customConfig) {
+        setDraft(finalGame.customConfig);
+      }
+    },
+    [persistence],
+  );
 
   const generation = useCustomGameGeneration({
     initialError:
       parsedConfig === null && searchParams.toString().length > 0 ? copy.custom.invalidUrl : null,
-    initialIsGenerating: gameState === null && parsedConfig !== null && hasRetryCountInUrl,
+    initialIsGenerating:
+      persistence.isHydrated && gameState === null && parsedConfig !== null && hasRetryCountInUrl,
     initialRetryCount: parsedRetryCount,
     generationError: copy.custom.generationError,
     onSuccess: handleGenerationSuccess,
@@ -98,10 +100,13 @@ export default function CustomGameRoute() {
     throw new Error(copy.custom.couldNotRegenerate);
   }, [activeConfig, copy.custom.couldNotRegenerate]);
 
-  const handleStateChange = useCallback((state: GameState) => {
-    saveGameState(state);
-    setGameState(state);
-  }, []);
+  const handleStateChange = useCallback(
+    (state: GameState) => {
+      persistence.saveActiveState(state);
+      setGameState(state);
+    },
+    [persistence],
+  );
 
   useEffect(() => {
     if (gameState?.customConfig) {
@@ -110,11 +115,34 @@ export default function CustomGameRoute() {
   }, [gameState, generation]);
 
   useLayoutEffect(() => {
-    if (parsedConfig === null || !hasRetryCountInUrl || gameState !== null) return;
+    if (!persistence.isHydrated || gameState !== null) return;
+    if (resumeSavedGame) {
+      setActiveConfig(resumeSavedGame.customConfig ?? parsedConfig);
+      setGameState(resumeSavedGame);
+      return;
+    }
+    if (parsedConfig === null || !hasRetryCountInUrl) return;
+
+    const generatedGame = generateCustomGame(parsedConfig, parsedRetryCount);
+    if (generatedGame) {
+      setActiveConfig(generatedGame.customConfig ?? parsedConfig);
+      setGameState(generatedGame);
+      persistence.saveActiveState(generatedGame);
+      return;
+    }
+
     if (resumeStartedRef.current) return;
     resumeStartedRef.current = true;
     generation.startGeneration(parsedConfig, parsedRetryCount);
-  }, [parsedConfig, parsedRetryCount, gameState, hasRetryCountInUrl, generation]);
+  }, [
+    persistence,
+    resumeSavedGame,
+    parsedConfig,
+    parsedRetryCount,
+    gameState,
+    hasRetryCountInUrl,
+    generation,
+  ]);
 
   if (gameState && activeConfig) {
     return (

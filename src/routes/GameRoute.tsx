@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect } from "preact/hooks";
 import { useLocation } from "preact-iso/router";
 import {
   Game,
@@ -7,6 +7,7 @@ import {
   UnavailableLevelShell,
 } from "@/components/Game";
 import { useAppSettings } from "@/lib/appSettings";
+import { EMPTY_STAGE_RESTORE, useGamePersistence } from "@/lib/gamePersistence";
 import CustomGameRoute from "@/routes/CustomGameRoute";
 import NotFoundRoute from "@/routes/NotFoundRoute";
 import { resolveNormalGameRouteState } from "@/routes/normalGameRouteState";
@@ -17,25 +18,7 @@ import {
   toGamePath,
 } from "@/routes/routeUtils";
 import { CROSSING_LEVEL_COUNT } from "@/services/board/handcraftedLevels";
-import {
-  advanceProgress,
-  getLatestUnlockedStage,
-  isStageLocked,
-  unlockStage,
-} from "@/services/progress";
-import {
-  clearClearedGameState,
-  DEFAULT_PROGRESS,
-  type GameState,
-  loadClearedGameState,
-  loadGameState,
-  loadProgress,
-  type Progress,
-  type ProgressMode,
-  saveClearedGameState,
-  saveGameState,
-  saveProgress,
-} from "@/services/storage";
+import type { GameState } from "@/services/storage";
 
 interface GameRouteProps {
   difficulty?: string;
@@ -44,26 +27,6 @@ interface GameRouteProps {
 interface NormalGameRouteProps {
   difficultySlug: string | undefined;
 }
-
-const persistStageGameState = (
-  state: GameState,
-  difficulty: ProgressMode,
-  context?: GameStateChangeContext,
-) => {
-  saveGameState(state);
-
-  if (state.status === "won") {
-    saveClearedGameState(state);
-    return;
-  }
-
-  if (state.solvedAcknowledged && loadClearedGameState(difficulty, state.stage) === null) {
-    saveClearedGameState(state);
-  }
-  if (context?.clearedResetTilePlaced) {
-    clearClearedGameState(difficulty, state.stage);
-  }
-};
 
 export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameRouteProps>) {
   const gameMode = parseGameModeSlug(difficultySlug);
@@ -80,18 +43,8 @@ export default function GameRoute({ difficulty: difficultySlug }: Readonly<GameR
 function CrossingGameRoute() {
   const { copy } = useAppSettings();
   const location = useLocation();
-  const [isClient, setIsClient] = useState(false);
-  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
-
-  useEffect(() => {
-    setIsClient(true);
-    setProgress(loadProgress());
-  }, []);
-
-  const savedState = useMemo<GameState | null>(() => {
-    if (!isClient) return null;
-    return loadGameState();
-  }, [isClient, location.url]);
+  const persistence = useGamePersistence();
+  const savedState = persistence.activeState;
 
   const stageParam = new URL(location.url, "http://localhost").searchParams.get("stage");
   const savedCrossingStage =
@@ -100,86 +53,61 @@ function CrossingGameRoute() {
     savedState.stage <= CROSSING_LEVEL_COUNT
       ? savedState.stage
       : null;
-  const latestUnlockedStage = getLatestUnlockedStage(progress, "Crossing");
+  const latestUnlockedStage = persistence.getLatestUnlockedStage("Crossing");
   const savedUnlockedStage =
     savedCrossingStage !== null && savedCrossingStage <= latestUnlockedStage
       ? savedCrossingStage
       : null;
   const stage = parseStageParam(stageParam) ?? savedUnlockedStage ?? latestUnlockedStage;
   const targetPath = toGamePath("Crossing", stage);
-  const stageLocked = isStageLocked(progress, "Crossing", stage);
+  const stageLocked = persistence.isStageLocked("Crossing", stage);
   const lockedNotice = copy.game.stageLockedNotice;
+  const stageRestore = persistence.isHydrated
+    ? persistence.getStageRestore("Crossing", stage)
+    : EMPTY_STAGE_RESTORE;
 
   useEffect(() => {
+    if (!persistence.isHydrated) return;
     if (stage > CROSSING_LEVEL_COUNT) return;
     if (location.url !== targetPath && !stageLocked) location.route(targetPath, true);
-  }, [location, stage, stageLocked, targetPath]);
-
-  const initialGameState = useMemo<GameState | null>(() => {
-    if (savedState?.difficulty !== "Crossing" || savedState.stage !== stage) return null;
-    return savedState;
-  }, [savedState, stage]);
-  const clearedGameState = useMemo<GameState | null>(() => {
-    if (!isClient) return null;
-    return loadClearedGameState("Crossing", stage);
-  }, [isClient, stage]);
-  const restorableGameState = initialGameState ?? clearedGameState;
+  }, [location, persistence.isHydrated, stage, stageLocked, targetPath]);
 
   const handleBack = useCallback(() => {
     location.route("/");
   }, [location]);
 
-  const updateProgress = useCallback((nextStage: number, includeMax: boolean) => {
-    setProgress((prev) => {
-      const nextProgress = advanceProgress(
-        prev,
-        "Crossing",
-        nextStage,
-        includeMax && nextStage <= CROSSING_LEVEL_COUNT,
-      );
-      saveProgress(nextProgress);
-      return nextProgress;
-    });
-  }, []);
-
-  const updateMaxProgress = useCallback((newMax: number) => {
-    setProgress((prev) => {
-      const nextProgress = unlockStage(prev, "Crossing", Math.min(newMax, CROSSING_LEVEL_COUNT));
-      saveProgress(nextProgress);
-      return nextProgress;
-    });
-  }, []);
-
   const handleWin = useCallback(
     (nextStage: number) => {
       if (nextStage > CROSSING_LEVEL_COUNT) return;
-      updateProgress(nextStage, true);
+      persistence.setCurrentStage("Crossing", nextStage, { unlock: true });
       location.route(toGamePath("Crossing", nextStage));
     },
-    [location, updateProgress],
+    [location, persistence],
   );
 
   const handleStageChange = useCallback(
     (nextStage: number) => {
       if (nextStage < 1 || nextStage > CROSSING_LEVEL_COUNT) return;
       if (nextStage > latestUnlockedStage) return;
-      updateProgress(nextStage, false);
+      persistence.setCurrentStage("Crossing", nextStage);
       location.route(toGamePath("Crossing", nextStage));
     },
-    [latestUnlockedStage, location, updateProgress],
+    [latestUnlockedStage, location, persistence],
   );
 
   const handleStateChange = useCallback(
     (state: GameState, context?: GameStateChangeContext) => {
-      persistStageGameState(state, "Crossing", context);
-      if (state.status === "won") updateMaxProgress(state.stage + 1);
+      persistence.saveStageState(state, context);
+      if (state.status === "won") {
+        persistence.unlockStage("Crossing", Math.min(state.stage + 1, CROSSING_LEVEL_COUNT));
+      }
     },
-    [updateMaxProgress],
+    [persistence],
   );
 
   if (stage > CROSSING_LEVEL_COUNT) return <NotFoundRoute />;
 
-  if (!isClient) {
+  if (!persistence.isHydrated) {
     return (
       <GameLoadingShell
         difficulty="Crossing"
@@ -212,8 +140,8 @@ function CrossingGameRoute() {
       difficulty="Crossing"
       stage={stage}
       maxStage={latestUnlockedStage}
-      initialState={restorableGameState}
-      persistInitialState={initialGameState !== null}
+      initialState={stageRestore.state}
+      persistInitialState={stageRestore.persistInitialState}
       showNextLevelButton={stage < CROSSING_LEVEL_COUNT}
       onWin={handleWin}
       onBack={handleBack}
@@ -226,20 +154,9 @@ function CrossingGameRoute() {
 function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const { copy } = useAppSettings();
   const location = useLocation();
+  const persistence = useGamePersistence();
   const difficulty = parseDifficultySlug(difficultySlug);
-
-  const [isClient, setIsClient] = useState(false);
-  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
-
-  useEffect(() => {
-    setIsClient(true);
-    setProgress(loadProgress());
-  }, []);
-
-  const savedState = useMemo<GameState | null>(() => {
-    if (!difficulty || !isClient) return null;
-    return loadGameState();
-  }, [difficulty, isClient, location.url]);
+  const savedState = difficulty ? persistence.activeState : null;
   const savedStateDifficulty =
     savedState?.difficulty === "Easy" ||
     savedState?.difficulty === "Medium" ||
@@ -250,72 +167,41 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const { requestedStage, latestUnlockedStage, stageLocked, targetPath, shouldRedirect } =
     resolveNormalGameRouteState({
       difficulty,
-      isClient,
+      isClient: persistence.isHydrated,
       locationUrl: location.url,
       savedStateDifficulty,
       savedStateStage: savedState?.difficulty === difficulty ? savedState.stage : null,
-      progress,
+      progress: persistence.progress,
     });
   const stage = requestedStage;
   const lockedNotice =
     difficulty && requestedStage && latestUnlockedStage ? copy.game.stageLockedNotice : undefined;
+  const stageRestore =
+    difficulty && stage && persistence.isHydrated
+      ? persistence.getStageRestore(difficulty, stage)
+      : EMPTY_STAGE_RESTORE;
 
   useEffect(() => {
     if (!shouldRedirect || !targetPath) return;
     location.route(targetPath, true);
   }, [location, shouldRedirect, targetPath]);
 
-  const initialGameState = useMemo<GameState | null>(() => {
-    if (!difficulty || !stage) return null;
-    if (savedState?.difficulty !== difficulty || savedState.stage !== stage) return null;
-    return savedState;
-  }, [difficulty, savedState, stage]);
-  const clearedGameState = useMemo<GameState | null>(() => {
-    if (!difficulty || !stage || !isClient) return null;
-    return loadClearedGameState(difficulty, stage);
-  }, [difficulty, isClient, stage]);
-  const restorableGameState = initialGameState ?? clearedGameState;
-
-  const updateProgress = useCallback(
-    (nextStage: number, includeMax: boolean) => {
-      if (!difficulty) return;
-      setProgress((prev) => {
-        const nextProgress = advanceProgress(prev, difficulty, nextStage, includeMax);
-        saveProgress(nextProgress);
-        return nextProgress;
-      });
-    },
-    [difficulty],
-  );
-
-  const updateMaxProgress = useCallback(
-    (newMax: number) => {
-      if (!difficulty) return;
-      setProgress((prev) => {
-        const nextProgress = unlockStage(prev, difficulty, newMax);
-        saveProgress(nextProgress);
-        return nextProgress;
-      });
-    },
-    [difficulty],
-  );
-
   const handleWin = useCallback(
     (nextStage: number) => {
       if (!difficulty) return;
-      updateProgress(nextStage, true);
+      persistence.setCurrentStage(difficulty, nextStage, { unlock: true });
       location.route(toGamePath(difficulty, nextStage));
     },
-    [difficulty, location, updateProgress],
+    [difficulty, location, persistence],
   );
 
   const handleStageChange = useCallback(
     (nextStage: number) => {
       if (!difficulty) return;
-      updateProgress(nextStage, false);
+      persistence.setCurrentStage(difficulty, nextStage);
       location.route(toGamePath(difficulty, nextStage));
     },
-    [difficulty, location, updateProgress],
+    [difficulty, location, persistence],
   );
 
   const handleBack = useCallback(() => {
@@ -325,22 +211,22 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
   const handleStateChange = useCallback(
     (state: GameState, context?: GameStateChangeContext) => {
       if (!difficulty) return;
-      persistStageGameState(state, difficulty, context);
+      persistence.saveStageState(state, context);
       if (state.status === "won") {
-        updateMaxProgress(state.stage + 1);
+        persistence.unlockStage(difficulty, state.stage + 1);
       }
     },
-    [difficulty, updateMaxProgress],
+    [difficulty, persistence],
   );
 
   if (!difficulty || !stage) return <NotFoundRoute />;
 
-  if (!isClient) {
+  if (!persistence.isHydrated) {
     return (
       <GameLoadingShell
         difficulty={difficulty}
         stage={stage}
-        maxStage={progress[difficulty].max}
+        maxStage={persistence.progress[difficulty].max}
         onBack={handleBack}
         onStageChange={handleStageChange}
       />
@@ -367,9 +253,9 @@ function NormalGameRoute({ difficultySlug }: Readonly<NormalGameRouteProps>) {
       key={`${difficulty}-${stage}`}
       difficulty={difficulty}
       stage={stage}
-      maxStage={progress[difficulty].max}
-      initialState={restorableGameState}
-      persistInitialState={initialGameState !== null}
+      maxStage={persistence.progress[difficulty].max}
+      initialState={stageRestore.state}
+      persistInitialState={stageRestore.persistInitialState}
       showNextLevelButton
       onWin={handleWin}
       onBack={handleBack}

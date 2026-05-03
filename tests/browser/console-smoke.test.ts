@@ -136,6 +136,10 @@ describe("browser smoke", () => {
     await browser.clickButton("Start custom game");
     await browser.waitForAppSettled("Custom");
     expect(
+      await browser.getComputedStyleValue('[data-testid="game-board-container"]', "flex-grow"),
+      "custom generation should reach the playable game board",
+    ).toBe("1");
+    expect(
       await browser.drainBrowserConsoleErrors(),
       "custom game generation should not emit page errors",
     ).toEqual([]);

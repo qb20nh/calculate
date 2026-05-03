@@ -53,9 +53,12 @@ vi.mock("preact-iso/router", () => ({
   }),
 }));
 
-vi.mock("@/services/storage", () => ({
-  loadGameState: () => mockLoadGameState(),
-  saveGameState: (...args: unknown[]) => mockSaveGameState(...args),
+vi.mock("@/lib/gamePersistence", () => ({
+  useGamePersistence: () => ({
+    isHydrated: true,
+    activeState: mockLoadGameState(),
+    saveActiveState: (...args: unknown[]) => mockSaveGameState(...args),
+  }),
 }));
 
 vi.mock("@/services/customGameGeneration", () => ({
@@ -425,6 +428,38 @@ describe("CustomGameRoute", () => {
     expect(mockSaveGameState).toHaveBeenCalled();
     // URL should update ONLY ON SUCCESS
     expect(window.location.pathname + window.location.search).toContain("retryCount=1");
+  });
+
+  it("should stop custom generation after retry limit progress", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "6" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "10" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    const worker = mockWorkers[0];
+    expect(worker).toBeDefined();
+    worker?.onmessage?.({
+      data: {
+        type: "progress",
+        retryCount: 10000,
+        totalRetries: 10000,
+      },
+    } as unknown as MessageEvent<WorkerMessage>);
+
+    await screen.findByText(
+      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    );
+    expect(worker?.terminate).toHaveBeenCalledTimes(1);
   });
 
   it("should resume custom generation from the retry count in the url", async () => {

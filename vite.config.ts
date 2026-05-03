@@ -13,6 +13,11 @@ import { optimizeRootInitialLoadPlugin } from "./build/optimizeRootInitialLoadPl
 const isLegacyBuild = process.env.CALCULATE_LEGACY_BUILD === "1";
 const prerenderScript = fileURLToPath(new URL("./src/prerender.tsx", import.meta.url));
 const srcRoot = fileURLToPath(new URL("./src", import.meta.url)).replaceAll("\\", "/");
+const typiaRuntimeHelpers = [
+  "typia/lib/internal/_isTypeUint32",
+  "typia/lib/internal/_jsonStringifyNumber",
+  "typia/lib/internal/_jsonStringifyString",
+];
 const appCoreModules = new Set(
   [
     "App.tsx",
@@ -64,6 +69,9 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
+    optimizeDeps: {
+      include: typiaRuntimeHelpers,
+    },
     build: {
       modulePreload: {
         resolveDependencies(_, deps, context) {

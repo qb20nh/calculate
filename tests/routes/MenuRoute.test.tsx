@@ -34,10 +34,8 @@ vi.mock("@/services/loading", () => ({
   },
 }));
 
-// Mock storage
-vi.mock("@/services/storage", () => ({
-  loadProgress: () => mocks.progress,
-  toGamePath: (diff: string, stage: number) => `/game/${diff.toLowerCase()}?stage=${stage}`,
+vi.mock("@/lib/gamePersistence", () => ({
+  useGamePersistence: () => ({ progress: mocks.progress }),
 }));
 
 describe("MenuRoute", () => {
