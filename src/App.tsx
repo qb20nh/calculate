@@ -56,17 +56,12 @@ function BasePathProvider({ children }: Readonly<{ children: ComponentChildren }
 }
 
 function AppRoutes({
-  hasHydrated,
   hasMounted,
   setIsRouteLoading,
 }: Readonly<{
-  hasHydrated: boolean;
   hasMounted: { current: boolean };
   setIsRouteLoading: (isLoading: boolean) => void;
 }>) {
-  const location = useLocation();
-  if (!hasHydrated && isMenuPath(location.path)) return null;
-
   return (
     <Router
       onLoadStart={() => {
@@ -128,11 +123,7 @@ export function App() {
         <LocationProvider>
           <BasePathProvider>
             <ErrorBoundary onError={reportAppRenderError}>
-              <AppRoutes
-                hasHydrated={hasHydrated}
-                hasMounted={hasMounted}
-                setIsRouteLoading={setIsRouteLoading}
-              />
+              <AppRoutes hasMounted={hasMounted} setIsRouteLoading={setIsRouteLoading} />
               <ProgressBar isLoading={isLoading} />
               <LoadingSpinner isVisible={isLoading} />
             </ErrorBoundary>

@@ -28,11 +28,11 @@ const criticalLayerOrder = "@layer properties,theme,base,components,utilities;";
 const loadingCriticalCss =
   "@layer components{.theme-spinner{border-color:color-mix(in srgb,var(--theme-primary) 20%,transparent);border-top-color:var(--theme-primary)}.loading-screen{opacity:1;pointer-events:auto;transition:opacity .24s ease}.loading-screen-fading{opacity:0;pointer-events:none}}@layer utilities{.fixed{position:fixed}.inset-0{inset:0}.z-\\[90\\]{z-index:90}.flex{display:flex}.size-16{width:4rem;height:4rem}.items-center{align-items:center}.justify-center{justify-content:center}.border-4{border-style:solid;border-width:4px}.animate-spin{animation:spin 1s linear infinite}}@keyframes spin{to{transform:rotate(360deg)}}";
 const menuIntroCriticalCss =
-  "@layer components{.menu-panel-intro{opacity:0;transform:scale(.9)}:root[data-app-ready=true] .menu-panel-intro{animation:fadeIn .3s ease-out forwards}}";
+  "@layer components{.menu-panel-intro{opacity:.1;transform:scale(.9)}:root[data-app-ready=true] .menu-panel-intro{animation:fadeIn .3s ease-out forwards}}";
 const fadeInUtilityCriticalCss =
   "@layer utilities{.animate-fade-in{animation:fadeIn .3s ease-out forwards}}";
 const fadeInKeyframesCss =
-  "@keyframes fadeIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}";
+  "@keyframes fadeIn{from{opacity:.1;transform:scale(.9)}to{opacity:1;transform:scale(1)}}";
 const classSelectorPattern = /\.((?:\\.|[-_a-zA-Z0-9]|[\u0080-\uFFFF])+)/g;
 const nonCriticalClassPattern = /^(active:|animate-|duration-|ease-|shadow-|transition)/;
 const statePseudoPattern =
@@ -66,6 +66,7 @@ const criticalProperties = new Set([
   "font-size",
   "font-weight",
   "gap",
+  "grid-template-columns",
   "height",
   "inset",
   "justify-content",
@@ -77,6 +78,7 @@ const criticalProperties = new Set([
   "margin-bottom",
   "margin-left",
   "max-width",
+  "min-width",
   "overflow",
   "padding",
   "position",
@@ -85,6 +87,7 @@ const criticalProperties = new Set([
   "text-transform",
   "text-wrap",
   "top",
+  "white-space",
   "width",
   "z-index",
 ]);

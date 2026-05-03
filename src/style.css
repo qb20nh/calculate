@@ -472,7 +472,7 @@
   }
 
   .menu-panel-intro {
-    opacity: 0;
+    opacity: 0.1;
     transform: scale(0.9);
   }
 
@@ -504,7 +504,7 @@
 
 @keyframes fadeIn {
   from {
-    opacity: 0;
+    opacity: 0.1;
     transform: scale(0.9);
   }
   to {

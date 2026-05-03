@@ -15,7 +15,9 @@ const rootHtml = `
       <div id="app">
         <main class="theme-page-bg h-dvh w-full p-4 space-y-4 md:p-12 menu-panel-intro">
           <h1 class="text-4xl text-[var(--theme-primary)]">Calculate</h1>
-          <button class="menu-difficulty-card theme-panel border-2 active:scale-95">Easy</button>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <button class="menu-difficulty-card theme-panel border-2 min-w-[120px] whitespace-nowrap active:scale-95">Easy</button>
+          </div>
         </main>
       </div>
       <template>
@@ -93,6 +95,11 @@ const rootCss = `
   .text-\\[var\\(--theme-primary\\)\\] { color: var(--theme-primary); }
   .menu-difficulty-card { border-color: var(--theme-border); }
   .menu-difficulty-card:hover { border-color: var(--theme-primary); }
+  .grid { display: grid; }
+  .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .gap-2\\.5 { gap: calc(var(--spacing) * 2.5); }
+  .min-w-\\[120px\\] { min-width: 120px; }
+  .whitespace-nowrap { white-space: nowrap; }
   .border-2 { border-style: var(--tw-border-style); border-width: 2px; }
   .p-4 { padding: calc(var(--spacing) * 4); }
   .shrink-0 { flex-shrink: 0; }
@@ -107,6 +114,7 @@ const rootCss = `
   .unused { color: red; }
   @media (min-width: 48rem) {
     .md\\:p-12 { padding: 3rem; }
+    .sm\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .unused-at-media { display: block; }
   }
 `;
@@ -120,13 +128,21 @@ describe("extractRootCriticalCss", () => {
     expect(criticalCss).toContain(".text-\\[var\\(--theme-primary\\)\\]");
     expect(criticalCss).toContain(".border-2{border-style:solid;border-width:2px}");
     expect(criticalCss).toContain(".p-4{padding:1rem}");
+    expect(criticalCss).toContain(".grid{display:grid}");
+    expect(criticalCss).toContain(".grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}");
+    expect(criticalCss).toContain(".min-w-\\[120px\\]{min-width:120px}");
+    expect(criticalCss).toContain(".whitespace-nowrap{white-space:nowrap}");
     expect(criticalCss).toContain("margin-block-start:0;margin-block-end:1rem");
-    expect(criticalCss).toContain("@media (min-width:48rem){.md\\:p-12{padding:3rem}}");
-    expect(criticalCss).toContain(".menu-panel-intro{opacity:0;transform:scale(.9)}");
+    expect(criticalCss).toContain("@media (min-width:48rem)");
+    expect(criticalCss).toContain(".md\\:p-12{padding:3rem}");
+    expect(criticalCss).toContain(
+      ".sm\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}",
+    );
+    expect(criticalCss).toContain(".menu-panel-intro{opacity:.1;transform:scale(.9)}");
     expect(criticalCss).toContain(
       ":root[data-app-ready=true] .menu-panel-intro{animation:fadeIn .3s ease-out forwards}",
     );
-    expect(criticalCss).toContain("@keyframes fadeIn{from{opacity:0;transform:scale(.9)}");
+    expect(criticalCss).toContain("@keyframes fadeIn{from{opacity:.1;transform:scale(.9)}");
     expect(criticalCss).not.toContain(".animate-fade-in");
     expect(criticalCss).not.toContain(".tile");
     expect(criticalCss).not.toContain(".theme-spinner");
