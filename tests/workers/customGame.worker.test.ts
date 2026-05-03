@@ -52,6 +52,14 @@ describe("custom game worker", () => {
       origin: "https://example.test",
       data: {
         type: "generate",
+        retryCount: 0,
+      },
+    } as unknown as MessageEvent<{ type: "generate"; retryCount: number }>);
+
+    mockHandler?.({
+      origin: "https://example.test",
+      data: {
+        type: "generate",
         config: {
           givenCount: 6,
           inventoryCount: 10,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { act, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState } from "@/services/storage";
 
@@ -61,10 +61,15 @@ vi.mock("@/lib/gamePersistence", () => ({
   }),
 }));
 
-vi.mock("@/services/customGameGeneration", () => ({
-  CUSTOM_GAME_RETRY_LIMIT: 10000,
-  createCustomGameWorker: () => mockCreateCustomGameWorker(),
-}));
+vi.mock("@/services/customGameGeneration", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/customGameGeneration")>();
+
+  return {
+    ...actual,
+    CUSTOM_GAME_RETRY_LIMIT: 10000,
+    createCustomGameWorker: () => mockCreateCustomGameWorker(),
+  };
+});
 
 vi.mock("@/services/board", () => ({
   generateCustomGame: (...args: unknown[]) => mockGenerateCustomGame(...args),
@@ -144,6 +149,7 @@ describe("CustomGameRoute", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -504,7 +510,7 @@ describe("CustomGameRoute", () => {
     expect(screen.getByText("Custom Game")).toBeDefined();
   });
 
-  it("should show a generic error when the worker errors", async () => {
+  it("should fall back to local generation when the worker errors", async () => {
     const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
 
     render(<CustomGameRoute />);
@@ -524,12 +530,41 @@ describe("CustomGameRoute", () => {
     expect(worker).toBeDefined();
     worker?.onerror?.(new ErrorEvent("error"));
 
-    await screen.findByText(
-      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
-    );
+    await screen.findByText("Mock Game");
+    expect(mockGenerateCustomGame).toHaveBeenCalledWith(expect.any(Object), 0);
+    expect(mockSaveGameState).toHaveBeenCalled();
   });
 
-  it("should handle a worker factory crash", async () => {
+  it("should fall back to local generation when the worker posts invalid data", async () => {
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.input(screen.getByLabelText("Given count"), {
+      target: { value: "6" },
+    });
+    fireEvent.input(screen.getByLabelText("Inventory tile count"), {
+      target: { value: "10" },
+    });
+    fireEvent.input(screen.getByLabelText("Board size limit"), {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    const worker = mockWorkers[0];
+    expect(worker).toBeDefined();
+    worker?.onmessage?.({
+      data: {
+        type: "success",
+      },
+    } as unknown as MessageEvent<WorkerMessage>);
+
+    await screen.findByText("Mock Game");
+    expect(mockGenerateCustomGame).toHaveBeenCalledWith(expect.any(Object), 0);
+    expect(mockSaveGameState).toHaveBeenCalled();
+  });
+
+  it("should fall back to local generation when the worker factory crashes", async () => {
     mockCreateCustomGameWorker.mockImplementationOnce(() => {
       throw new Error("boom");
     });
@@ -548,9 +583,52 @@ describe("CustomGameRoute", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
 
-    await screen.findByText(
-      "Could not generate a puzzle with those settings. Try a larger board or different seed.",
+    await screen.findByText("Mock Game");
+    expect(mockGenerateCustomGame).toHaveBeenCalledWith(expect.any(Object), 0);
+    expect(mockSaveGameState).toHaveBeenCalled();
+  });
+
+  it("should continue local fallback generation in retry batches", async () => {
+    vi.useFakeTimers();
+    mockCreateCustomGameWorker.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    mockGenerateCustomGame.mockImplementation((_config, retryCount) =>
+      retryCount === 50
+        ? {
+            board: {},
+            bank: [],
+            initialBankSize: 0,
+            status: "playing",
+            difficulty: "Custom",
+            stage: 1,
+            customConfig: {
+              givenCount: 8,
+              inventoryCount: 12,
+              sizeLimit: 10,
+              seed: "123",
+              limitSolutionSize: false,
+              attempt: 50,
+            },
+          }
+        : null,
     );
+    const { default: CustomGameRoute } = await import("@/routes/CustomGameRoute");
+
+    render(<CustomGameRoute />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start custom game" }));
+
+    expect(mockGenerateCustomGame).toHaveBeenCalledTimes(50);
+    await screen.findByText("Retry 50 / 10000");
+
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
+
+    await screen.findByText("Mock Game");
+    expect(mockGenerateCustomGame).toHaveBeenCalledWith(expect.any(Object), 50);
+    expect(mockSaveGameState).toHaveBeenCalled();
   });
 
   it("should cancel generation and terminate the worker", async () => {

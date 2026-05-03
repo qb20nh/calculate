@@ -1,10 +1,17 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   type GamePersistenceModel,
   getStageRestoreFromModel,
   reduceGamePersistenceModel,
 } from "@/lib/gamePersistence";
-import { DEFAULT_PROGRESS, type GameState, getClearedStateKey } from "@/services/storage";
+import {
+  DEFAULT_PROGRESS,
+  type GameMode,
+  type GameState,
+  getClearedStateKey,
+  type ProgressMode,
+} from "@/services/storage";
 
 const makeModel = (overrides: Partial<GamePersistenceModel> = {}): GamePersistenceModel => ({
   isHydrated: true,
@@ -24,6 +31,114 @@ const makeState = (overrides: Partial<GameState> = {}): GameState =>
     stage: 1,
     ...overrides,
   }) as GameState;
+
+type PersistenceAction = Parameters<typeof reduceGamePersistenceModel>[1];
+
+const progressModeArb = fc.constantFrom<ProgressMode>("Easy", "Medium", "Hard", "Crossing");
+const gameModeArb = fc.constantFrom<GameMode>("Easy", "Medium", "Hard", "Crossing", "Custom");
+
+const generatedStateArb: fc.Arbitrary<GameState> = fc
+  .record({
+    difficulty: gameModeArb,
+    stage: fc.integer({ min: 1, max: 20 }),
+    status: fc.constantFrom("playing" as const, "won" as const),
+    solvedAcknowledged: fc.boolean(),
+    initialBankSize: fc.integer({ min: 0, max: 3 }),
+  })
+  .map(({ difficulty, stage, status, solvedAcknowledged, initialBankSize }) =>
+    makeState({
+      difficulty,
+      stage,
+      status,
+      solvedAcknowledged,
+      initialBankSize,
+      ...(difficulty === "Custom"
+        ? {
+            customConfig: {
+              givenCount: 8,
+              inventoryCount: 12,
+              sizeLimit: 10,
+              seed: `custom-${stage}`,
+              limitSolutionSize: false,
+            },
+          }
+        : {}),
+    }),
+  );
+
+const persistenceActionArb: fc.Arbitrary<PersistenceAction> = fc.oneof(
+  generatedStateArb.map((state) => ({
+    type: "save-stage-state" as const,
+    state,
+  })),
+  generatedStateArb.chain((state) =>
+    fc.boolean().map((clearedResetTilePlaced) => ({
+      type: "save-stage-state" as const,
+      state,
+      context: { clearedResetTilePlaced },
+    })),
+  ),
+  fc.option(generatedStateArb, { nil: null }).map((state) => ({
+    type: "save-active-state" as const,
+    state,
+  })),
+  fc
+    .record({
+      mode: progressModeArb,
+      stage: fc.integer({ min: 1, max: 20 }),
+      unlock: fc.boolean(),
+    })
+    .map(({ mode, stage, unlock }) => ({
+      type: "set-current-stage" as const,
+      mode,
+      stage,
+      unlock,
+    })),
+  fc
+    .record({
+      mode: progressModeArb,
+      stage: fc.integer({ min: 1, max: 20 }),
+    })
+    .map(({ mode, stage }) => ({
+      type: "unlock-stage" as const,
+      mode,
+      stage,
+    })),
+);
+
+const isProgressMode = (mode: GameState["difficulty"]): mode is ProgressMode => mode !== "Custom";
+
+const getExpectedClearedStates = (actions: PersistenceAction[]) => {
+  const clearedStates: Record<string, GameState> = {};
+
+  for (const action of actions) {
+    if (action.type !== "save-stage-state") continue;
+
+    const { state } = action;
+    if (!isProgressMode(state.difficulty)) continue;
+
+    const key = getClearedStateKey(state.difficulty, state.stage);
+    const shouldSave = state.status === "won" || (state.solvedAcknowledged && !clearedStates[key]);
+    if (shouldSave) {
+      clearedStates[key] = state;
+    }
+    if (action.context?.clearedResetTilePlaced) {
+      delete clearedStates[key];
+    }
+  }
+
+  return clearedStates;
+};
+
+const getExpectedActiveState = (actions: PersistenceAction[]) => {
+  let activeState: GameState | null = null;
+  for (const action of actions) {
+    if (action.type === "save-stage-state" || action.type === "save-active-state") {
+      activeState = action.state;
+    }
+  }
+  return activeState;
+};
 
 describe("game persistence model", () => {
   it("keeps unsolved active save available beside a cleared stage save", () => {
@@ -203,5 +318,25 @@ describe("game persistence model", () => {
     });
 
     expect(next.activeState).toBe(customState);
+  });
+
+  it("should preserve persistence invariants over action sequences", () => {
+    fc.assert(
+      fc.property(fc.array(persistenceActionArb, { minLength: 1, maxLength: 40 }), (actions) => {
+        const finalModel = actions.reduce(reduceGamePersistenceModel, makeModel());
+
+        expect(finalModel.activeState).toEqual(getExpectedActiveState(actions));
+        expect(finalModel.clearedStates).toEqual(getExpectedClearedStates(actions));
+        for (const [key, state] of Object.entries(finalModel.clearedStates)) {
+          expect(state.difficulty).not.toBe("Custom");
+          expect(key).toBe(getClearedStateKey(state.difficulty as ProgressMode, state.stage));
+        }
+        for (const progress of Object.values(finalModel.progress)) {
+          expect(progress.current).toBeGreaterThanOrEqual(1);
+          expect(progress.max).toBeGreaterThanOrEqual(1);
+        }
+      }),
+      { numRuns: 50 },
+    );
   });
 });

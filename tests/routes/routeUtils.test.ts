@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   addBasePath,
@@ -10,6 +11,50 @@ import {
   toCustomGamePath,
   toGamePath,
 } from "@/routes/routeUtils";
+import { CUSTOM_GAME_LIMITS } from "@/services/customGameConfig";
+import type { CustomGameConfig } from "@/services/storage";
+
+const seedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".split("");
+const seedArb = fc
+  .array(fc.constantFrom(...seedChars), { maxLength: CUSTOM_GAME_LIMITS.maxSeedLength })
+  .map((chars) => chars.join(""));
+
+const validCustomGameConfigArb: fc.Arbitrary<CustomGameConfig> = fc
+  .integer({ min: CUSTOM_GAME_LIMITS.minSizeLimit, max: CUSTOM_GAME_LIMITS.maxSizeLimit })
+  .chain((sizeLimit) => {
+    const maxTotalTiles = Math.min(CUSTOM_GAME_LIMITS.maxTotalTiles, sizeLimit * sizeLimit);
+    return fc
+      .integer({ min: CUSTOM_GAME_LIMITS.minTotalTiles, max: maxTotalTiles })
+      .chain((totalTiles) =>
+        fc.integer({ min: 1, max: totalTiles - 1 }).chain((givenCount) =>
+          fc
+            .record({
+              seed: seedArb,
+              limitSolutionSize: fc.boolean(),
+            })
+            .map(({ seed, limitSolutionSize }) => ({
+              givenCount,
+              inventoryCount: totalTiles - givenCount,
+              sizeLimit,
+              seed,
+              limitSolutionSize,
+            })),
+        ),
+      );
+  });
+
+const appPathArb = fc.oneof(
+  fc.constant("/"),
+  fc.integer({ min: 1, max: 9999 }).map((stage) => toGamePath("Easy", stage)),
+  fc.integer({ min: 1, max: 9999 }).map((stage) => toGamePath("Crossing", stage)),
+  validCustomGameConfigArb.chain((config) =>
+    fc
+      .integer({ min: CUSTOM_GAME_LIMITS.minRetryCount, max: CUSTOM_GAME_LIMITS.maxRetryCount })
+      .map((retryCount) => toCustomGamePath(config, retryCount)),
+  ),
+);
+
+const basePathArb = fc.constantFrom("/", "/calculate", "/calculate/");
 
 describe("route utils", () => {
   it("should normalize vite base paths", () => {
@@ -157,5 +202,37 @@ describe("route utils", () => {
         new URLSearchParams(`given=6&inventory=10&size=10&seed=${"x".repeat(65)}`),
       ),
     ).toBe(null);
+  });
+
+  it("should round-trip valid custom game urls", () => {
+    fc.assert(
+      fc.property(
+        validCustomGameConfigArb,
+        fc.integer({
+          min: CUSTOM_GAME_LIMITS.minRetryCount,
+          max: CUSTOM_GAME_LIMITS.maxRetryCount,
+        }),
+        (config, retryCount) => {
+          const path = toCustomGamePath(config, retryCount);
+          const searchParams = new URLSearchParams(path.split("?")[1] ?? "");
+
+          expect(parseCustomGameConfig(searchParams)).toEqual({
+            ...config,
+            attempt: retryCount,
+          });
+          expect(parseCustomGameRetryCount(searchParams)).toBe(retryCount);
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+
+  it("should remove app base paths that were added", () => {
+    fc.assert(
+      fc.property(appPathArb, basePathArb, (path, basePath) => {
+        expect(removeBasePath(addBasePath(path, basePath), basePath)).toBe(path);
+      }),
+      { numRuns: 100 },
+    );
   });
 });
